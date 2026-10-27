@@ -182,6 +182,37 @@ func (q *Queries) GetDeviceByNode(ctx context.Context, arg GetDeviceByNodeParams
 	return i, err
 }
 
+const getDeviceByShortID = `-- name: GetDeviceByShortID :one
+SELECT id, org_id, cell_id, short_id, headscale_node_id, name, given_name, kind, roles, headscale_user, ipv4, ipv6, online, last_seen_at, enrolled_via, state, external_ref, created_at, updated_at FROM devices WHERE short_id = $1
+`
+
+func (q *Queries) GetDeviceByShortID(ctx context.Context, shortID string) (Device, error) {
+	row := q.db.QueryRow(ctx, getDeviceByShortID, shortID)
+	var i Device
+	err := row.Scan(
+		&i.ID,
+		&i.OrgID,
+		&i.CellID,
+		&i.ShortID,
+		&i.HeadscaleNodeID,
+		&i.Name,
+		&i.GivenName,
+		&i.Kind,
+		&i.Roles,
+		&i.HeadscaleUser,
+		&i.Ipv4,
+		&i.Ipv6,
+		&i.Online,
+		&i.LastSeenAt,
+		&i.EnrolledVia,
+		&i.State,
+		&i.ExternalRef,
+		&i.CreatedAt,
+		&i.UpdatedAt,
+	)
+	return i, err
+}
+
 const listDevicesByOrg = `-- name: ListDevicesByOrg :many
 SELECT id, org_id, cell_id, short_id, headscale_node_id, name, given_name, kind, roles, headscale_user, ipv4, ipv6, online, last_seen_at, enrolled_via, state, external_ref, created_at, updated_at FROM devices WHERE org_id = $1 AND state <> 'removed' ORDER BY name
 `
@@ -268,6 +299,20 @@ func (q *Queries) ListDevicesInCell(ctx context.Context, cellID pgtype.UUID) ([]
 		return nil, err
 	}
 	return items, nil
+}
+
+const renameDeviceGivenName = `-- name: RenameDeviceGivenName :exec
+UPDATE devices SET given_name = $2, updated_at = now() WHERE id = $1
+`
+
+type RenameDeviceGivenNameParams struct {
+	ID        pgtype.UUID
+	GivenName string
+}
+
+func (q *Queries) RenameDeviceGivenName(ctx context.Context, arg RenameDeviceGivenNameParams) error {
+	_, err := q.db.Exec(ctx, renameDeviceGivenName, arg.ID, arg.GivenName)
+	return err
 }
 
 const setDeviceState = `-- name: SetDeviceState :one

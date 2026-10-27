@@ -23,3 +23,9 @@ RETURNING *;
 
 -- name: SetDeviceState :one
 UPDATE devices SET state = $2, updated_at = now() WHERE id = $1 RETURNING *;
+
+-- name: GetDeviceByShortID :one
+SELECT * FROM devices WHERE short_id = $1;
+
+-- name: RenameDeviceGivenName :exec
+UPDATE devices SET given_name = $2, updated_at = now() WHERE id = $1;

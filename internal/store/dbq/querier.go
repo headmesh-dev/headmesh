@@ -16,6 +16,7 @@ type Querier interface {
 	CompleteEnrollment(ctx context.Context, arg CompleteEnrollmentParams) (Enrollment, error)
 	// Atomically spends one use of a live token. No row means invalid, revoked, expired or used up.
 	ConsumeEnrollmentToken(ctx context.Context, tokenHash []byte) (EnrollmentToken, error)
+	CreateAPIKey(ctx context.Context, arg CreateAPIKeyParams) (ApiKey, error)
 	CreateCell(ctx context.Context, arg CreateCellParams) (Cell, error)
 	CreateDevice(ctx context.Context, arg CreateDeviceParams) (Device, error)
 	CreateEnrollment(ctx context.Context, arg CreateEnrollmentParams) (Enrollment, error)
@@ -27,22 +28,29 @@ type Querier interface {
 	CreateRule(ctx context.Context, arg CreateRuleParams) (Rule, error)
 	DeleteRule(ctx context.Context, arg DeleteRuleParams) error
 	ExtendGrant(ctx context.Context, arg ExtendGrantParams) (Grant, error)
+	// Runs in the system scope: the key itself is the credential that establishes the tenant scope.
+	GetAPIKeyByHash(ctx context.Context, keyHash []byte) (ApiKey, error)
 	GetCell(ctx context.Context, id pgtype.UUID) (Cell, error)
 	GetCellByName(ctx context.Context, name string) (Cell, error)
 	GetDevice(ctx context.Context, id pgtype.UUID) (Device, error)
 	GetDeviceByNode(ctx context.Context, arg GetDeviceByNodeParams) (Device, error)
+	GetDeviceByShortID(ctx context.Context, shortID string) (Device, error)
+	GetEnrollment(ctx context.Context, id pgtype.UUID) (Enrollment, error)
 	GetGrant(ctx context.Context, id pgtype.UUID) (Grant, error)
 	GetGrantByExternalRef(ctx context.Context, arg GetGrantByExternalRefParams) (Grant, error)
 	GetOrg(ctx context.Context, id pgtype.UUID) (Org, error)
+	GetOrgByShortID(ctx context.Context, shortID string) (Org, error)
 	GetOrgBySlug(ctx context.Context, slug string) (Org, error)
 	InitChainHead(ctx context.Context, arg InitChainHeadParams) error
 	InsertAuditEvent(ctx context.Context, arg InsertAuditEventParams) (int64, error)
 	InsertPolicyRevision(ctx context.Context, arg InsertPolicyRevisionParams) error
+	ListAPIKeys(ctx context.Context, orgID pgtype.UUID) ([]ApiKey, error)
 	ListAuditEvents(ctx context.Context, arg ListAuditEventsParams) ([]AuditEvent, error)
 	ListAuditEventsForChain(ctx context.Context, arg ListAuditEventsForChainParams) ([]AuditEvent, error)
 	ListChildOrgs(ctx context.Context, parentOrgID pgtype.UUID) ([]Org, error)
 	ListDevicesByOrg(ctx context.Context, orgID pgtype.UUID) ([]Device, error)
 	ListDevicesInCell(ctx context.Context, cellID pgtype.UUID) ([]Device, error)
+	ListGrantsForOrg(ctx context.Context, grantorOrgID pgtype.UUID) ([]Grant, error)
 	// Grants that are active now or start within the horizon; expired and revoked grants are excluded.
 	ListGrantsInCell(ctx context.Context, arg ListGrantsInCellParams) ([]Grant, error)
 	ListOrgsInCell(ctx context.Context, cellID pgtype.UUID) ([]Org, error)
@@ -55,11 +63,14 @@ type Querier interface {
 	MarkEnrollmentMinted(ctx context.Context, arg MarkEnrollmentMintedParams) (Enrollment, error)
 	MarkPolicyRevision(ctx context.Context, arg MarkPolicyRevisionParams) error
 	NextPolicyRevision(ctx context.Context, cellID pgtype.UUID) (int64, error)
+	RenameDeviceGivenName(ctx context.Context, arg RenameDeviceGivenNameParams) error
+	RevokeAPIKey(ctx context.Context, arg RevokeAPIKeyParams) error
 	RevokeEnrollmentToken(ctx context.Context, arg RevokeEnrollmentTokenParams) error
 	RevokeGrant(ctx context.Context, arg RevokeGrantParams) (Grant, error)
 	SetDeviceState(ctx context.Context, arg SetDeviceStateParams) (Device, error)
 	// Keeps device rows in step with what Headscale reports for nodes Headmesh already knows.
 	SyncDeviceFromNode(ctx context.Context, arg SyncDeviceFromNodeParams) error
+	TouchAPIKey(ctx context.Context, id pgtype.UUID) error
 	TouchCell(ctx context.Context, arg TouchCellParams) error
 }
 

@@ -305,6 +305,15 @@ func (a *Agent) HandleOp(ctx context.Context, op *cellv1.Op) *cellv1.OpResult {
 	if err := a.verifyOp(op); err != nil {
 		return fail(err)
 	}
+	if get := op.GetGetNode(); get != nil {
+		// Reads are allowed in observe mode and while frozen, and are not recorded as executed.
+		node, err := a.getNode(ctx, get.GetNodeId())
+		if err != nil {
+			return fail(err)
+		}
+		res.Ok, res.Result = true, &cellv1.OpResult_Node{Node: ToNode(node)}
+		return res
+	}
 	if err := a.mutable(); err != nil {
 		return fail(err)
 	}
@@ -361,6 +370,19 @@ func (a *Agent) HandleOp(ctx context.Context, op *cellv1.Op) *cellv1.OpResult {
 	}
 	res.Ok = true
 	return res
+}
+
+func (a *Agent) getNode(ctx context.Context, id uint64) (*headscalev1.Node, error) {
+	nodes, err := a.hs.ListNodes(ctx)
+	if err != nil {
+		return nil, err
+	}
+	for _, n := range nodes {
+		if n.GetId() == id {
+			return n, nil
+		}
+	}
+	return nil, fmt.Errorf("node %d not found", id)
 }
 
 func (a *Agent) verifyOp(op *cellv1.Op) error {

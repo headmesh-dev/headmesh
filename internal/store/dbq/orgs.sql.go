@@ -83,6 +83,31 @@ func (q *Queries) GetOrg(ctx context.Context, id pgtype.UUID) (Org, error) {
 	return i, err
 }
 
+const getOrgByShortID = `-- name: GetOrgByShortID :one
+SELECT id, short_id, slug, name, cell_id, parent_org_id, is_platform, template, headscale_users, settings, status, created_at, updated_at FROM orgs WHERE short_id = $1
+`
+
+func (q *Queries) GetOrgByShortID(ctx context.Context, shortID string) (Org, error) {
+	row := q.db.QueryRow(ctx, getOrgByShortID, shortID)
+	var i Org
+	err := row.Scan(
+		&i.ID,
+		&i.ShortID,
+		&i.Slug,
+		&i.Name,
+		&i.CellID,
+		&i.ParentOrgID,
+		&i.IsPlatform,
+		&i.Template,
+		&i.HeadscaleUsers,
+		&i.Settings,
+		&i.Status,
+		&i.CreatedAt,
+		&i.UpdatedAt,
+	)
+	return i, err
+}
+
 const getOrgBySlug = `-- name: GetOrgBySlug :one
 SELECT id, short_id, slug, name, cell_id, parent_org_id, is_platform, template, headscale_users, settings, status, created_at, updated_at FROM orgs WHERE slug = $1
 `

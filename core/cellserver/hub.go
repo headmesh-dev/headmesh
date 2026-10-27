@@ -98,6 +98,12 @@ type session struct {
 	pushMu   sync.Mutex // serialises timeline pushes so revision numbers are never allocated twice
 	pending  map[string]chan *cellv1.OpResult
 	lastSent string // digest of the last timeline pushed, to avoid resending identical state
+
+	// appliedRev is the newest revision the agent reported as applied; failed records refused revisions.
+	// appliedCh is closed and replaced whenever either changes, waking RefreshAndWait.
+	appliedRev uint64
+	failed     map[uint64]string
+	appliedCh  chan struct{}
 }
 
 func (s *session) send(ctx context.Context, m *cellv1.SyncResponse) error {
@@ -133,7 +139,10 @@ func (h *Hub) Sync(ctx context.Context, stream cellv1connect.CellServiceSyncServ
 	}
 	ctx, cancel := context.WithCancel(ctx)
 	defer cancel()
-	s := &session{cell: cell, out: make(chan *cellv1.SyncResponse, 64), done: make(chan struct{}), pending: map[string]chan *cellv1.OpResult{}}
+	s := &session{
+		cell: cell, out: make(chan *cellv1.SyncResponse, 64), done: make(chan struct{}),
+		pending: map[string]chan *cellv1.OpResult{}, failed: map[uint64]string{}, appliedCh: make(chan struct{}),
+	}
 	h.register(s)
 	defer h.unregister(s)
 
@@ -203,6 +212,7 @@ func (h *Hub) recvLoop(ctx context.Context, stream cellv1connect.CellServiceSync
 			if err := h.cfg.Store.RecordApplied(ctx, s.cell, msg.PolicyApplied); err != nil {
 				h.cfg.Logger.Error("record policy result", "cell", s.cell, "error", err)
 			}
+			s.noteApplied(msg.PolicyApplied)
 		case *cellv1.SyncRequest_OpResult:
 			s.mu.Lock()
 			ch, ok := s.pending[msg.OpResult.GetOpId()]
@@ -259,16 +269,23 @@ func (h *Hub) Refresh(ctx context.Context, cell string) error {
 }
 
 func (h *Hub) pushTimeline(ctx context.Context, s *session) error {
+	_, err := h.push(ctx, s)
+	return err
+}
+
+// push sends the cell's current timeline if it changed and returns the revision number of its first entry (the
+// revision in force now), or 0 when nothing was sent.
+func (h *Hub) push(ctx context.Context, s *session) (uint64, error) {
 	s.pushMu.Lock()
 	defer s.pushMu.Unlock()
 	now := h.cfg.Now()
 	snap, err := h.cfg.Store.Snapshot(ctx, s.cell, now, h.cfg.Horizon)
 	if err != nil {
-		return fmt.Errorf("cellserver: load snapshot: %w", err)
+		return 0, fmt.Errorf("cellserver: load snapshot: %w", err)
 	}
 	revs, err := policy.Timeline(snap, now, h.cfg.Horizon, h.cfg.MaxRevisions, h.cfg.Policy)
 	if err != nil {
-		return fmt.Errorf("cellserver: compile: %w", err)
+		return 0, fmt.Errorf("cellserver: compile: %w", err)
 	}
 	digest := ""
 	for _, r := range revs {
@@ -278,11 +295,11 @@ func (h *Hub) pushTimeline(ctx context.Context, s *session) error {
 	unchanged := digest == s.lastSent
 	s.mu.Unlock()
 	if unchanged {
-		return nil
+		return 0, nil
 	}
 	base, err := h.cfg.Store.NextRevision(ctx, s.cell)
 	if err != nil {
-		return fmt.Errorf("cellserver: allocate revision: %w", err)
+		return 0, fmt.Errorf("cellserver: allocate revision: %w", err)
 	}
 	tl := make([]*cellv1.PolicyRevision, len(revs))
 	for i, r := range revs {
@@ -292,15 +309,69 @@ func (h *Hub) pushTimeline(ctx context.Context, s *session) error {
 		}
 	}
 	if err := h.cfg.Store.RecordTimeline(ctx, s.cell, tl); err != nil {
-		return fmt.Errorf("cellserver: record timeline: %w", err)
+		return 0, fmt.Errorf("cellserver: record timeline: %w", err)
 	}
 	if err := s.send(ctx, &cellv1.SyncResponse{Msg: &cellv1.SyncResponse_DesiredPolicy{DesiredPolicy: &cellv1.DesiredPolicy{Timeline: tl}}}); err != nil {
-		return err
+		return 0, err
 	}
 	s.mu.Lock()
 	s.lastSent = digest
 	s.mu.Unlock()
-	return nil
+	return base, nil
+}
+
+func (s *session) noteApplied(a *cellv1.PolicyApplied) {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	if a.GetOk() {
+		s.appliedRev = max(s.appliedRev, a.GetRevision())
+	} else {
+		s.failed[a.GetRevision()] = a.GetError()
+	}
+	close(s.appliedCh)
+	s.appliedCh = make(chan struct{})
+}
+
+// ErrPolicyNotApplied is returned when a cell refuses or fails to apply a revision RefreshAndWait waits for.
+var ErrPolicyNotApplied = errors.New("cell did not apply the policy")
+
+// RefreshAndWait pushes the cell's current timeline and waits until the agent has applied it (or a later
+// revision). Callers use it when the next step depends on the new policy being live — for example before
+// handing out a pre-auth key whose tags the cell must already know.
+func (h *Hub) RefreshAndWait(ctx context.Context, cell string) error {
+	s, ok := h.sessionFor(cell)
+	if !ok {
+		return ErrCellOffline
+	}
+	want, err := h.push(ctx, s)
+	if err != nil {
+		return err
+	}
+	if want == 0 {
+		return nil // nothing changed; the live policy is already current
+	}
+	for {
+		s.mu.Lock()
+		applied, failure, refused := s.appliedRev, "", false
+		if f, ok := s.failed[want]; ok {
+			failure, refused = f, true
+		}
+		ch := s.appliedCh
+		s.mu.Unlock()
+		switch {
+		case applied >= want:
+			return nil
+		case refused:
+			return fmt.Errorf("%w: revision %d: %s", ErrPolicyNotApplied, want, failure)
+		}
+		select {
+		case <-ch:
+		case <-s.done:
+			return ErrCellOffline
+		case <-ctx.Done():
+			return fmt.Errorf("cellserver: waiting for revision %d on %s: %w", want, cell, ctx.Err())
+		}
+	}
 }
 
 // Do signs op, sends it to the cell and waits for its result (bounded by ctx). The op must not have an id or

@@ -14,3 +14,6 @@ SELECT * FROM orgs WHERE cell_id = $1 AND status <> 'deleted' ORDER BY short_id;
 
 -- name: ListChildOrgs :many
 SELECT * FROM orgs WHERE parent_org_id = $1 AND status <> 'deleted' ORDER BY short_id;
+
+-- name: GetOrgByShortID :one
+SELECT * FROM orgs WHERE short_id = $1;

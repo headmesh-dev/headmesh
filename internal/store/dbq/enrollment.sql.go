@@ -16,7 +16,7 @@ import (
 const completeEnrollment = `-- name: CompleteEnrollment :one
 UPDATE enrollments SET status = 'completed', headscale_node_id = $2, device_id = $3, completed_at = now()
 WHERE id = $1 AND status = 'minted'
-RETURNING id, org_id, token_id, cell_id, status, preauth_key_id, hostname, os, arch, headscale_node_id, device_id, client_ip, created_at, expires_at, completed_at
+RETURNING id, org_id, token_id, cell_id, status, preauth_key_id, hostname, os, arch, headscale_node_id, device_id, client_ip, created_at, expires_at, completed_at, completion_hash
 `
 
 type CompleteEnrollmentParams struct {
@@ -44,6 +44,7 @@ func (q *Queries) CompleteEnrollment(ctx context.Context, arg CompleteEnrollment
 		&i.CreatedAt,
 		&i.ExpiresAt,
 		&i.CompletedAt,
+		&i.CompletionHash,
 	)
 	return i, err
 }
@@ -79,21 +80,23 @@ func (q *Queries) ConsumeEnrollmentToken(ctx context.Context, tokenHash []byte) 
 }
 
 const createEnrollment = `-- name: CreateEnrollment :one
-INSERT INTO enrollments (org_id, token_id, cell_id, status, hostname, os, arch, client_ip, expires_at)
-VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9)
-RETURNING id, org_id, token_id, cell_id, status, preauth_key_id, hostname, os, arch, headscale_node_id, device_id, client_ip, created_at, expires_at, completed_at
+INSERT INTO enrollments (org_id, token_id, cell_id, status, hostname, os, arch, client_ip, expires_at, device_id, completion_hash)
+VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11)
+RETURNING id, org_id, token_id, cell_id, status, preauth_key_id, hostname, os, arch, headscale_node_id, device_id, client_ip, created_at, expires_at, completed_at, completion_hash
 `
 
 type CreateEnrollmentParams struct {
-	OrgID     pgtype.UUID
-	TokenID   pgtype.UUID
-	CellID    pgtype.UUID
-	Status    string
-	Hostname  string
-	Os        *string
-	Arch      *string
-	ClientIp  *netip.Addr
-	ExpiresAt time.Time
+	OrgID          pgtype.UUID
+	TokenID        pgtype.UUID
+	CellID         pgtype.UUID
+	Status         string
+	Hostname       string
+	Os             *string
+	Arch           *string
+	ClientIp       *netip.Addr
+	ExpiresAt      time.Time
+	DeviceID       pgtype.UUID
+	CompletionHash []byte
 }
 
 func (q *Queries) CreateEnrollment(ctx context.Context, arg CreateEnrollmentParams) (Enrollment, error) {
@@ -107,6 +110,8 @@ func (q *Queries) CreateEnrollment(ctx context.Context, arg CreateEnrollmentPara
 		arg.Arch,
 		arg.ClientIp,
 		arg.ExpiresAt,
+		arg.DeviceID,
+		arg.CompletionHash,
 	)
 	var i Enrollment
 	err := row.Scan(
@@ -125,6 +130,7 @@ func (q *Queries) CreateEnrollment(ctx context.Context, arg CreateEnrollmentPara
 		&i.CreatedAt,
 		&i.ExpiresAt,
 		&i.CompletedAt,
+		&i.CompletionHash,
 	)
 	return i, err
 }
@@ -184,8 +190,36 @@ func (q *Queries) CreateEnrollmentToken(ctx context.Context, arg CreateEnrollmen
 	return i, err
 }
 
+const getEnrollment = `-- name: GetEnrollment :one
+SELECT id, org_id, token_id, cell_id, status, preauth_key_id, hostname, os, arch, headscale_node_id, device_id, client_ip, created_at, expires_at, completed_at, completion_hash FROM enrollments WHERE id = $1
+`
+
+func (q *Queries) GetEnrollment(ctx context.Context, id pgtype.UUID) (Enrollment, error) {
+	row := q.db.QueryRow(ctx, getEnrollment, id)
+	var i Enrollment
+	err := row.Scan(
+		&i.ID,
+		&i.OrgID,
+		&i.TokenID,
+		&i.CellID,
+		&i.Status,
+		&i.PreauthKeyID,
+		&i.Hostname,
+		&i.Os,
+		&i.Arch,
+		&i.HeadscaleNodeID,
+		&i.DeviceID,
+		&i.ClientIp,
+		&i.CreatedAt,
+		&i.ExpiresAt,
+		&i.CompletedAt,
+		&i.CompletionHash,
+	)
+	return i, err
+}
+
 const markEnrollmentMinted = `-- name: MarkEnrollmentMinted :one
-UPDATE enrollments SET status = 'minted', preauth_key_id = $2 WHERE id = $1 AND status IN ('pending_approval', 'minted') RETURNING id, org_id, token_id, cell_id, status, preauth_key_id, hostname, os, arch, headscale_node_id, device_id, client_ip, created_at, expires_at, completed_at
+UPDATE enrollments SET status = 'minted', preauth_key_id = $2 WHERE id = $1 AND status IN ('pending_approval', 'minted') RETURNING id, org_id, token_id, cell_id, status, preauth_key_id, hostname, os, arch, headscale_node_id, device_id, client_ip, created_at, expires_at, completed_at, completion_hash
 `
 
 type MarkEnrollmentMintedParams struct {
@@ -212,6 +246,7 @@ func (q *Queries) MarkEnrollmentMinted(ctx context.Context, arg MarkEnrollmentMi
 		&i.CreatedAt,
 		&i.ExpiresAt,
 		&i.CompletedAt,
+		&i.CompletionHash,
 	)
 	return i, err
 }

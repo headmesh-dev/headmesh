@@ -32,3 +32,7 @@ ORDER BY g.id;
 SELECT * FROM grants
 WHERE revoked_at IS NULL AND expires_at <= $1 AND expires_at > $2
 ORDER BY expires_at;
+
+-- name: ListGrantsForOrg :many
+SELECT * FROM grants WHERE (grantor_org_id = $1 OR grantee_org_id = $1) AND revoked_at IS NULL AND expires_at > now()
+ORDER BY expires_at;

@@ -13,9 +13,12 @@ RETURNING *;
 UPDATE enrollment_tokens SET revoked_at = now() WHERE id = $1 AND org_id = $2 AND revoked_at IS NULL;
 
 -- name: CreateEnrollment :one
-INSERT INTO enrollments (org_id, token_id, cell_id, status, hostname, os, arch, client_ip, expires_at)
-VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9)
+INSERT INTO enrollments (org_id, token_id, cell_id, status, hostname, os, arch, client_ip, expires_at, device_id, completion_hash)
+VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11)
 RETURNING *;
+
+-- name: GetEnrollment :one
+SELECT * FROM enrollments WHERE id = $1;
 
 -- name: MarkEnrollmentMinted :one
 UPDATE enrollments SET status = 'minted', preauth_key_id = $2 WHERE id = $1 AND status IN ('pending_approval', 'minted') RETURNING *;

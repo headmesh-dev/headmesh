@@ -114,6 +114,7 @@ type Enrollment struct {
 	CreatedAt       time.Time
 	ExpiresAt       time.Time
 	CompletedAt     *time.Time
+	CompletionHash  []byte
 }
 
 type EnrollmentToken struct {

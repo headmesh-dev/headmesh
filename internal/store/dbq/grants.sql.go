@@ -156,6 +156,46 @@ func (q *Queries) GetGrantByExternalRef(ctx context.Context, arg GetGrantByExter
 	return i, err
 }
 
+const listGrantsForOrg = `-- name: ListGrantsForOrg :many
+SELECT id, grantor_org_id, grantee_org_id, src, dst_device_id, ports, starts_at, expires_at, reason, external_ref, created_by, created_at, revoked_at, revoked_by FROM grants WHERE (grantor_org_id = $1 OR grantee_org_id = $1) AND revoked_at IS NULL AND expires_at > now()
+ORDER BY expires_at
+`
+
+func (q *Queries) ListGrantsForOrg(ctx context.Context, grantorOrgID pgtype.UUID) ([]Grant, error) {
+	rows, err := q.db.Query(ctx, listGrantsForOrg, grantorOrgID)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	items := []Grant{}
+	for rows.Next() {
+		var i Grant
+		if err := rows.Scan(
+			&i.ID,
+			&i.GrantorOrgID,
+			&i.GranteeOrgID,
+			&i.Src,
+			&i.DstDeviceID,
+			&i.Ports,
+			&i.StartsAt,
+			&i.ExpiresAt,
+			&i.Reason,
+			&i.ExternalRef,
+			&i.CreatedBy,
+			&i.CreatedAt,
+			&i.RevokedAt,
+			&i.RevokedBy,
+		); err != nil {
+			return nil, err
+		}
+		items = append(items, i)
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
+}
+
 const listGrantsInCell = `-- name: ListGrantsInCell :many
 SELECT g.id, g.grantor_org_id, g.grantee_org_id, g.src, g.dst_device_id, g.ports, g.starts_at, g.expires_at, g.reason, g.external_ref, g.created_by, g.created_at, g.revoked_at, g.revoked_by FROM grants g JOIN orgs o ON o.id = g.grantor_org_id
 WHERE o.cell_id = $1 AND g.revoked_at IS NULL AND g.expires_at > $2 AND g.starts_at <= $3

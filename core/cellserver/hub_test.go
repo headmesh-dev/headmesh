@@ -68,8 +68,9 @@ func (m *memStore) NextRevision(context.Context, string) (uint64, error) {
 
 // fakeHS is a minimal Headscale for the agent side.
 type fakeHS struct {
-	mu     sync.Mutex
-	policy string
+	mu       sync.Mutex
+	policy   string
+	checkErr error
 }
 
 func (f *fakeHS) ListNodes(context.Context) ([]*headscalev1.Node, error) { return nil, nil }
@@ -105,8 +106,13 @@ func (f *fakeHS) SetPolicy(_ context.Context, p string) error {
 	f.mu.Unlock()
 	return nil
 }
-func (f *fakeHS) CheckPolicy(context.Context, string) error { return nil }
-func (f *fakeHS) Health(context.Context) error              { return nil }
+
+func (f *fakeHS) CheckPolicy(context.Context, string) error {
+	f.mu.Lock()
+	defer f.mu.Unlock()
+	return f.checkErr
+}
+func (f *fakeHS) Health(context.Context) error { return nil }
 
 func (f *fakeHS) current() string {
 	f.mu.Lock()
@@ -263,5 +269,66 @@ func TestHubRejectsCellImpersonation(t *testing.T) {
 	}
 	if _, err := hub.Do(context.Background(), "xcelsior", &cellv1.Op{}); !errors.Is(err, cellserver.ErrCellOffline) {
 		t.Fatalf("ops to an offline cell must fail fast, got %v", err)
+	}
+}
+
+func TestRefreshAndWait(t *testing.T) {
+	pub, priv, _ := ed25519.GenerateKey(rand.Reader)
+	now := time.Now()
+	store := &memStore{snap: snapshot(false, now)}
+	hub, err := cellserver.NewHub(cellserver.Config{
+		Signer: priv, Store: store, Logger: slog.New(slog.DiscardHandler),
+		Authenticate: func(context.Context) (string, error) { return "hs1", nil },
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+	server := connect.NewServer()
+	cellv1connect.RegisterCellServiceHandler(server, hub)
+	client := cellv1connect.NewCellServiceClient(connect.NewClient(connectinprocess.New(server)))
+	hs := &fakeHS{}
+	agent, err := cellagent.New(cellagent.Config{
+		CellName: "hs1", Mode: cellv1.Mode_MODE_ENFORCE, StateDir: t.TempDir(),
+		ServerKeys: []ed25519.PublicKey{pub},
+	}, hs)
+	if err != nil {
+		t.Fatal(err)
+	}
+	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
+	defer cancel()
+	go func() {
+		_ = agent.Run(ctx, client, cellagent.HelloInfo{}, cellagent.RunOptions{
+			TickInterval:    10 * time.Millisecond,
+			ObserveInterval: time.Hour, Logger: slog.New(slog.DiscardHandler),
+		})
+	}()
+	waitFor(t, "connection", func() bool { return hub.Connected("hs1") && hs.current() != "" })
+
+	// The grant is live as soon as RefreshAndWait returns.
+	store.mu.Lock()
+	store.snap = snapshot(true, now)
+	store.mu.Unlock()
+	if err := hub.RefreshAndWait(ctx, "hs1"); err != nil {
+		t.Fatal(err)
+	}
+	if !strings.Contains(hs.current(), `"tcp:10443"`) {
+		t.Fatal("RefreshAndWait returned before the policy was applied")
+	}
+	// Nothing changed: returns immediately.
+	if err := hub.RefreshAndWait(ctx, "hs1"); err != nil {
+		t.Fatal(err)
+	}
+	// A cell that refuses the revision surfaces as ErrPolicyNotApplied.
+	hs.mu.Lock()
+	hs.checkErr = errors.New("policy test failed")
+	hs.mu.Unlock()
+	store.mu.Lock()
+	store.snap = snapshot(false, now)
+	store.mu.Unlock()
+	if err := hub.RefreshAndWait(ctx, "hs1"); !errors.Is(err, cellserver.ErrPolicyNotApplied) {
+		t.Fatalf("want ErrPolicyNotApplied, got %v", err)
+	}
+	if err := hub.RefreshAndWait(ctx, "offline"); !errors.Is(err, cellserver.ErrCellOffline) {
+		t.Fatalf("want ErrCellOffline, got %v", err)
 	}
 }

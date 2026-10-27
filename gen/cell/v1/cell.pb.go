@@ -907,6 +907,7 @@ type Op struct {
 	//	*Op_DeleteNode
 	//	*Op_ExpireNode
 	//	*Op_SetApprovedRoutes
+	//	*Op_GetNode
 	Kind isOp_Kind `protobuf_oneof:"kind"`
 	// Ed25519 signature over the deterministic encoding of this message with signature unset.
 	Signature     []byte `protobuf:"bytes,100,opt,name=signature,proto3" json:"signature,omitempty"`
@@ -1019,6 +1020,15 @@ func (x *Op) GetSetApprovedRoutes() *SetApprovedRoutes {
 	return nil
 }
 
+func (x *Op) GetGetNode() *GetNode {
+	if x != nil {
+		if x, ok := x.Kind.(*Op_GetNode); ok {
+			return x.GetNode
+		}
+	}
+	return nil
+}
+
 func (x *Op) GetSignature() []byte {
 	if x != nil {
 		return x.Signature
@@ -1054,6 +1064,11 @@ type Op_SetApprovedRoutes struct {
 	SetApprovedRoutes *SetApprovedRoutes `protobuf:"bytes,15,opt,name=set_approved_routes,json=setApprovedRoutes,proto3,oneof"`
 }
 
+type Op_GetNode struct {
+	// Read-only: return one node, so the server can confirm which pre-auth key it registered with.
+	GetNode *GetNode `protobuf:"bytes,16,opt,name=get_node,json=getNode,proto3,oneof"`
+}
+
 func (*Op_CreatePreAuthKey) isOp_Kind() {}
 
 func (*Op_SetTags) isOp_Kind() {}
@@ -1065,6 +1080,8 @@ func (*Op_DeleteNode) isOp_Kind() {}
 func (*Op_ExpireNode) isOp_Kind() {}
 
 func (*Op_SetApprovedRoutes) isOp_Kind() {}
+
+func (*Op_GetNode) isOp_Kind() {}
 
 type CreatePreAuthKey struct {
 	state         protoimpl.MessageState `protogen:"open.v1"`
@@ -1334,6 +1351,50 @@ func (x *ExpireNode) GetDisableExpiry() bool {
 	return false
 }
 
+type GetNode struct {
+	state         protoimpl.MessageState `protogen:"open.v1"`
+	NodeId        uint64                 `protobuf:"varint,1,opt,name=node_id,json=nodeId,proto3" json:"node_id,omitempty"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *GetNode) Reset() {
+	*x = GetNode{}
+	mi := &file_cell_v1_cell_proto_msgTypes[15]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *GetNode) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*GetNode) ProtoMessage() {}
+
+func (x *GetNode) ProtoReflect() protoreflect.Message {
+	mi := &file_cell_v1_cell_proto_msgTypes[15]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use GetNode.ProtoReflect.Descriptor instead.
+func (*GetNode) Descriptor() ([]byte, []int) {
+	return file_cell_v1_cell_proto_rawDescGZIP(), []int{15}
+}
+
+func (x *GetNode) GetNodeId() uint64 {
+	if x != nil {
+		return x.NodeId
+	}
+	return 0
+}
+
 type SetApprovedRoutes struct {
 	state         protoimpl.MessageState `protogen:"open.v1"`
 	NodeId        uint64                 `protobuf:"varint,1,opt,name=node_id,json=nodeId,proto3" json:"node_id,omitempty"`
@@ -1344,7 +1405,7 @@ type SetApprovedRoutes struct {
 
 func (x *SetApprovedRoutes) Reset() {
 	*x = SetApprovedRoutes{}
-	mi := &file_cell_v1_cell_proto_msgTypes[15]
+	mi := &file_cell_v1_cell_proto_msgTypes[16]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -1356,7 +1417,7 @@ func (x *SetApprovedRoutes) String() string {
 func (*SetApprovedRoutes) ProtoMessage() {}
 
 func (x *SetApprovedRoutes) ProtoReflect() protoreflect.Message {
-	mi := &file_cell_v1_cell_proto_msgTypes[15]
+	mi := &file_cell_v1_cell_proto_msgTypes[16]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -1369,7 +1430,7 @@ func (x *SetApprovedRoutes) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use SetApprovedRoutes.ProtoReflect.Descriptor instead.
 func (*SetApprovedRoutes) Descriptor() ([]byte, []int) {
-	return file_cell_v1_cell_proto_rawDescGZIP(), []int{15}
+	return file_cell_v1_cell_proto_rawDescGZIP(), []int{16}
 }
 
 func (x *SetApprovedRoutes) GetNodeId() uint64 {
@@ -1403,7 +1464,7 @@ type OpResult struct {
 
 func (x *OpResult) Reset() {
 	*x = OpResult{}
-	mi := &file_cell_v1_cell_proto_msgTypes[16]
+	mi := &file_cell_v1_cell_proto_msgTypes[17]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -1415,7 +1476,7 @@ func (x *OpResult) String() string {
 func (*OpResult) ProtoMessage() {}
 
 func (x *OpResult) ProtoReflect() protoreflect.Message {
-	mi := &file_cell_v1_cell_proto_msgTypes[16]
+	mi := &file_cell_v1_cell_proto_msgTypes[17]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -1428,7 +1489,7 @@ func (x *OpResult) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use OpResult.ProtoReflect.Descriptor instead.
 func (*OpResult) Descriptor() ([]byte, []int) {
-	return file_cell_v1_cell_proto_rawDescGZIP(), []int{16}
+	return file_cell_v1_cell_proto_rawDescGZIP(), []int{17}
 }
 
 func (x *OpResult) GetOpId() string {
@@ -1512,7 +1573,7 @@ type PreAuthKeyResult struct {
 
 func (x *PreAuthKeyResult) Reset() {
 	*x = PreAuthKeyResult{}
-	mi := &file_cell_v1_cell_proto_msgTypes[17]
+	mi := &file_cell_v1_cell_proto_msgTypes[18]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -1524,7 +1585,7 @@ func (x *PreAuthKeyResult) String() string {
 func (*PreAuthKeyResult) ProtoMessage() {}
 
 func (x *PreAuthKeyResult) ProtoReflect() protoreflect.Message {
-	mi := &file_cell_v1_cell_proto_msgTypes[17]
+	mi := &file_cell_v1_cell_proto_msgTypes[18]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -1537,7 +1598,7 @@ func (x *PreAuthKeyResult) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use PreAuthKeyResult.ProtoReflect.Descriptor instead.
 func (*PreAuthKeyResult) Descriptor() ([]byte, []int) {
-	return file_cell_v1_cell_proto_rawDescGZIP(), []int{17}
+	return file_cell_v1_cell_proto_rawDescGZIP(), []int{18}
 }
 
 func (x *PreAuthKeyResult) GetId() uint64 {
@@ -1570,7 +1631,7 @@ type Heartbeat struct {
 
 func (x *Heartbeat) Reset() {
 	*x = Heartbeat{}
-	mi := &file_cell_v1_cell_proto_msgTypes[18]
+	mi := &file_cell_v1_cell_proto_msgTypes[19]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -1582,7 +1643,7 @@ func (x *Heartbeat) String() string {
 func (*Heartbeat) ProtoMessage() {}
 
 func (x *Heartbeat) ProtoReflect() protoreflect.Message {
-	mi := &file_cell_v1_cell_proto_msgTypes[18]
+	mi := &file_cell_v1_cell_proto_msgTypes[19]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -1595,7 +1656,7 @@ func (x *Heartbeat) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use Heartbeat.ProtoReflect.Descriptor instead.
 func (*Heartbeat) Descriptor() ([]byte, []int) {
-	return file_cell_v1_cell_proto_rawDescGZIP(), []int{18}
+	return file_cell_v1_cell_proto_rawDescGZIP(), []int{19}
 }
 
 func (x *Heartbeat) GetAt() *timestamppb.Timestamp {
@@ -1673,7 +1734,7 @@ const file_cell_v1_cell_proto_rawDesc = "" +
 	"applied_at\x18\x03 \x01(\v2\x1a.google.protobuf.TimestampR\tappliedAt\x12\x0e\n" +
 	"\x02ok\x18\x04 \x01(\bR\x02ok\x12\x14\n" +
 	"\x05error\x18\x05 \x01(\tR\x05error\x120\n" +
-	"\x14refused_by_guardrail\x18\x06 \x01(\bR\x12refusedByGuardrail\"\xe4\x03\n" +
+	"\x14refused_by_guardrail\x18\x06 \x01(\bR\x12refusedByGuardrail\"\x93\x04\n" +
 	"\x02Op\x12\x0e\n" +
 	"\x02id\x18\x01 \x01(\tR\x02id\x127\n" +
 	"\tnot_after\x18\x02 \x01(\v2\x1a.google.protobuf.TimestampR\bnotAfter\x12J\n" +
@@ -1686,7 +1747,8 @@ const file_cell_v1_cell_proto_rawDesc = "" +
 	"deleteNode\x126\n" +
 	"\vexpire_node\x18\x0e \x01(\v2\x13.cell.v1.ExpireNodeH\x00R\n" +
 	"expireNode\x12L\n" +
-	"\x13set_approved_routes\x18\x0f \x01(\v2\x1a.cell.v1.SetApprovedRoutesH\x00R\x11setApprovedRoutes\x12\x1c\n" +
+	"\x13set_approved_routes\x18\x0f \x01(\v2\x1a.cell.v1.SetApprovedRoutesH\x00R\x11setApprovedRoutes\x12-\n" +
+	"\bget_node\x18\x10 \x01(\v2\x10.cell.v1.GetNodeH\x00R\agetNode\x12\x1c\n" +
 	"\tsignature\x18d \x01(\fR\tsignatureB\x06\n" +
 	"\x04kind\"\xa3\x01\n" +
 	"\x10CreatePreAuthKey\x12\x19\n" +
@@ -1709,7 +1771,9 @@ const file_cell_v1_cell_proto_rawDesc = "" +
 	"\n" +
 	"ExpireNode\x12\x17\n" +
 	"\anode_id\x18\x01 \x01(\x04R\x06nodeId\x12%\n" +
-	"\x0edisable_expiry\x18\x02 \x01(\bR\rdisableExpiry\"D\n" +
+	"\x0edisable_expiry\x18\x02 \x01(\bR\rdisableExpiry\"\"\n" +
+	"\aGetNode\x12\x17\n" +
+	"\anode_id\x18\x01 \x01(\x04R\x06nodeId\"D\n" +
 	"\x11SetApprovedRoutes\x12\x17\n" +
 	"\anode_id\x18\x01 \x01(\x04R\x06nodeId\x12\x16\n" +
 	"\x06routes\x18\x02 \x03(\tR\x06routes\"\xe5\x01\n" +
@@ -1752,7 +1816,7 @@ func file_cell_v1_cell_proto_rawDescGZIP() []byte {
 }
 
 var file_cell_v1_cell_proto_enumTypes = make([]protoimpl.EnumInfo, 1)
-var file_cell_v1_cell_proto_msgTypes = make([]protoimpl.MessageInfo, 19)
+var file_cell_v1_cell_proto_msgTypes = make([]protoimpl.MessageInfo, 20)
 var file_cell_v1_cell_proto_goTypes = []any{
 	(Mode)(0),                     // 0: cell.v1.Mode
 	(*SyncRequest)(nil),           // 1: cell.v1.SyncRequest
@@ -1770,49 +1834,51 @@ var file_cell_v1_cell_proto_goTypes = []any{
 	(*RenameNode)(nil),            // 13: cell.v1.RenameNode
 	(*DeleteNode)(nil),            // 14: cell.v1.DeleteNode
 	(*ExpireNode)(nil),            // 15: cell.v1.ExpireNode
-	(*SetApprovedRoutes)(nil),     // 16: cell.v1.SetApprovedRoutes
-	(*OpResult)(nil),              // 17: cell.v1.OpResult
-	(*PreAuthKeyResult)(nil),      // 18: cell.v1.PreAuthKeyResult
-	(*Heartbeat)(nil),             // 19: cell.v1.Heartbeat
-	(*timestamppb.Timestamp)(nil), // 20: google.protobuf.Timestamp
+	(*GetNode)(nil),               // 16: cell.v1.GetNode
+	(*SetApprovedRoutes)(nil),     // 17: cell.v1.SetApprovedRoutes
+	(*OpResult)(nil),              // 18: cell.v1.OpResult
+	(*PreAuthKeyResult)(nil),      // 19: cell.v1.PreAuthKeyResult
+	(*Heartbeat)(nil),             // 20: cell.v1.Heartbeat
+	(*timestamppb.Timestamp)(nil), // 21: google.protobuf.Timestamp
 }
 var file_cell_v1_cell_proto_depIdxs = []int32{
 	3,  // 0: cell.v1.SyncRequest.hello:type_name -> cell.v1.Hello
 	6,  // 1: cell.v1.SyncRequest.observed:type_name -> cell.v1.Observed
-	17, // 2: cell.v1.SyncRequest.op_result:type_name -> cell.v1.OpResult
+	18, // 2: cell.v1.SyncRequest.op_result:type_name -> cell.v1.OpResult
 	9,  // 3: cell.v1.SyncRequest.policy_applied:type_name -> cell.v1.PolicyApplied
-	19, // 4: cell.v1.SyncRequest.heartbeat:type_name -> cell.v1.Heartbeat
+	20, // 4: cell.v1.SyncRequest.heartbeat:type_name -> cell.v1.Heartbeat
 	4,  // 5: cell.v1.SyncResponse.welcome:type_name -> cell.v1.Welcome
 	8,  // 6: cell.v1.SyncResponse.desired_policy:type_name -> cell.v1.DesiredPolicy
 	10, // 7: cell.v1.SyncResponse.op:type_name -> cell.v1.Op
-	19, // 8: cell.v1.SyncResponse.heartbeat:type_name -> cell.v1.Heartbeat
+	20, // 8: cell.v1.SyncResponse.heartbeat:type_name -> cell.v1.Heartbeat
 	0,  // 9: cell.v1.Hello.mode:type_name -> cell.v1.Mode
-	20, // 10: cell.v1.Welcome.server_time:type_name -> google.protobuf.Timestamp
-	20, // 11: cell.v1.Node.last_seen:type_name -> google.protobuf.Timestamp
-	20, // 12: cell.v1.Node.expiry:type_name -> google.protobuf.Timestamp
+	21, // 10: cell.v1.Welcome.server_time:type_name -> google.protobuf.Timestamp
+	21, // 11: cell.v1.Node.last_seen:type_name -> google.protobuf.Timestamp
+	21, // 12: cell.v1.Node.expiry:type_name -> google.protobuf.Timestamp
 	5,  // 13: cell.v1.Observed.nodes:type_name -> cell.v1.Node
-	20, // 14: cell.v1.PolicyRevision.effective_at:type_name -> google.protobuf.Timestamp
+	21, // 14: cell.v1.PolicyRevision.effective_at:type_name -> google.protobuf.Timestamp
 	7,  // 15: cell.v1.DesiredPolicy.timeline:type_name -> cell.v1.PolicyRevision
-	20, // 16: cell.v1.PolicyApplied.applied_at:type_name -> google.protobuf.Timestamp
-	20, // 17: cell.v1.Op.not_after:type_name -> google.protobuf.Timestamp
+	21, // 16: cell.v1.PolicyApplied.applied_at:type_name -> google.protobuf.Timestamp
+	21, // 17: cell.v1.Op.not_after:type_name -> google.protobuf.Timestamp
 	11, // 18: cell.v1.Op.create_pre_auth_key:type_name -> cell.v1.CreatePreAuthKey
 	12, // 19: cell.v1.Op.set_tags:type_name -> cell.v1.SetTags
 	13, // 20: cell.v1.Op.rename_node:type_name -> cell.v1.RenameNode
 	14, // 21: cell.v1.Op.delete_node:type_name -> cell.v1.DeleteNode
 	15, // 22: cell.v1.Op.expire_node:type_name -> cell.v1.ExpireNode
-	16, // 23: cell.v1.Op.set_approved_routes:type_name -> cell.v1.SetApprovedRoutes
-	20, // 24: cell.v1.CreatePreAuthKey.expiration:type_name -> google.protobuf.Timestamp
-	18, // 25: cell.v1.OpResult.pre_auth_key:type_name -> cell.v1.PreAuthKeyResult
-	5,  // 26: cell.v1.OpResult.node:type_name -> cell.v1.Node
-	20, // 27: cell.v1.PreAuthKeyResult.expiration:type_name -> google.protobuf.Timestamp
-	20, // 28: cell.v1.Heartbeat.at:type_name -> google.protobuf.Timestamp
-	1,  // 29: cell.v1.CellService.Sync:input_type -> cell.v1.SyncRequest
-	2,  // 30: cell.v1.CellService.Sync:output_type -> cell.v1.SyncResponse
-	30, // [30:31] is the sub-list for method output_type
-	29, // [29:30] is the sub-list for method input_type
-	29, // [29:29] is the sub-list for extension type_name
-	29, // [29:29] is the sub-list for extension extendee
-	0,  // [0:29] is the sub-list for field type_name
+	17, // 23: cell.v1.Op.set_approved_routes:type_name -> cell.v1.SetApprovedRoutes
+	16, // 24: cell.v1.Op.get_node:type_name -> cell.v1.GetNode
+	21, // 25: cell.v1.CreatePreAuthKey.expiration:type_name -> google.protobuf.Timestamp
+	19, // 26: cell.v1.OpResult.pre_auth_key:type_name -> cell.v1.PreAuthKeyResult
+	5,  // 27: cell.v1.OpResult.node:type_name -> cell.v1.Node
+	21, // 28: cell.v1.PreAuthKeyResult.expiration:type_name -> google.protobuf.Timestamp
+	21, // 29: cell.v1.Heartbeat.at:type_name -> google.protobuf.Timestamp
+	1,  // 30: cell.v1.CellService.Sync:input_type -> cell.v1.SyncRequest
+	2,  // 31: cell.v1.CellService.Sync:output_type -> cell.v1.SyncResponse
+	31, // [31:32] is the sub-list for method output_type
+	30, // [30:31] is the sub-list for method input_type
+	30, // [30:30] is the sub-list for extension type_name
+	30, // [30:30] is the sub-list for extension extendee
+	0,  // [0:30] is the sub-list for field type_name
 }
 
 func init() { file_cell_v1_cell_proto_init() }
@@ -1840,8 +1906,9 @@ func file_cell_v1_cell_proto_init() {
 		(*Op_DeleteNode)(nil),
 		(*Op_ExpireNode)(nil),
 		(*Op_SetApprovedRoutes)(nil),
+		(*Op_GetNode)(nil),
 	}
-	file_cell_v1_cell_proto_msgTypes[16].OneofWrappers = []any{
+	file_cell_v1_cell_proto_msgTypes[17].OneofWrappers = []any{
 		(*OpResult_PreAuthKey)(nil),
 		(*OpResult_Node)(nil),
 	}
@@ -1851,7 +1918,7 @@ func file_cell_v1_cell_proto_init() {
 			GoPackagePath: reflect.TypeOf(x{}).PkgPath(),
 			RawDescriptor: unsafe.Slice(unsafe.StringData(file_cell_v1_cell_proto_rawDesc), len(file_cell_v1_cell_proto_rawDesc)),
 			NumEnums:      1,
-			NumMessages:   19,
+			NumMessages:   20,
 			NumExtensions: 0,
 			NumServices:   1,
 		},

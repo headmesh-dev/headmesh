@@ -120,6 +120,8 @@ message Op {
     DeleteNode delete_node = 13;
     ExpireNode expire_node = 14;
     SetApprovedRoutes set_approved_routes = 15;
+    // Read-only: return one node, so the server can confirm which pre-auth key it registered with.
+    GetNode get_node = 16;
   }
   // Ed25519 signature over the deterministic encoding of this message with signature unset.
   bytes signature = 100;
@@ -149,6 +151,10 @@ message DeleteNode {
 message ExpireNode {
   uint64 node_id = 1;
   bool disable_expiry = 2;
+}
+
+message GetNode {
+  uint64 node_id = 1;
 }
 
 message SetApprovedRoutes {
