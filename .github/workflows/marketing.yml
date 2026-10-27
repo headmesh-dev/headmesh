@@ -97,8 +97,12 @@ jobs:
   deploy-preview:
     name: Preview deploy
     needs: check
-    # Pull requests from forks get no secrets; only branches of this repository get previews.
-    if: ${{ github.event_name == 'pull_request' && github.event.pull_request.head.repo.full_name == github.repository }}
+    # Deploys stay off until the one-time setup in web/marketing/README.md is done and the repository variable
+    # MARKETING_DEPLOY is set to "enabled". Pull requests from forks get no secrets, so only branches of this
+    # repository get previews.
+    if: >-
+      ${{ vars.MARKETING_DEPLOY == 'enabled' && github.event_name == 'pull_request'
+      && github.event.pull_request.head.repo.full_name == github.repository }}
     runs-on: ubuntu-26.04
     timeout-minutes: 15
     permissions:
@@ -156,7 +160,9 @@ jobs:
   deploy-production:
     name: Production deploy
     needs: check
-    if: ${{ github.ref == 'refs/heads/main' && (github.event_name == 'push' || github.event_name == 'workflow_dispatch') }}
+    if: >-
+      ${{ vars.MARKETING_DEPLOY == 'enabled' && github.ref == 'refs/heads/main'
+      && (github.event_name == 'push' || github.event_name == 'workflow_dispatch') }}
     runs-on: ubuntu-26.04
     timeout-minutes: 15
     permissions:

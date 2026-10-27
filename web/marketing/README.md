@@ -112,7 +112,8 @@ plain variables. Secrets are set per environment.
 **GitHub** (repository settings): secrets `CLOUDFLARE_API_TOKEN` (an account API token with _Cloudflare Pages:
 Edit_ and _D1: Edit_ only) and `CLOUDFLARE_ACCOUNT_ID`, plus variables `TURNSTILE_SITE_KEY` and
 `CF_WEB_ANALYTICS_TOKEN`. Create the environments `marketing-production` (deployment branch: `main` only) and
-`marketing-preview`.
+`marketing-preview`. The deploy jobs are skipped until the repository variable `MARKETING_DEPLOY` is `enabled`, so
+CI only lints, tests and builds until setup is finished.
 
 ## One-time setup
 
@@ -153,9 +154,10 @@ These steps create Cloudflare and Resend resources and need Aaryn's go-ahead. Ru
    config doesn't accept `ratelimits`. The Function enforces its own per-IP limit in D1. As an outer layer, add a WAF
    rate-limiting rule for `POST /api/waitlist*` on the `headmesh.dev` zone, for example 20 requests per 10 minutes
    per IP.
-9. **Before launch:** fill in `SENDER.postalAddress` in `shared/site.ts`, have the privacy policy and terms
-   reviewed (they have no governing-law clause yet), and make the GitHub repository public so the `/github` and
-   "Star on GitHub" links work.
+9. **CASL sender address.** Fill in `SENDER.postalAddress` in `shared/site.ts`. Production builds fail without it.
+10. **Turn deploys on.** Once steps 1–9 are done, set the repository variable `MARKETING_DEPLOY` to `enabled`.
+11. **Before launch:** have the privacy policy and terms reviewed (they have no governing-law clause yet), and make
+    the GitHub repository public so the `/github` and "Star on GitHub" links work.
 
 ## Operations
 
