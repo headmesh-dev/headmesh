@@ -7,6 +7,10 @@
 #              journald, Docker (official repo), Tailscale, WireGuard tools,
 #              Ubuntu Pro (when HM_PRO_TOKEN_FILE is set)
 #   lock-root  PermitRootLogin no. Run only after the admin login works.
+#   firewall   host nftables firewall (defence in depth under the Hetzner Cloud
+#              Firewall). Needs HM_SSH_ALLOW. Rolls itself back after 3 minutes
+#              unless confirm-firewall runs from a fresh SSH session.
+#   confirm-firewall  cancel that rollback.
 #   restore    recovery-VM restore (plan §13.4); not implemented yet.
 #
 # Usage from the ASUS (first run as root; after lock-root, as the admin with sudo):
@@ -16,10 +20,14 @@
 # Environment:
 #   HM_ADMIN_USER      admin login (default: aaryn)
 #   HM_PRO_TOKEN_FILE  file holding an Ubuntu Pro token; shredded after attach
+#   HM_SSH_ALLOW       IPv4 CIDRs allowed to reach public SSH (space-separated)
 set -Eeuo pipefail
 
 readonly ADMIN_USER="${HM_ADMIN_USER:-aaryn}"
 readonly PRO_TOKEN_FILE="${HM_PRO_TOKEN_FILE:-}"
+readonly SSH_ALLOW="${HM_SSH_ALLOW:-}"
+readonly FW_TABLE="headmesh_host"
+readonly FW_ROLLBACK_UNIT="headmesh-firewall-rollback"
 
 # Pinned package versions (plan §3.3 "Package discipline"). Bump deliberately.
 readonly DOCKER_CE_VERSION="5:29.9.2-1~ubuntu.26.04~resolute"
@@ -237,6 +245,81 @@ wireguard_tools() {
     || apt-get install -y --no-install-recommends wireguard-tools >/dev/null
 }
 
+# Inbound policy from plan §5.8/§13.2. Docker-published ports are DNATed through
+# FORWARD and bypass this INPUT chain, which is why the Cloud Firewall stays the
+# outer layer. The table is separate from Docker's and Tailscale's, so loading
+# it never flushes their rules.
+host_firewall() {
+  [[ -n "${SSH_ALLOW}" ]] || die "set HM_SSH_ALLOW (for example 203.0.113.7/32)"
+  local cidr elements=""
+  for cidr in ${SSH_ALLOW}; do
+    [[ "${cidr}" =~ ^[0-9]{1,3}(\.[0-9]{1,3}){3}/[0-9]{1,2}$ ]] || die "bad IPv4 CIDR: ${cidr}"
+    elements+="${elements:+, }${cidr}"
+  done
+  dpkg-query -W -f='${Status}' nftables 2>/dev/null | grep -q 'install ok installed' \
+    || apt-get install -y --no-install-recommends nftables >/dev/null
+
+  write_file /etc/headmesh/host-firewall.nft 0644 <<EOF || true
+#!/usr/sbin/nft -f
+# Managed by headmesh deploy/compose/bootstrap.sh
+table inet ${FW_TABLE}
+delete table inet ${FW_TABLE}
+table inet ${FW_TABLE} {
+  set ssh_allow_v4 {
+    type ipv4_addr
+    flags interval
+    elements = { ${elements} }
+  }
+  chain input {
+    type filter hook input priority filter; policy drop;
+    ct state invalid drop
+    ct state { established, related } accept
+    iifname "lo" accept
+    iifname "tailscale0" accept
+    iifname "wg*" accept
+    iifname "docker0" accept
+    iifname "br-*" accept
+    meta l4proto { icmp, ipv6-icmp } accept
+    # DHCP and DHCPv6 replies are not tracked as established.
+    udp sport 67 udp dport 68 accept
+    udp sport 547 udp dport 546 accept
+    tcp dport 22 ip saddr @ssh_allow_v4 accept
+    tcp dport { 80, 443 } accept
+    udp dport { 3478, 41641, 51820 } accept
+  }
+}
+EOF
+  nft -c -f /etc/headmesh/host-firewall.nft || die "nftables ruleset failed to parse"
+
+  write_file /etc/systemd/system/headmesh-host-firewall.service 0644 <<EOF || true
+[Unit]
+Description=Headmesh host firewall (nftables table inet ${FW_TABLE})
+DefaultDependencies=no
+Wants=network-pre.target
+Before=network-pre.target shutdown.target
+Conflicts=shutdown.target
+
+[Service]
+Type=oneshot
+RemainAfterExit=yes
+ExecStart=/usr/sbin/nft -f /etc/headmesh/host-firewall.nft
+ExecReload=/usr/sbin/nft -f /etc/headmesh/host-firewall.nft
+ExecStop=/usr/sbin/nft delete table inet ${FW_TABLE}
+
+[Install]
+WantedBy=sysinit.target
+EOF
+  systemctl daemon-reload
+
+  # Dead-man switch: unless confirm-firewall runs, drop the table in 3 minutes.
+  systemctl stop "${FW_ROLLBACK_UNIT}.timer" 2>/dev/null || true
+  systemd-run --quiet --unit="${FW_ROLLBACK_UNIT}" --on-active=180 \
+    /usr/bin/systemctl stop headmesh-host-firewall.service
+  systemctl enable headmesh-host-firewall.service >/dev/null 2>&1
+  systemctl restart headmesh-host-firewall.service
+  log "firewall loaded (SSH from: ${elements}); rollback in 180 s unless confirm-firewall runs"
+}
+
 ubuntu_pro() {
   if pro status --format json 2>/dev/null | grep -q '"attached": *true'; then
     log "Ubuntu Pro already attached"
@@ -275,9 +358,17 @@ cmd_lock_root() {
   sshd_hardening no
 }
 
+cmd_confirm_firewall() {
+  systemctl is-active --quiet headmesh-host-firewall.service || die "firewall is not active"
+  systemctl stop "${FW_ROLLBACK_UNIT}.timer" 2>/dev/null || true
+  log "firewall confirmed; rollback cancelled"
+}
+
 case "${1:-}" in
   init) cmd_init ;;
   lock-root) cmd_lock_root ;;
+  firewall) preflight; host_firewall ;;
+  confirm-firewall) cmd_confirm_firewall ;;
   restore) die "restore is not implemented yet (plan §13.4)" ;;
-  *) die "usage: bootstrap.sh init|lock-root|restore" ;;
+  *) die "usage: bootstrap.sh init|lock-root|firewall|confirm-firewall|restore" ;;
 esac
