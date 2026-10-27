@@ -43,6 +43,7 @@ linters:
         - errors.Unwrap(
         - errors.Join(
         - connect/v2.NewError( # constructs a protocol error; nothing to wrap
+        - huma/v2.Error # Error4xx/5xx constructors build HTTP problem responses
   exclusions:
     generated: strict
     paths:

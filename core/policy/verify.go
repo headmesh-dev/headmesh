@@ -76,8 +76,7 @@ func (v *verifier) checkTagOwners() {
 			continue
 		}
 		if t == QuarantineTag {
-			v.fail("tagOwners declares %s; quarantined nodes must never be referenced", t)
-			continue
+			continue // declared so quarantined nodes keep a valid tag; principal() forbids it in any rule
 		}
 		if _, ok := v.ix.principalOrg(t); !ok {
 			v.fail("tagOwners declares unknown tag %q", t)

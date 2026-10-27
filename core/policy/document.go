@@ -16,7 +16,8 @@ import (
 // active policy.
 const CompilerVersion = "1"
 
-// Document is the subset of the Headscale v0.29 policy format Headmesh emits. Legacy "acls" are never emitted:
+// Document is the subset of the Headscale v0.29 policy format Headmesh emits. Every tag a live device carries
+// is declared in tagOwners even when no rule references it. Legacy "acls" are never emitted:
 // "grants" is always present (an empty list denies everything; omitting both would allow everything).
 type Document struct {
 	TagOwners map[string][]string `json:"tagOwners"`

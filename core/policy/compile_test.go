@@ -6,6 +6,7 @@ import (
 	"flag"
 	"os"
 	"path/filepath"
+	"slices"
 	"strings"
 	"testing"
 	"time"
@@ -184,8 +185,13 @@ func TestQuarantinedAndRemovedDevicesAreUnreachable(t *testing.T) {
 			t.Errorf("device in state %d must be isolated", d.State)
 		}
 	}
-	if strings.Contains(string(c.HuJSON), QuarantineTag) {
-		t.Error("the quarantine tag must never be referenced")
+	for _, g := range c.Document.Grants {
+		if slices.Contains(g.Src, QuarantineTag) || slices.Contains(g.Dst, QuarantineTag) {
+			t.Error("the quarantine tag must never appear in a rule")
+		}
+	}
+	if _, ok := c.Document.TagOwners[QuarantineTag]; !ok {
+		t.Error("a quarantined node's tag must still be declared, or Headscale rejects the policy")
 	}
 }
 

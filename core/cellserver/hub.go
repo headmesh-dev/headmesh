@@ -251,6 +251,17 @@ func (h *Hub) sessionFor(cell string) (*session, bool) {
 	return s, ok
 }
 
+// ConnectedCells lists the cells with a connected agent.
+func (h *Hub) ConnectedCells() []string {
+	h.mu.Lock()
+	defer h.mu.Unlock()
+	out := make([]string, 0, len(h.sessions))
+	for c := range h.sessions {
+		out = append(out, c)
+	}
+	return out
+}
+
 // Connected reports whether a cell agent is currently connected.
 func (h *Hub) Connected(cell string) bool {
 	_, ok := h.sessionFor(cell)

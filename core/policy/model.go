@@ -376,3 +376,11 @@ func (ix *index) checkPlatformRule(pr PlatformRule) error {
 	}
 	return nil
 }
+
+// ValidateRole reports whether r is a valid role name (it becomes part of a Headscale tag).
+func ValidateRole(r string) error {
+	if !rolePattern.MatchString(r) {
+		return fmt.Errorf("role %q: want lowercase letters, digits and dashes, starting with a letter, at most 31 characters", r)
+	}
+	return nil
+}

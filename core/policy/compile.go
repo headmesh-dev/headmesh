@@ -157,14 +157,20 @@ func (b *builder) addGrant(src, dst []string, ports []Port) {
 	b.doc.Grants = append(b.doc.Grants, GrantRule{Src: slices.Clone(src), Dst: slices.Clone(dst), IP: ip})
 }
 
-// collectTags declares every tag the finished document references — in grants, SSH rules and tests — because
-// Headscale rejects policies that name undeclared tags.
+// collectTags declares every tag the finished document references — in grants, SSH rules and tests — and every
+// tag a live device carries, because Headscale rejects policies that name undeclared tags and refuses to assign
+// (or mint pre-auth keys for) tags its policy does not declare.
 func (b *builder) collectTags() {
 	note := func(ps []string) {
 		for _, p := range ps {
 			if strings.HasPrefix(p, "tag:") {
 				b.tags[p] = true
 			}
+		}
+	}
+	for _, d := range b.s.Devices {
+		if d.State != DeviceRemoved {
+			note(DeviceTags(d))
 		}
 	}
 	for _, g := range b.doc.Grants {
