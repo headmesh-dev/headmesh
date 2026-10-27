@@ -1,0 +1,154 @@
+# Headmesh agent sandbox configuration.
+#
+# Lives at ${root}/config/sandbox.toml and is validated against
+# sandbox.schema.json by `headmesh-sandbox render`. `render` turns it into
+# ${root}/compose/compose.override.generated.yaml.
+
+schema_version = 1
+
+# Container name prefix and default tailnet hostname.
+name = "asus-sandbox"
+
+# Host directory that holds config/, home/, state/, sessions/, artifacts/,
+# logs/, run/, runner/, runner-work/, secrets/ and compose/.
+root = "/mnt/storage/headmesh/sandbox"
+
+# Home directory of the host user. `~` in the secret denylist expands to it.
+host_home = "/home/aaryn"
+
+image = "ghcr.io/headmesh-dev/sandbox:0.1.0"
+timezone = "America/Toronto"
+
+# "off" or "shared". Keep "off" while xcelsior-worker serves GPU rentals:
+# the RTX 2060 has 6 GB of VRAM. Switching needs a container restart.
+gpu = "off"
+
+# "off", "advisory" (default) or "enforce". With "enforce" the pre-commit hook
+# refuses while another live agent holds .git/headmesh-agent.lock.
+repo_lock = "advisory"
+
+[agent]
+uid = 1000
+gid = 1000
+
+[git]
+# GitHub-verified address used for agent commits.
+user_name = "Aaryn Biro"
+user_email = "aaryn.biro@headmesh.dev"
+
+[tailnet]
+login_server = "https://hs.xcelsior.ca"
+magicdns_suffix = "mesh.xcelsior.ca"
+# dns-check resolves <dns_check_name>.<magicdns_suffix> and pings dns_check_ip.
+dns_check_name = "prod-hetzner"
+dns_check_ip = "100.64.0.1"
+
+[resources]
+memory = "10g"
+cpus = 6
+
+[mounts]
+# Mounted at the same path inside the container, in both modes.
+rw = [
+  "/mnt/storage/projects/xcelsior",
+  "/mnt/storage/projects/headmesh",
+]
+ro = []
+# Files replaced by /dev/null and directories replaced by an empty tmpfs.
+# `headmesh-sandbox scan-secrets` proposes entries; review them before adding.
+masks = [
+  "/mnt/storage/projects/xcelsior/.env",
+  "/mnt/storage/projects/xcelsior/.env.staging",
+  "/mnt/storage/projects/xcelsior/.env.staging.secrets",
+  "/mnt/storage/projects/xcelsior/.env.worker.staging",
+]
+# Denylist entries (as written in the denylist, for example "~/.config/gh")
+# that you deliberately allow. Leave empty unless you know why.
+allow_secrets = []
+# Extra paths to treat like the built-in secret denylist.
+extra_denylist = []
+
+[mode.regular]
+hostname = "asus-sandbox"
+tags = ["tag:sandbox"]
+# host:port targets this node may reach (granted in the Headscale policy).
+# Used by status, net_check and the acceptance harness.
+reach = ["tower-server:11434"]
+# Extra mounts for Regular only.
+rw = []
+ro = []
+
+[mode.yolo]
+hostname = "asus-sandbox-yolo"
+tags = ["tag:sandbox-yolo"]
+default_ttl = "4h"
+max_ttl = "12h"
+# Mounted read-write at the host path, on top of the read-only /host.
+rw = ["/home/aaryn"]
+ro = []
+# Let YOLO reach the LAN through the host firewall (headmesh-sandbox-firewall).
+allow_lan = false
+# A restic snapshot of host_home younger than this is required before `up --yolo`.
+backup_max_age = "24h"
+# Dedicated deploy key, mounted only in YOLO at /etc/headmesh/ssh/id_ed25519.
+ssh_key = ""
+
+# GitHub owner/repo -> shared working copy. The Claude runner's checkout hook
+# links these instead of cloning; unmapped repos get a fresh clone in runner-work.
+[repos]
+"aabiro/xcelsior" = "/mnt/storage/projects/xcelsior"
+"headmesh-dev/headmesh" = "/mnt/storage/projects/headmesh"
+
+[sandboxd]
+listen = ":8780"
+# URL clients use; the base for signed artifact URLs and the RFC 9728 resource.
+public_url = "http://asus-sandbox.mesh.xcelsior.ca:8780"
+# Browser origins allowed to call /mcp. Requests without Origin are always allowed.
+allowed_origins = []
+max_concurrent_per_client = 8
+rate_per_minute = 600
+exec_default_timeout_s = 120
+exec_max_timeout_s = 3600
+tunnel_exec_max_timeout_s = 110
+max_response_bytes = 10485760
+tunnel_max_response_bytes = 8388608
+# Redact likely secrets (gitleaks when installed, plus built-in patterns) from tool output.
+redact_output = false
+
+# OAuth 2.1 resource server (M3). Bearer tokens keep working when enabled.
+[sandboxd.oauth]
+enabled = false
+issuer = ""
+jwks_url = ""
+resource = ""
+authorization_servers = []
+
+[entrypoints.claude_runner]
+enabled = false
+capacity = 1
+kill_session_after_min = 240
+# Leave false: --configure-git would set the Claude identity and signing.
+configure_git = false
+
+[entrypoints.claude_rc]
+enabled = false
+capacity = 4
+spawn = "same-dir"
+cwd = "/mnt/storage/projects"
+
+[entrypoints.openai_tunnel]
+enabled = false
+tunnel_id = ""
+
+[backup]
+restic_repo = "/mnt/storage/backups/restic-home"
+# Written by headmesh-home-backup.service after each run (readable without root).
+status_file = "/mnt/storage/headmesh/sandbox/state/backup-status.json"
+
+[acceptance]
+project = "/mnt/storage/projects/xcelsior"
+file = "README.md"
+dependency_command = "uv run --frozen python -c \"import fastapi, psycopg; print(fastapi.__version__)\""
+magicdns_name = "prod-hetzner.mesh.xcelsior.ca"
+allowed_target = "tower-server.mesh.xcelsior.ca:11434"
+denied_target = "100.64.0.1:5432"
