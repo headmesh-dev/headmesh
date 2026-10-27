@@ -1,0 +1,21 @@
+{
+  "name": "@headmesh/plugins",
+  "version": "0.0.0",
+  "private": true,
+  "description": "Generator and validators for the Headmesh plugin marketplace (Claude Code and Codex)",
+  "license": "Apache-2.0",
+  "type": "module",
+  "engines": {
+    "node": ">=24.16"
+  },
+  "scripts": {
+    "gen": "node gen/gen.ts",
+    "gen:check": "node gen/gen.ts --check",
+    "validate": "node gen/validate.ts",
+    "check": "pnpm run gen:check && pnpm run validate"
+  },
+  "devDependencies": {
+    "ajv": "8.20.0",
+    "yaml": "2.9.1"
+  }
+}

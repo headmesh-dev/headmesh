@@ -1,0 +1,48 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://headmesh.dev/schemas/marketplace-source.schema.json",
+  "title": "Headmesh marketplace source",
+  "description": "plugins/marketplace.source.yaml: plugins/gen/gen.ts turns it into .claude-plugin/marketplace.json and .agents/plugins/marketplace.json.",
+  "type": "object",
+  "required": ["name", "displayName", "description", "owner", "plugins"],
+  "additionalProperties": false,
+  "properties": {
+    "name": { "type": "string", "pattern": "^[a-z0-9](?:[a-z0-9.-]*[a-z0-9])?$" },
+    "displayName": { "type": "string", "minLength": 1 },
+    "description": { "type": "string", "minLength": 1 },
+    "owner": {
+      "type": "object",
+      "required": ["name"],
+      "additionalProperties": false,
+      "properties": {
+        "name": { "type": "string", "minLength": 1 },
+        "email": { "type": "string", "pattern": "^[^@\\s]+@[^@\\s]+$" },
+        "url": { "type": "string", "pattern": "^https://" }
+      }
+    },
+    "plugins": {
+      "description": "Each name must match a plugins/<name>/plugin.source.yaml.",
+      "type": "array",
+      "minItems": 1,
+      "items": {
+        "type": "object",
+        "required": ["name", "category", "codex"],
+        "additionalProperties": false,
+        "properties": {
+          "name": { "type": "string" },
+          "category": { "description": "Claude Code catalog category (free-form).", "type": "string", "minLength": 1 },
+          "codex": {
+            "type": "object",
+            "required": ["category", "installation", "authentication"],
+            "additionalProperties": false,
+            "properties": {
+              "category": { "type": "string", "minLength": 1 },
+              "installation": { "enum": ["AVAILABLE", "INSTALLED_BY_DEFAULT", "NOT_AVAILABLE"] },
+              "authentication": { "enum": ["ON_INSTALL", "ON_USE"] }
+            }
+          }
+        }
+      }
+    }
+  }
+}

@@ -1,0 +1,11 @@
+{
+  "mcpServers": {
+    "headmesh-sandbox": {
+      "type": "http",
+      "url": "${user_config.sandbox_url}",
+      "headers": {
+        "Authorization": "Bearer ${user_config.sandbox_token}"
+      }
+    }
+  }
+}

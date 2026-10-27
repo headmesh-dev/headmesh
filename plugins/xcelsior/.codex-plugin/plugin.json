@@ -1,0 +1,43 @@
+{
+  "name": "xcelsior",
+  "version": "0.1.0",
+  "description": "Rent and manage GPUs on Xcelsior Compute",
+  "author": {
+    "name": "Xcelsior Compute Inc.",
+    "email": "hello@xcelsior.ca",
+    "url": "https://xcelsior.ca"
+  },
+  "homepage": "https://docs.xcelsior.ca",
+  "repository": "https://github.com/headmesh-dev/headmesh",
+  "license": "Apache-2.0",
+  "keywords": [
+    "xcelsior",
+    "gpu",
+    "cloud",
+    "gpu-rental",
+    "inference",
+    "mcp"
+  ],
+  "skills": "./skills/",
+  "mcpServers": "./mcp.json",
+  "interface": {
+    "displayName": "Xcelsior Compute",
+    "shortDescription": "Rent GPUs by the hour or run serverless inference, priced in CAD",
+    "longDescription": "Xcelsior is a distributed GPU marketplace where independent hosts compete on price. Discover live GPU availability and spot pricing, estimate what a job will cost before you commit, launch and monitor instances, and call serverless inference endpoints. Launches and destructive actions go through a launch plan that you approve before anything runs or is billed.",
+    "developerName": "Xcelsior Compute",
+    "category": "Developer Tools",
+    "capabilities": [
+      "Read",
+      "Write"
+    ],
+    "websiteURL": "https://xcelsior.ca",
+    "privacyPolicyURL": "https://xcelsior.ca/privacy",
+    "termsOfServiceURL": "https://xcelsior.ca/terms",
+    "defaultPrompt": [
+      "What is the cheapest GPU on Xcelsior right now with at least 24 GB of VRAM?",
+      "Plan a 4-hour fine-tuning run on Xcelsior and tell me what it will cost before launching.",
+      "Show my running Xcelsior instances and what they are costing me."
+    ],
+    "logo": "./assets/logo.png"
+  }
+}

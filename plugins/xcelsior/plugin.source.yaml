@@ -1,0 +1,50 @@
+# yaml-language-server: $schema=../schemas/plugin-source.schema.json
+#
+# Source for every manifest and MCP config in this directory. Edit this file, then run
+# `pnpm -C plugins gen`. Skills and commands are written by hand.
+
+name: xcelsior
+displayName: Xcelsior Compute
+version: 0.1.0
+description: Rent and manage GPUs on Xcelsior Compute
+author:
+  name: Xcelsior Compute Inc.
+  email: hello@xcelsior.ca
+  url: https://xcelsior.ca
+homepage: https://docs.xcelsior.ca
+repository: https://github.com/headmesh-dev/headmesh
+license: Apache-2.0
+keywords: [xcelsior, gpu, cloud, gpu-rental, inference, mcp]
+
+links:
+  website: https://xcelsior.ca
+  privacyPolicy: https://xcelsior.ca/privacy
+  termsOfService: https://xcelsior.ca/terms
+
+mcpServers:
+  xcelsior:
+    # Canonical audience; the legacy audience stops working on 2026-11-30. Both clients
+    # discover OAuth from the server's protected-resource metadata (RFC 9728), so nothing
+    # here carries a client id or secret.
+    url: https://mcp.xcelsior.ca/mcp
+    openaiAuth:
+      type: oauth
+      client:
+        mode: cimd
+
+openai:
+  interface:
+    shortDescription: Rent GPUs by the hour or run serverless inference, priced in CAD
+    longDescription: >-
+      Xcelsior is a distributed GPU marketplace where independent hosts compete on price. Discover
+      live GPU availability and spot pricing, estimate what a job will cost before you commit,
+      launch and monitor instances, and call serverless inference endpoints. Launches and destructive
+      actions go through a launch plan that you approve before anything runs or is billed.
+    developerName: Xcelsior Compute
+    category: Developer Tools
+    capabilities: [Read, Write]
+    defaultPrompt:
+      - What is the cheapest GPU on Xcelsior right now with at least 24 GB of VRAM?
+      - Plan a 4-hour fine-tuning run on Xcelsior and tell me what it will cost before launching.
+      - Show my running Xcelsior instances and what they are costing me.
+    logo: ./assets/logo.png

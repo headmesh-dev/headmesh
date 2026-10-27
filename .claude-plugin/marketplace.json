@@ -1,0 +1,22 @@
+{
+  "name": "headmesh",
+  "owner": {
+    "name": "Headmesh",
+    "email": "hello@headmesh.dev"
+  },
+  "description": "Headmesh and Xcelsior plugins for Claude Code and Codex",
+  "plugins": [
+    {
+      "name": "headmesh",
+      "source": "./plugins/headmesh",
+      "description": "Agent sandboxes on your own machines over a private Headscale mesh",
+      "category": "infrastructure"
+    },
+    {
+      "name": "xcelsior",
+      "source": "./plugins/xcelsior",
+      "description": "Rent and manage GPUs on Xcelsior Compute",
+      "category": "infrastructure"
+    }
+  ]
+}

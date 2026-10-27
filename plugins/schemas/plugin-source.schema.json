@@ -1,0 +1,128 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://headmesh.dev/schemas/plugin-source.schema.json",
+  "title": "Headmesh plugin source",
+  "description": "plugins/<name>/plugin.source.yaml: the one file that plugins/gen/gen.ts turns into every manifest and MCP config for Claude Code and Codex.",
+  "type": "object",
+  "required": ["name", "displayName", "version", "description", "author", "homepage", "repository", "license", "keywords", "links", "mcpServers", "openai"],
+  "additionalProperties": false,
+  "properties": {
+    "name": {
+      "description": "Plugin id. Must satisfy both Claude Code's naming rules and the Agent Plugins 1.0.0 name pattern.",
+      "type": "string",
+      "maxLength": 64,
+      "pattern": "^(?!.*(?:--|\\.\\.))[a-z0-9](?:[a-z0-9.-]*[a-z0-9])?$"
+    },
+    "displayName": { "type": "string", "minLength": 1 },
+    "version": { "type": "string", "pattern": "^\\d+\\.\\d+\\.\\d+(?:-[0-9A-Za-z.-]+)?$" },
+    "description": { "type": "string", "minLength": 1 },
+    "author": { "$ref": "#/$defs/person" },
+    "homepage": { "$ref": "#/$defs/https" },
+    "repository": { "$ref": "#/$defs/https" },
+    "license": { "type": "string", "minLength": 1 },
+    "keywords": { "type": "array", "items": { "type": "string" }, "uniqueItems": true },
+    "links": {
+      "type": "object",
+      "required": ["website", "privacyPolicy", "termsOfService"],
+      "additionalProperties": false,
+      "properties": {
+        "website": { "$ref": "#/$defs/https" },
+        "privacyPolicy": { "$ref": "#/$defs/https" },
+        "termsOfService": { "$ref": "#/$defs/https" }
+      }
+    },
+    "userConfig": {
+      "description": "Claude Code only. Values Claude Code prompts for and substitutes as ${user_config.KEY}.",
+      "type": "object",
+      "propertyNames": { "pattern": "^[A-Za-z_][A-Za-z0-9_]*$" },
+      "additionalProperties": {
+        "type": "object",
+        "required": ["type", "title", "description"],
+        "additionalProperties": false,
+        "properties": {
+          "type": { "enum": ["string", "number", "boolean", "directory", "file"] },
+          "title": { "type": "string", "minLength": 1 },
+          "description": { "type": "string", "minLength": 1 },
+          "required": { "type": "boolean" },
+          "default": { "anyOf": [{ "type": "string" }, { "type": "number" }, { "type": "boolean" }] },
+          "sensitive": { "type": "boolean" }
+        }
+      }
+    },
+    "mcpServers": {
+      "type": "object",
+      "minProperties": 1,
+      "additionalProperties": {
+        "type": "object",
+        "required": ["url"],
+        "additionalProperties": false,
+        "properties": {
+          "url": {
+            "description": "Endpoint for the portable mcp.json. Agent Plugins forbids placeholders here, so it must be a literal URL.",
+            "$ref": "#/$defs/https"
+          },
+          "headers": {
+            "description": "Non-secret headers sent by every client.",
+            "$ref": "#/$defs/headers"
+          },
+          "claude": {
+            "description": "Claude Code overrides for .mcp.json. May reference ${user_config.KEY}.",
+            "type": "object",
+            "additionalProperties": false,
+            "properties": {
+              "url": { "type": "string", "minLength": 1 },
+              "headers": { "$ref": "#/$defs/headers" }
+            }
+          },
+          "openaiAuth": {
+            "description": "extensions[\"com.openai\"].auth for this server in mcp.json. Emitted only when gen.ts sets EMIT_OPENAI_SERVER_AUTH.",
+            "type": "object",
+            "required": ["type"],
+            "properties": {
+              "type": { "enum": ["none", "oauth", "mixed", "api_key"] }
+            }
+          }
+        }
+      }
+    },
+    "openai": {
+      "type": "object",
+      "required": ["interface"],
+      "additionalProperties": false,
+      "properties": {
+        "interface": {
+          "description": "extensions[\"com.openai\"].interface, minus the fields that come from displayName and links.",
+          "type": "object",
+          "required": ["shortDescription", "developerName", "category"],
+          "additionalProperties": false,
+          "properties": {
+            "shortDescription": { "type": "string", "minLength": 1 },
+            "longDescription": { "type": "string", "minLength": 1 },
+            "developerName": { "type": "string", "minLength": 1 },
+            "category": { "type": "string", "minLength": 1 },
+            "capabilities": { "type": "array", "items": { "type": "string" } },
+            "defaultPrompt": { "type": "array", "items": { "type": "string", "minLength": 1 } },
+            "brandColor": { "type": "string", "pattern": "^#[0-9A-Fa-f]{6}$" },
+            "composerIcon": { "$ref": "#/$defs/asset" },
+            "logo": { "$ref": "#/$defs/asset" }
+          }
+        }
+      }
+    }
+  },
+  "$defs": {
+    "https": { "type": "string", "pattern": "^https://[^\\s${}]+$" },
+    "asset": { "type": "string", "pattern": "^\\./assets/[^\\s]+$" },
+    "headers": { "type": "object", "additionalProperties": { "type": "string" } },
+    "person": {
+      "type": "object",
+      "required": ["name"],
+      "additionalProperties": false,
+      "properties": {
+        "name": { "type": "string", "minLength": 1 },
+        "email": { "type": "string", "pattern": "^[^@\\s]+@[^@\\s]+$" },
+        "url": { "$ref": "#/$defs/https" }
+      }
+    }
+  }
+}

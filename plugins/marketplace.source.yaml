@@ -1,0 +1,26 @@
+# yaml-language-server: $schema=./schemas/marketplace-source.schema.json
+#
+# Source for .claude-plugin/marketplace.json (Claude Code) and
+# .agents/plugins/marketplace.json (Codex). Edit this file, then run `pnpm -C plugins gen`.
+# Entry descriptions come from each plugin's plugin.source.yaml.
+
+name: headmesh
+displayName: Headmesh
+description: Headmesh and Xcelsior plugins for Claude Code and Codex
+owner:
+  name: Headmesh
+  email: hello@headmesh.dev
+
+plugins:
+  - name: headmesh
+    category: infrastructure
+    codex:
+      category: Developer Tools
+      installation: AVAILABLE
+      authentication: ON_USE
+  - name: xcelsior
+    category: infrastructure
+    codex:
+      category: Developer Tools
+      installation: AVAILABLE
+      authentication: ON_USE

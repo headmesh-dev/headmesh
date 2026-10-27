@@ -1,0 +1,8 @@
+{
+  "mcpServers": {
+    "xcelsior": {
+      "type": "http",
+      "url": "https://mcp.xcelsior.ca/mcp"
+    }
+  }
+}

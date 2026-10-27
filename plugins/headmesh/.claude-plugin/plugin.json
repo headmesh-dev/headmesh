@@ -1,0 +1,41 @@
+{
+  "name": "headmesh",
+  "displayName": "Headmesh",
+  "version": "0.1.0",
+  "description": "Agent sandboxes on your own machines over a private Headscale mesh",
+  "author": {
+    "name": "Headmesh",
+    "email": "hello@headmesh.dev",
+    "url": "https://headmesh.dev"
+  },
+  "homepage": "https://github.com/headmesh-dev/headmesh/tree/main/plugins/headmesh",
+  "repository": "https://github.com/headmesh-dev/headmesh",
+  "license": "Apache-2.0",
+  "keywords": [
+    "headmesh",
+    "headscale",
+    "tailscale",
+    "sandbox",
+    "mcp",
+    "remote-development",
+    "multi-agent"
+  ],
+  "privacyPolicyUrl": "https://headmesh.dev/privacy",
+  "termsOfServiceUrl": "https://headmesh.dev/terms",
+  "userConfig": {
+    "sandbox_url": {
+      "type": "string",
+      "title": "Sandbox MCP URL",
+      "description": "The headmesh-sandboxd endpoint, either its MagicDNS URL on your tailnet or its Headmesh ingress URL.",
+      "default": "https://asus.sbx.headmesh.dev/mcp",
+      "required": true
+    },
+    "sandbox_token": {
+      "type": "string",
+      "title": "Sandbox token",
+      "description": "The bearer token (starts with hms_) that your sandbox issued for this client. Stored in your system keychain.",
+      "sensitive": true,
+      "required": true
+    }
+  }
+}

@@ -1,0 +1,125 @@
+name: plugins
+
+# Plugin marketplace for Claude Code and Codex (plan §8.4): generator drift, Agent Plugins
+# schema validation, `claude plugin validate --strict`, and an install smoke test for both
+# clients in a clean Ubuntu 26.04 container.
+
+on:
+  pull_request:
+    paths:
+      - plugins/**
+      - .claude-plugin/**
+      - .agents/**
+      - .github/workflows/plugins.yml
+  push:
+    branches: [main]
+    paths:
+      - plugins/**
+      - .claude-plugin/**
+      - .agents/**
+      - .github/workflows/plugins.yml
+  workflow_dispatch:
+
+permissions: {}
+
+concurrency:
+  group: plugins-${{ github.ref }}
+  cancel-in-progress: true
+
+env:
+  # The client versions the plugins were verified against (plan §1). Renovate bumps them.
+  CLAUDE_CODE_VERSION: 2.1.293
+  CODEX_VERSION: 0.162.1
+  NODE_VERSION: 24.16.0
+  PNPM_VERSION: 10.34.9
+  DISABLE_AUTOUPDATER: "1"
+  CLAUDE_CODE_DISABLE_NONESSENTIAL_TRAFFIC: "1"
+
+jobs:
+  validate:
+    name: Generate and validate
+    runs-on: ubuntu-26.04
+    timeout-minutes: 10
+    permissions:
+      contents: read
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+
+      - uses: pnpm/action-setup@ea17c68df8912ef543352723c149a84f56e3d413 # v6.1.0
+        with:
+          version: ${{ env.PNPM_VERSION }}
+
+      - uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7.1.0
+        with:
+          node-version: ${{ env.NODE_VERSION }}
+
+      - name: Install plugin tooling
+        # plugins/ keeps its own lockfile until the root pnpm workspace lists it. After that
+        # the root pnpm-lock.yaml covers it and plugins/pnpm-lock.yaml is deleted.
+        run: |
+          if [ -f plugins/pnpm-lock.yaml ]; then
+            pnpm --dir plugins install --frozen-lockfile --ignore-workspace
+          else
+            pnpm install --frozen-lockfile --filter @headmesh/plugins...
+          fi
+
+      - name: Generated files match plugin.source.yaml
+        run: pnpm --dir plugins run gen:check
+
+      - name: Agent Plugins 1.0.0 schemas and Agent Skills frontmatter
+        run: pnpm --dir plugins run validate
+
+      - name: Vendored schemas still match agent-plugins.org
+        # Informational: a network blip must not block a merge, but a real mismatch shows up here.
+        continue-on-error: true
+        run: pnpm --dir plugins run validate --upstream
+
+      - name: Install Claude Code
+        # npm 12 blocks install scripts by default; Claude Code needs its postinstall to link
+        # the native binary.
+        run: npm install --global --allow-scripts=@anthropic-ai/claude-code "@anthropic-ai/claude-code@${CLAUDE_CODE_VERSION}"
+
+      - name: claude plugin validate --strict
+        run: |
+          claude plugin validate --strict .
+          for manifest in plugins/*/.claude-plugin/plugin.json; do
+            claude plugin validate --strict "$(dirname "$(dirname "$manifest")")"
+          done
+
+  install-smoke:
+    name: Install smoke test
+    needs: validate
+    runs-on: ubuntu-26.04
+    timeout-minutes: 15
+    permissions:
+      contents: read
+    container:
+      # A clean container: no ~/.claude or ~/.codex state from the runner image.
+      image: ubuntu:26.04@sha256:19fcd1bf268f02b60aca3bd30bd8a6d9a11759a430e32921833e65f16d87348a
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+
+      - uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7.1.0
+        with:
+          node-version: ${{ env.NODE_VERSION }}
+
+      - name: Install Claude Code and Codex
+        run: npm install --global --allow-scripts=@anthropic-ai/claude-code "@anthropic-ai/claude-code@${CLAUDE_CODE_VERSION}" "@openai/codex@${CODEX_VERSION}"
+
+      - name: Claude Code installs xcelsior@headmesh
+        run: |
+          claude plugin marketplace add ./
+          claude plugin install xcelsior@headmesh
+          claude plugin list --json > "$RUNNER_TEMP/claude-plugins.json"
+          node plugins/gen/assert-install.ts claude "$RUNNER_TEMP/claude-plugins.json"
+
+      - name: Codex installs xcelsior@headmesh
+        run: |
+          codex plugin marketplace add ./
+          codex plugin add xcelsior@headmesh
+          codex mcp get xcelsior --json > "$RUNNER_TEMP/codex-xcelsior.json"
+          node plugins/gen/assert-install.ts codex "$RUNNER_TEMP/codex-xcelsior.json"

@@ -1,0 +1,24 @@
+{
+  "name": "xcelsior",
+  "displayName": "Xcelsior Compute",
+  "version": "0.1.0",
+  "description": "Rent and manage GPUs on Xcelsior Compute",
+  "author": {
+    "name": "Xcelsior Compute Inc.",
+    "email": "hello@xcelsior.ca",
+    "url": "https://xcelsior.ca"
+  },
+  "homepage": "https://docs.xcelsior.ca",
+  "repository": "https://github.com/headmesh-dev/headmesh",
+  "license": "Apache-2.0",
+  "keywords": [
+    "xcelsior",
+    "gpu",
+    "cloud",
+    "gpu-rental",
+    "inference",
+    "mcp"
+  ],
+  "privacyPolicyUrl": "https://xcelsior.ca/privacy",
+  "termsOfServiceUrl": "https://xcelsior.ca/terms"
+}
