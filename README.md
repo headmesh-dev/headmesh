@@ -1,0 +1,53 @@
+# Headmesh
+
+**Share machines, not your network.**
+
+Headmesh is an open, self-hostable, multi-tenant control layer for private WireGuard meshes. It builds on
+[Headscale](https://github.com/juanfont/headscale) and the official Tailscale clients — it does not reimplement
+networking or cryptography — and adds what Headscale leaves out:
+
+- **True multi-tenancy** — isolated organisations, each with its own members, devices and deny-by-default rules.
+- **One-click onboarding** — invite links and one-line install commands that enrol a machine into the right
+  network with the right permissions.
+- **Temporary access** — grant one machine or service to another tenant for a set time; it revokes itself.
+- **Agent sandboxes** — let cloud AI agents work on your real files and private services from a sandbox on your
+  own hardware, in a scoped or full-access mode.
+- **Yours to run** — no closed control server.
+
+Xcelsior Compute is the first production user (GPU owners and renters connected without exposing anyone's home
+network).
+
+> Status: pre-release. The license is not chosen yet (see `docs/plan.md` §19); until it is, all rights reserved.
+
+## Repository layout
+
+| Path | What lives there |
+|---|---|
+| `cmd/` | Binaries: `headmesh` (CLI), `headmesh-server` (API, OAuth, workers), `headmesh-cellagent` (beside each Headscale) |
+| `core/` | Domain logic: tenancy, devices, enrollment, grants, audit, the policy compiler |
+| `api/` | Public REST API (OpenAPI 3.1) and the OAuth authorization server |
+| `cli/` | CLI commands, including isolated `tailscaled` instance management |
+| `internal/` | Shared plumbing: config, logging, database, Headscale client |
+| `proto/` | Cell agent protocol and vendored Headscale API definitions |
+| `db/` | Migrations and SQL queries (sqlc) |
+| `sandbox/` | Agent sandbox image, Compose profiles (Regular / YOLO), `headmesh-sandboxd` MCP server |
+| `plugins/` | Claude Code and Codex plugin marketplace (Headmesh, Xcelsior) |
+| `web/marketing/` | headmesh.dev (deployed separately from the product) |
+| `web/app/` | Sign-up page and dashboard (embedded into `headmesh-server`) |
+| `deploy/` | Self-hosting and production deployment, recovery tooling, break-glass WireGuard |
+| `docs/` | Blueprint (`handoff.md`), implementation plan (`plan.md`), ADRs, runbooks |
+
+## Development
+
+```bash
+mise install          # pinned Go, Node, pnpm, buf, sqlc, golangci-lint
+mise run generate     # protobuf + sqlc code generation
+mise run test         # unit + property tests (race detector)
+mise run lint
+```
+
+Integration tests start Postgres, Headscale and Tailscale clients with Docker: `mise run test:integration`.
+
+## Security
+
+See [SECURITY.md](SECURITY.md). Please report vulnerabilities privately.

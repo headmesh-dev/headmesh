@@ -1,0 +1,20 @@
+{
+  "$schema": "https://docs.renovatebot.com/renovate-schema.json",
+  "extends": ["config:recommended", "helpers:pinGitHubActionDigests", ":semanticCommits"],
+  "minimumReleaseAge": "3 days",
+  "internalChecksFilter": "strict",
+  "dependencyDashboard": true,
+  "postUpdateOptions": ["gomodTidy"],
+  "docker": { "pinDigests": true },
+  "packageRules": [
+    { "matchManagers": ["gomod"], "groupName": "go modules", "schedule": ["before 6am on monday"] },
+    { "matchManagers": ["npm"], "groupName": "npm packages", "schedule": ["before 6am on monday"] },
+    { "matchManagers": ["github-actions"], "groupName": "github actions" },
+    {
+      "description": "Headscale and Tailscale are protocol-critical; never automerge, review release notes",
+      "matchPackageNames": ["/headscale/", "/tailscale/"],
+      "automerge": false,
+      "labels": ["protocol-critical"]
+    }
+  ]
+}

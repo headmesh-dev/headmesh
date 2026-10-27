@@ -1,0 +1,55 @@
+version: "2"
+
+run:
+  timeout: 5m
+  tests: true
+
+linters:
+  default: standard
+  enable:
+    - bodyclose
+    - contextcheck
+    - errorlint
+    - exhaustive
+    - gocritic
+    - gosec
+    - misspell
+    - nilerr
+    - noctx
+    - nolintlint
+    - revive
+    - rowserrcheck
+    - sqlclosecheck
+    - unconvert
+    - unparam
+    - usestdlibvars
+    - wrapcheck
+  settings:
+    exhaustive:
+      default-signifies-exhaustive: true
+    gosec:
+      excludes:
+        - G104 # covered by errcheck
+    revive:
+      rules:
+        - name: exported
+          disabled: true
+    wrapcheck:
+      ignore-package-globs:
+        - github.com/headmesh-dev/headmesh/*
+  exclusions:
+    generated: strict
+    paths:
+      - gen/
+    rules:
+      - path: _test\.go
+        linters: [gosec, wrapcheck, unparam]
+
+formatters:
+  enable:
+    - gofumpt
+    - goimports
+  settings:
+    goimports:
+      local-prefixes:
+        - github.com/headmesh-dev/headmesh

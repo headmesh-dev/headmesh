@@ -1,0 +1,34 @@
+# Toolchain pins for every contributor and CI job. `mise install` sets up everything.
+[tools]
+go = "1.26.8"
+node = "24.16.0"
+pnpm = "10"
+"go:github.com/bufbuild/buf/cmd/buf" = "1.75.0"
+"go:google.golang.org/protobuf/cmd/protoc-gen-go" = "1.36.12"
+"go:google.golang.org/grpc/cmd/protoc-gen-go-grpc" = "1.6.2"
+"go:connectrpc.com/connect/v2/cmd/protoc-gen-connect-go" = "2.0.2"
+"go:github.com/sqlc-dev/sqlc/cmd/sqlc" = "1.31.1"
+"go:github.com/golangci/golangci-lint/v2/cmd/golangci-lint" = "2.15.0"
+
+[env]
+CGO_ENABLED = "0"
+
+[tasks.generate]
+description = "Regenerate protobuf stubs and sqlc queries"
+run = ["buf generate", "sqlc generate"]
+
+[tasks.lint]
+description = "Lint Go code"
+run = "golangci-lint run ./..."
+
+[tasks.test]
+description = "Unit and property tests with the race detector"
+run = "CGO_ENABLED=1 go test -race -count=1 ./..."
+
+[tasks."test:integration"]
+description = "Integration tests (needs Docker)"
+run = "CGO_ENABLED=1 go test -race -count=1 -tags integration ./..."
+
+[tasks.build]
+description = "Build all binaries into ./bin"
+run = "go build -trimpath -ldflags='-s -w' -o bin/ ./cmd/..."

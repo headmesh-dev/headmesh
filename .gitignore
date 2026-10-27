@@ -1,0 +1,46 @@
+# Build output
+/bin/
+/dist/
+*.test
+*.out
+coverage.*
+
+# Go workspace overrides that are machine-specific
+go.work.local
+
+# Node / web
+node_modules/
+.pnpm-store/
+.astro/
+.wrangler/
+web/**/dist/
+playwright-report/
+test-results/
+
+# Local env and secrets — never commit plaintext secrets
+.env
+.env.*
+!.env.example
+*.pem
+*.key
+!proto/**/*.key
+deploy/secrets/*.dec.*
+deploy/secrets/*.plain.*
+age.key
+
+# OpenTofu
+.terraform/
+*.tfstate
+*.tfstate.*
+*.tfplan
+.terraform.lock.hcl.bak
+
+# Editors / OS
+.idea/
+.vscode/*
+!.vscode/extensions.json
+.DS_Store
+*.swp
+
+# Sandbox runtime state (lives outside the repo, but guard anyway)
+sandbox/.state/
