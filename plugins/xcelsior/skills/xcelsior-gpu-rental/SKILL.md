@@ -31,7 +31,14 @@ For the tools that take `confirm`, call them first without it to see what would 
 
 ## What this plugin can't do
 
-The plugin connects over OAuth with Xcelsior's connector scopes. Topping up the wallet, changing auto top-up, provider payouts and registration, and reading the SSH keys on the account all need scopes that connectors can't hold. When the user asks for one of these, send them to the dashboard: wallet and auto top-up at https://xcelsior.ca/dashboard/billing, pending launch approvals at https://xcelsior.ca/dashboard/launch-plans.
+The plugin connects over OAuth, and Xcelsior never grants connectors the scopes these tools need. When the user asks for one of them, send them to the dashboard:
+
+- Wallet top-ups, auto top-up and deposits (`top_up_wallet`, `configure_auto_topup`, `create_crypto_deposit`, `create_lightning_deposit`): https://xcelsior.ca/dashboard/billing.
+- Provider registration, payouts and milestone claims (`register_provider`, `request_provider_payout`, `claim_reputation_milestones`): see the `xcelsior-provider` skill.
+
+Pending launch approvals are at https://xcelsior.ca/dashboard/launch-plans.
+
+`list_ssh_keys` and `delete_ssh_key` need the `ssh:read` scope, which connectors can hold starting with Xcelsior's next API release. If either tool refuses with `insufficient_scope`, ask the user to reconnect the `xcelsior` server so they can approve the new permission: `/mcp` in Claude Code, or `codex mcp login xcelsior` in Codex. If it still refuses, the account's SSH keys are managed at https://xcelsior.ca/dashboard/settings.
 
 Operator tools such as `drain_host` and `evict_host_workloads` aren't available to customers. Don't try them.
 
