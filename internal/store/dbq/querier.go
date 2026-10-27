@@ -37,6 +37,7 @@ type Querier interface {
 	GetOrgBySlug(ctx context.Context, slug string) (Org, error)
 	InitChainHead(ctx context.Context, arg InitChainHeadParams) error
 	InsertAuditEvent(ctx context.Context, arg InsertAuditEventParams) (int64, error)
+	InsertPolicyRevision(ctx context.Context, arg InsertPolicyRevisionParams) error
 	ListAuditEvents(ctx context.Context, arg ListAuditEventsParams) ([]AuditEvent, error)
 	ListAuditEventsForChain(ctx context.Context, arg ListAuditEventsForChainParams) ([]AuditEvent, error)
 	ListChildOrgs(ctx context.Context, parentOrgID pgtype.UUID) ([]Org, error)
@@ -52,9 +53,13 @@ type Querier interface {
 	ListRulesInCell(ctx context.Context, cellID pgtype.UUID) ([]Rule, error)
 	LockChainHead(ctx context.Context, chainKey pgtype.UUID) (LockChainHeadRow, error)
 	MarkEnrollmentMinted(ctx context.Context, arg MarkEnrollmentMintedParams) (Enrollment, error)
+	MarkPolicyRevision(ctx context.Context, arg MarkPolicyRevisionParams) error
+	NextPolicyRevision(ctx context.Context, cellID pgtype.UUID) (int64, error)
 	RevokeEnrollmentToken(ctx context.Context, arg RevokeEnrollmentTokenParams) error
 	RevokeGrant(ctx context.Context, arg RevokeGrantParams) (Grant, error)
 	SetDeviceState(ctx context.Context, arg SetDeviceStateParams) (Device, error)
+	// Keeps device rows in step with what Headscale reports for nodes Headmesh already knows.
+	SyncDeviceFromNode(ctx context.Context, arg SyncDeviceFromNodeParams) error
 	TouchCell(ctx context.Context, arg TouchCellParams) error
 }
 

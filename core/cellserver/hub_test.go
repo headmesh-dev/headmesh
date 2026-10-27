@@ -55,6 +55,10 @@ func (m *memStore) RecordApplied(_ context.Context, _ string, a *cellv1.PolicyAp
 	return nil
 }
 
+func (m *memStore) RecordTimeline(context.Context, string, []*cellv1.PolicyRevision) error {
+	return nil
+}
+
 func (m *memStore) NextRevision(context.Context, string) (uint64, error) {
 	m.mu.Lock()
 	defer m.mu.Unlock()

@@ -31,6 +31,8 @@ type Store interface {
 	RecordApplied(ctx context.Context, cell string, applied *cellv1.PolicyApplied) error
 	// NextRevision returns a revision number greater than any previously issued for the cell.
 	NextRevision(ctx context.Context, cell string) (uint64, error)
+	// RecordTimeline persists a timeline before it is sent, so every revision a cell may apply is on record.
+	RecordTimeline(ctx context.Context, cell string, timeline []*cellv1.PolicyRevision) error
 }
 
 // Authenticator maps an incoming stream to the cell it is allowed to speak for (normally by the fingerprint of
@@ -93,6 +95,7 @@ type session struct {
 	out      chan *cellv1.SyncResponse
 	done     chan struct{}
 	mu       sync.Mutex
+	pushMu   sync.Mutex // serialises timeline pushes so revision numbers are never allocated twice
 	pending  map[string]chan *cellv1.OpResult
 	lastSent string // digest of the last timeline pushed, to avoid resending identical state
 }
@@ -256,6 +259,8 @@ func (h *Hub) Refresh(ctx context.Context, cell string) error {
 }
 
 func (h *Hub) pushTimeline(ctx context.Context, s *session) error {
+	s.pushMu.Lock()
+	defer s.pushMu.Unlock()
 	now := h.cfg.Now()
 	snap, err := h.cfg.Store.Snapshot(ctx, s.cell, now, h.cfg.Horizon)
 	if err != nil {
@@ -285,6 +290,9 @@ func (h *Hub) pushTimeline(ctx context.Context, s *session) error {
 			Revision: base + uint64(i), Sha256: r.Compiled.SHA256, Hujson: string(r.Compiled.HuJSON),
 			EffectiveAt: timestamppb.New(r.EffectiveAt),
 		}
+	}
+	if err := h.cfg.Store.RecordTimeline(ctx, s.cell, tl); err != nil {
+		return fmt.Errorf("cellserver: record timeline: %w", err)
 	}
 	if err := s.send(ctx, &cellv1.SyncResponse{Msg: &cellv1.SyncResponse_DesiredPolicy{DesiredPolicy: &cellv1.DesiredPolicy{Timeline: tl}}}); err != nil {
 		return err

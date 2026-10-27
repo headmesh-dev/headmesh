@@ -4,22 +4,35 @@ package store_test
 
 import (
 	"context"
+	"crypto/ed25519"
+	"crypto/rand"
 	"crypto/sha256"
 	"encoding/json"
 	"errors"
 	"fmt"
+	"log/slog"
+	"net/netip"
+	"strings"
 	"sync"
 	"sync/atomic"
 	"testing"
 	"time"
 
+	connect "connectrpc.com/connect/v2"
+	"connectrpc.com/connect/v2/connectinprocess"
 	"github.com/jackc/pgx/v5"
 	"github.com/jackc/pgx/v5/pgtype"
 	"github.com/jackc/pgx/v5/pgxpool"
 	"github.com/testcontainers/testcontainers-go"
 	tcpostgres "github.com/testcontainers/testcontainers-go/modules/postgres"
 
+	"github.com/headmesh-dev/headmesh/core/cellagent"
+	"github.com/headmesh-dev/headmesh/core/cellserver"
 	"github.com/headmesh-dev/headmesh/core/policy"
+	cellv1 "github.com/headmesh-dev/headmesh/gen/cell/v1"
+	"github.com/headmesh-dev/headmesh/gen/cell/v1/cellv1connect"
+	headscalev1 "github.com/headmesh-dev/headmesh/gen/headscale/v1"
+	"github.com/headmesh-dev/headmesh/internal/headscale"
 	"github.com/headmesh-dev/headmesh/internal/store"
 	"github.com/headmesh-dev/headmesh/internal/store/dbq"
 )
@@ -383,4 +396,125 @@ func TestSnapshotCompilesAndGrantsAreIdempotent(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
+}
+
+// TestCellStoreDrivesARealAgent runs Postgres → hub → agent → fake Headscale and back: the compiled policy reaches
+// the cell, the applied revision is recorded, and node addresses reported by the cell land on device rows.
+func TestCellStoreDrivesARealAgent(t *testing.T) {
+	e := setup(t)
+	s := seed(t, e)
+	ctx, cancel := context.WithTimeout(context.Background(), 30*time.Second)
+	defer cancel()
+
+	nodeID := int64(7)
+	if err := e.app.Tx(ctx, system, func(q *dbq.Queries, _ pgx.Tx) error {
+		_, err := q.AttachDeviceNode(ctx, dbq.AttachDeviceNodeParams{ID: s.gpu1.ID, HeadscaleNodeID: &nodeID})
+		return err
+	}); err != nil {
+		t.Fatal(err)
+	}
+
+	pub, priv, err := ed25519.GenerateKey(rand.Reader)
+	if err != nil {
+		t.Fatal(err)
+	}
+	hub, err := cellserver.NewHub(cellserver.Config{
+		Signer: priv, Store: store.NewCellStore(e.app), Logger: slog.New(slog.DiscardHandler),
+		Authenticate: func(context.Context) (string, error) { return "xcelsior", nil },
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+	server := connect.NewServer()
+	cellv1connect.RegisterCellServiceHandler(server, hub)
+	client := cellv1connect.NewCellServiceClient(connect.NewClient(connectinprocess.New(server)))
+
+	hs := &recordingHeadscale{nodes: []*headscalev1.Node{{Id: 7, IpAddresses: []string{"100.64.0.42", "fd7a:115c:a1e0::2a"}, Online: true}}}
+	agent, err := cellagent.New(cellagent.Config{
+		CellName: "xcelsior", Mode: cellv1.Mode_MODE_ENFORCE,
+		StateDir: t.TempDir(), ServerKeys: []ed25519.PublicKey{pub},
+	}, hs)
+	if err != nil {
+		t.Fatal(err)
+	}
+	go func() {
+		_ = agent.Run(ctx, client, cellagent.HelloInfo{AgentVersion: "it"}, cellagent.RunOptions{
+			TickInterval: 20 * time.Millisecond, ObserveInterval: time.Hour, Logger: slog.New(slog.DiscardHandler),
+		})
+	}()
+
+	deadline := time.Now().Add(20 * time.Second)
+	for {
+		var applied int
+		var ipv4 *netip.Addr
+		err := e.app.Tx(ctx, system, func(q *dbq.Queries, tx pgx.Tx) error {
+			if err := tx.QueryRow(ctx, `SELECT count(*) FROM policy_revisions WHERE status = 'applied'`).Scan(&applied); err != nil {
+				return err
+			}
+			d, err := q.GetDevice(ctx, s.gpu1.ID)
+			ipv4 = d.Ipv4
+			return err
+		})
+		if err != nil {
+			t.Fatal(err)
+		}
+		if applied > 0 && ipv4 != nil && ipv4.String() == "100.64.0.42" && hs.policySet() {
+			break
+		}
+		if time.Now().After(deadline) {
+			t.Fatalf("pipeline incomplete: applied revisions=%d ipv4=%v policy set=%v", applied, ipv4, hs.policySet())
+		}
+		time.Sleep(50 * time.Millisecond)
+	}
+}
+
+type recordingHeadscale struct {
+	mu     sync.Mutex
+	nodes  []*headscalev1.Node
+	policy string
+}
+
+func (r *recordingHeadscale) ListNodes(context.Context) ([]*headscalev1.Node, error) {
+	return r.nodes, nil
+}
+
+func (r *recordingHeadscale) CreatePreAuthKey(context.Context, headscale.PreAuthKeyRequest) (*headscalev1.PreAuthKey, error) {
+	return &headscalev1.PreAuthKey{}, nil
+}
+
+func (r *recordingHeadscale) SetTags(context.Context, uint64, []string) (*headscalev1.Node, error) {
+	return &headscalev1.Node{}, nil
+}
+
+func (r *recordingHeadscale) RenameNode(context.Context, uint64, string) (*headscalev1.Node, error) {
+	return &headscalev1.Node{}, nil
+}
+func (r *recordingHeadscale) DeleteNode(context.Context, uint64) error { return nil }
+func (r *recordingHeadscale) ExpireNode(context.Context, uint64, bool) (*headscalev1.Node, error) {
+	return &headscalev1.Node{}, nil
+}
+
+func (r *recordingHeadscale) SetApprovedRoutes(context.Context, uint64, []string) (*headscalev1.Node, error) {
+	return &headscalev1.Node{}, nil
+}
+
+func (r *recordingHeadscale) GetPolicy(context.Context) (string, error) {
+	r.mu.Lock()
+	defer r.mu.Unlock()
+	return r.policy, nil
+}
+
+func (r *recordingHeadscale) SetPolicy(_ context.Context, p string) error {
+	r.mu.Lock()
+	r.policy = p
+	r.mu.Unlock()
+	return nil
+}
+func (r *recordingHeadscale) CheckPolicy(context.Context, string) error { return nil }
+func (r *recordingHeadscale) Health(context.Context) error              { return nil }
+
+func (r *recordingHeadscale) policySet() bool {
+	r.mu.Lock()
+	defer r.mu.Unlock()
+	return strings.Contains(r.policy, `"grants"`)
 }
