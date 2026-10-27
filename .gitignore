@@ -44,3 +44,6 @@ age.key
 
 # Sandbox runtime state (lives outside the repo, but guard anyway)
 sandbox/.state/
+
+# Added by ggshield
+.cache_ggshield
