@@ -1,0 +1,28 @@
+---
+import { CONTACT_EMAIL } from "../../../shared/site";
+import TokenAction from "../../components/TokenAction.astro";
+import Base from "../../layouts/Base.astro";
+---
+
+<Base
+  title="Unsubscribe"
+  description="Stop receiving Headmesh waitlist emails."
+  ogImage="waitlist"
+  noindex
+>
+  <section class="container-page pt-16 sm:pt-24">
+    <p class="eyebrow">Waitlist</p>
+    <h1 class="mt-4 text-4xl font-bold tracking-tight sm:text-5xl">Unsubscribe</h1>
+    <p class="mt-5 max-w-lg text-lg leading-relaxed text-muted">
+      Stop all Headmesh waitlist emails. You can join again at any time.
+    </p>
+    <TokenAction
+      endpoint="/api/waitlist/unsubscribe"
+      action="Unsubscribe"
+      success="You're unsubscribed. We won't email you again."
+      invalid={`This link is invalid. Email ${CONTACT_EMAIL} and we'll remove you by hand.`}
+      failed={`Something went wrong. Please try again, or email ${CONTACT_EMAIL} and we'll remove you by hand.`}
+      missing={`This page needs the link from one of our emails. You can also email ${CONTACT_EMAIL} to unsubscribe.`}
+    />
+  </section>
+</Base>

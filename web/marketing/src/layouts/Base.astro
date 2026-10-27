@@ -1,0 +1,82 @@
+---
+import "@fontsource-variable/inter";
+import "@fontsource-variable/jetbrains-mono";
+import "../styles/global.css";
+import { PUBLIC_CF_ANALYTICS_TOKEN } from "astro:env/client";
+import Footer from "../components/Footer.astro";
+import Header from "../components/Header.astro";
+
+interface Props {
+  title: string;
+  description: string;
+  /** Slug of the build-time OG image under /og/ (see src/pages/og/[slug].png.ts). */
+  ogImage?: string;
+  /** Keep the page out of search results (confirmation and unsubscribe pages). */
+  noindex?: boolean;
+}
+
+const { title, description, ogImage = "home", noindex = false } = Astro.props;
+const site = Astro.site ?? new URL("https://headmesh.dev");
+const canonical = new URL(Astro.url.pathname, site);
+const ogImageUrl = new URL(`/og/${ogImage}.png`, site);
+const fullTitle = title === "Headmesh" ? title : `${title} · Headmesh`;
+---
+
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>{fullTitle}</title>
+    <meta name="description" content={description} />
+    <link rel="canonical" href={canonical} />
+    {noindex && <meta name="robots" content="noindex" />}
+    <meta name="theme-color" content="#ffffff" media="(prefers-color-scheme: light)" />
+    <meta name="theme-color" content="#0a0e13" media="(prefers-color-scheme: dark)" />
+    <link rel="icon" href="/favicon.svg" type="image/svg+xml" />
+    <link rel="apple-touch-icon" href="/apple-touch-icon.png" />
+    <link rel="sitemap" href="/sitemap-index.xml" />
+
+    <meta property="og:type" content="website" />
+    <meta property="og:site_name" content="Headmesh" />
+    <meta property="og:title" content={fullTitle} />
+    <meta property="og:description" content={description} />
+    <meta property="og:url" content={canonical} />
+    <meta property="og:image" content={ogImageUrl} />
+    <meta property="og:image:width" content="1200" />
+    <meta property="og:image:height" content="630" />
+    <meta name="twitter:card" content="summary_large_image" />
+
+    <!-- Resolve the theme before first paint. Shares Starlight's storage key so /docs and the marketing pages agree. -->
+    <script is:inline>
+      (() => {
+        const stored = typeof localStorage !== "undefined" && localStorage.getItem("starlight-theme");
+        const theme = stored || (matchMedia("(prefers-color-scheme: light)").matches ? "light" : "dark");
+        document.documentElement.dataset.theme = theme === "light" ? "light" : "dark";
+      })();
+    </script>
+  </head>
+  <body class="flex min-h-screen flex-col bg-bg text-fg">
+    <a
+      href="#main"
+      class="sr-only z-50 rounded-md bg-accent px-4 py-2 font-semibold text-on-accent focus:not-sr-only focus:fixed focus:top-3 focus:left-3"
+    >
+      Skip to content
+    </a>
+    <Header />
+    <main id="main" class="flex-1">
+      <slot />
+    </main>
+    <Footer />
+    {
+      PUBLIC_CF_ANALYTICS_TOKEN && (
+        <script
+          is:inline
+          defer
+          src="https://static.cloudflareinsights.com/beacon.min.js"
+          data-cf-beacon={JSON.stringify({ token: PUBLIC_CF_ANALYTICS_TOKEN })}
+        />
+      )
+    }
+  </body>
+</html>

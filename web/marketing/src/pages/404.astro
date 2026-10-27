@@ -1,0 +1,17 @@
+---
+import Base from "../layouts/Base.astro";
+---
+
+<Base title="Page not found" description="This page doesn't exist." noindex>
+  <section class="container-page pt-24 pb-8 sm:pt-32">
+    <p class="eyebrow">404</p>
+    <h1 class="mt-4 text-4xl font-bold tracking-tight sm:text-5xl">This page isn't on the mesh.</h1>
+    <p class="mt-5 max-w-lg text-lg leading-relaxed text-muted">
+      The link may be old or mistyped. Try the home page or the docs.
+    </p>
+    <div class="mt-8 flex flex-wrap gap-3">
+      <a href="/" class="btn btn-primary">Go home</a>
+      <a href="/docs/" class="btn btn-secondary">Read the docs</a>
+    </div>
+  </section>
+</Base>

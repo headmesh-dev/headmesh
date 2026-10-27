@@ -1,0 +1,115 @@
+---
+import { CONTACT_EMAIL, SENDER } from "../../shared/site";
+import Base from "../layouts/Base.astro";
+
+const updated = "27 October 2026";
+const mail = `mailto:${CONTACT_EMAIL}`;
+---
+
+<Base title="Privacy policy" description="How Headmesh collects, uses and protects your personal information." ogImage="privacy">
+  <article class="container-page pt-16 sm:pt-24">
+    <div class="prose-page">
+      <p class="eyebrow">Legal</p>
+      <h1 class="mt-4 text-4xl font-bold tracking-tight">Privacy policy</h1>
+      <p class="text-muted">Last updated {updated}</p>
+
+      <p>
+        headmesh.dev is run by {SENDER.legalName} ("we"). This policy explains what personal information the site
+        collects, why, and what you can do about it. We collect as little as we can.
+      </p>
+
+      <h2>What we collect</h2>
+      <h3>When you join the waitlist</h3>
+      <ul>
+        <li>your email address;</li>
+        <li>what you'd use Headmesh for, if you tell us;</li>
+        <li>
+          a record of your consent: the version of the wording you agreed to, when you signed up, when you confirmed and,
+          if it happens, when you unsubscribed;
+        </li>
+        <li>where you came from, such as the referring website or campaign tags (<code>utm_source</code> and similar);</li>
+        <li>a keyed hash of your IP address, used only to stop abuse. We don't store the IP address itself.</li>
+      </ul>
+      <h3>When you visit any page</h3>
+      <ul>
+        <li>
+          <strong>Spam protection.</strong> The waitlist form uses Cloudflare Turnstile, which checks signals from your
+          browser to tell people from bots.
+        </li>
+        <li>
+          <strong>Analytics.</strong> We use Cloudflare Web Analytics, which counts page views without cookies and
+          without identifying you.
+        </li>
+        <li>
+          <strong>Delivery.</strong> Like any website host, Cloudflare processes request data such as IP addresses to
+          deliver and protect the site.
+        </li>
+      </ul>
+      <p>
+        The site sets no cookies. If you pick a light or dark theme, that choice is kept in your browser's local
+        storage and never sent to us.
+      </p>
+
+      <h2>How we use it</h2>
+      <ul>
+        <li>to send you a confirmation email, and then early-access invitations and occasional Headmesh updates;</li>
+        <li>to understand, in aggregate, who wants Headmesh and what for;</li>
+        <li>to prevent spam and abuse of the waitlist.</li>
+      </ul>
+      <p>We don't sell your information, use it for advertising or share it with anyone except the providers below.</p>
+
+      <h2>Service providers</h2>
+      <p>We rely on two providers, who process data for us under their own security and privacy commitments:</p>
+      <ul>
+        <li>
+          <strong>Cloudflare</strong> hosts the site and the waitlist database and runs Turnstile and Web Analytics
+          (<a href="https://www.cloudflare.com/privacypolicy/">Cloudflare privacy policy</a>).
+        </li>
+        <li>
+          <strong>Resend</strong> delivers our emails (<a href="https://resend.com/legal/privacy-policy">Resend privacy policy</a>).
+        </li>
+      </ul>
+      <p>
+        These providers may store or process your information outside Canada, including in the United States, where it
+        may be accessible to authorities under local law.
+      </p>
+
+      <h2>How long we keep it</h2>
+      <p>
+        We keep waitlist information until you unsubscribe or ask us to delete it, and we delete sign-ups that were never
+        confirmed. After you unsubscribe we keep only what we need to honour that choice and to show we had your
+        consent: your email address and the consent dates.
+      </p>
+
+      <h2>Your choices and rights</h2>
+      <ul>
+        <li>Unsubscribe at any time with the link in any email we send. We act on it immediately.</li>
+        <li>
+          Ask to see, correct or delete the information we hold about you by emailing <a href={mail}>{CONTACT_EMAIL}</a>.
+          We'll reply within 30 days.
+        </li>
+        <li>
+          If you're not happy with our answer, you can complain to the
+          <a href="https://www.priv.gc.ca/">Office of the Privacy Commissioner of Canada</a>.
+        </li>
+      </ul>
+
+      <h2>Security</h2>
+      <p>
+        Everything is sent over HTTPS. Access to the waitlist database is limited to the people who run Headmesh, and our
+        links and logs never include your email address.
+      </p>
+
+      <h2>Changes</h2>
+      <p>
+        If we change this policy we'll update the date at the top. If a change affects how we use information you've
+        already given us, we'll email you first.
+      </p>
+
+      <h2>Contact</h2>
+      <p>
+        {SENDER.legalName}{SENDER.postalAddress && <>, {SENDER.postalAddress}</>} · Email <a href={mail}>{CONTACT_EMAIL}</a>.
+      </p>
+    </div>
+  </article>
+</Base>

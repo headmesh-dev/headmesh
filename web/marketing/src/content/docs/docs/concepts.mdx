@@ -1,0 +1,53 @@
+---
+title: Concepts
+description: The building blocks of Headmesh — workspaces, devices, rules, grants, cells and agent sandboxes.
+---
+
+Headmesh is a control layer. It never touches your packets: devices talk to each other over WireGuard through
+the standard Tailscale client, coordinated by [Headscale](https://github.com/juanfont/headscale). Headmesh decides
+**who may reach what**, and keeps Headscale's policy in line with that.
+
+## Workspaces
+
+A workspace (an _organisation_ in the API) is a tenant: its own members, devices, services and rules. Workspaces are
+isolated from each other by default. A device in one workspace can't see devices in another, let alone reach them,
+unless a grant says otherwise.
+
+Members have a role in each workspace they belong to: owner, admin, member, viewer or billing. Memberships can
+expire, which suits contractors.
+
+## Devices and services
+
+A **device** is any machine on the mesh: a laptop, a server, a GPU box, an agent sandbox. Every device Headmesh
+enrols is tagged with its workspace, its roles and its own identity, so rules can target exactly one machine.
+
+A **service** is a port (or set of ports) on a device that you want to name and share, such as a Jupyter server on
+`gpu-01:8888`.
+
+## Rules
+
+Rules decide what can reach what **inside** a workspace. They're deny-by-default: nothing is reachable until a rule
+allows it. A rule can be permanent or carry an expiry for temporary access within the team.
+
+## Grants
+
+Grants share access **across** workspaces. A grant lets devices in another workspace reach one device or one
+service in yours, for a set time:
+
+- every grant has a required expiry, capped per workspace;
+- it moves from _scheduled_ to _active_ to _expired_, or is _revoked_ early;
+- revoking a grant takes effect within seconds.
+
+This is how a GPU marketplace gives a renter access to the one machine they rented, for exactly the rental period.
+
+## Cells
+
+A **cell** is one Headscale server and the devices it coordinates. Headmesh can manage several cells. A small agent
+runs next to each Headscale, talks to it over its local socket and connects out to Headmesh, so the Headscale API is
+never exposed to the internet.
+
+## Agent sandboxes
+
+An agent sandbox is a long-running container on your own hardware that joins the mesh as its own device. Cloud AI
+agents reach it over MCP, SSH or a remote session, and work on the folders you mount and the services you grant.
+It runs in **scoped** mode by default; **full-access** mode is opt-in, time-limited and requires a recent backup.

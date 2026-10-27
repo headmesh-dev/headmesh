@@ -1,0 +1,33 @@
+---
+interface Props {
+  endpoint: string;
+  action: string;
+  success: string;
+  invalid: string;
+  failed: string;
+  missing: string;
+}
+
+const { endpoint, action, success, invalid, failed, missing } = Astro.props;
+---
+
+<div
+  class="mt-8"
+  data-token-action
+  data-endpoint={endpoint}
+  data-success={success}
+  data-invalid={invalid}
+  data-failed={failed}
+  data-missing={missing}
+>
+  <button type="button" class="btn btn-primary disabled:cursor-not-allowed disabled:opacity-60" disabled>
+    {action}
+  </button>
+  <p role="status" aria-live="polite" class="mt-5 max-w-lg text-lg leading-relaxed" data-status></p>
+</div>
+
+<script>
+  import { initTokenAction } from "../scripts/token-action";
+
+  initTokenAction();
+</script>

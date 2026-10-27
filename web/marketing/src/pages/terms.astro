@@ -1,0 +1,69 @@
+---
+import { CONTACT_EMAIL, REPO_URL, SENDER } from "../../shared/site";
+import Base from "../layouts/Base.astro";
+
+const updated = "27 October 2026";
+const mail = `mailto:${CONTACT_EMAIL}`;
+---
+
+<Base title="Terms of use" description="The terms for using the headmesh.dev website and waitlist." ogImage="terms">
+  <article class="container-page pt-16 sm:pt-24">
+    <div class="prose-page">
+      <p class="eyebrow">Legal</p>
+      <h1 class="mt-4 text-4xl font-bold tracking-tight">Terms of use</h1>
+      <p class="text-muted">Last updated {updated}</p>
+
+      <p>
+        These terms cover your use of the headmesh.dev website, its documentation and the waitlist, run by
+        {SENDER.legalName} ("we"). By using the site you agree to them.
+      </p>
+
+      <h2>The waitlist</h2>
+      <p>
+        Joining the waitlist is free. It doesn't guarantee access to Headmesh or to any particular feature, and we may
+        send invitations in any order. You can leave at any time with the unsubscribe link in our emails.
+      </p>
+
+      <h2>The software</h2>
+      <p>
+        Headmesh's source code is published in its <a href={REPO_URL}>GitHub repository</a> and is licensed under the
+        terms stated there, not these. Headmesh is pre-release software: features described on this site may change or
+        not ship.
+      </p>
+
+      <h2>Acceptable use</h2>
+      <p>Please don't:</p>
+      <ul>
+        <li>sign up anyone other than yourself;</li>
+        <li>try to get around the spam protection, overload the site or probe it for vulnerabilities outside our
+          <a href="/.well-known/security.txt">security policy</a>;</li>
+        <li>use the site to break the law or infringe anyone's rights.</li>
+      </ul>
+
+      <h2>Names and trademarks</h2>
+      <p>
+        "Headmesh" and the Headmesh logo identify our project. Tailscale, Headscale, WireGuard and other names belong
+        to their owners and are used here only to describe compatibility. Headmesh isn't affiliated with or endorsed by
+        them.
+      </p>
+
+      <h2>No warranty</h2>
+      <p>
+        The site and everything on it are provided "as is", without warranties of any kind, to the extent the law
+        allows. Documentation describes software under active development and may be incomplete or out of date.
+      </p>
+
+      <h2>Limitation of liability</h2>
+      <p>
+        To the extent the law allows, we aren't liable for indirect or consequential losses arising from your use of
+        the site. Nothing in these terms limits liability that can't be limited by law.
+      </p>
+
+      <h2>Changes</h2>
+      <p>We may update these terms. The date at the top shows when they last changed.</p>
+
+      <h2>Contact</h2>
+      <p>Questions? Email <a href={mail}>{CONTACT_EMAIL}</a>.</p>
+    </div>
+  </article>
+</Base>

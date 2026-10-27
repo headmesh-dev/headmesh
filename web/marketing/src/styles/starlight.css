@@ -1,0 +1,21 @@
+/*
+ * Starlight theme: same fonts and accent as the marketing pages. Starlight's own theme variables live in cascade
+ * layers, so these unlayered rules win; each theme gets its own selector so neither leaks into the other.
+ */
+:root {
+  --sl-font: "Inter Variable", ui-sans-serif, system-ui, -apple-system, "Segoe UI", sans-serif;
+  --sl-font-mono: "JetBrains Mono Variable", ui-monospace, SFMono-Regular, Menlo, monospace;
+}
+
+:root:not([data-theme="light"]) {
+  --sl-color-accent-low: #0f2a28;
+  --sl-color-accent: #1aa594;
+  --sl-color-accent-high: #a6f0e4;
+  --sl-color-black: #0a0e13;
+}
+
+:root[data-theme="light"] {
+  --sl-color-accent-low: #cdeee8;
+  --sl-color-accent: #0d7068;
+  --sl-color-accent-high: #063f3a;
+}

@@ -1,0 +1,193 @@
+@import "tailwindcss";
+
+/* `dark:` follows the resolved theme on <html data-theme>, which the inline theme script sets before paint. */
+@custom-variant dark (&:where([data-theme="dark"], [data-theme="dark"] *));
+
+/* Semantic colour tokens. Values live in plain custom properties so one block per theme swaps everything. */
+@theme inline {
+  --font-sans: "Inter Variable", ui-sans-serif, system-ui, -apple-system, "Segoe UI", sans-serif;
+  --font-mono: "JetBrains Mono Variable", ui-monospace, SFMono-Regular, Menlo, monospace;
+
+  --color-bg: var(--hm-bg);
+  --color-surface: var(--hm-surface);
+  --color-raised: var(--hm-raised);
+  --color-line: var(--hm-line);
+  --color-fg: var(--hm-fg);
+  --color-muted: var(--hm-muted);
+  --color-accent: var(--hm-accent);
+  --color-accent-strong: var(--hm-accent-strong);
+  --color-on-accent: var(--hm-on-accent);
+  --color-accent-soft: var(--hm-accent-soft);
+  --color-danger: var(--hm-danger);
+}
+
+:root {
+  color-scheme: light;
+  --hm-bg: #ffffff;
+  --hm-surface: #f5f7f9;
+  --hm-raised: #ffffff;
+  --hm-line: #dde3e9;
+  --hm-fg: #0d1520;
+  --hm-muted: #4a5664;
+  --hm-accent: #0d7068;
+  --hm-accent-strong: #095a53;
+  --hm-on-accent: #ffffff;
+  --hm-accent-soft: #e3f4f1;
+  --hm-danger: #b42318;
+}
+
+:root[data-theme="dark"] {
+  color-scheme: dark;
+  --hm-bg: #0a0e13;
+  --hm-surface: #10161d;
+  --hm-raised: #151c25;
+  --hm-line: #232d38;
+  --hm-fg: #e8eef4;
+  --hm-muted: #9aa8b6;
+  --hm-accent: #3fd8c2;
+  --hm-accent-strong: #6ee6d4;
+  --hm-on-accent: #04211d;
+  --hm-accent-soft: #0f2a28;
+  --hm-danger: #ff8a80;
+}
+
+/* Without JavaScript the theme attribute is never set, so fall back to the system preference. */
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme]) {
+    color-scheme: dark;
+    --hm-bg: #0a0e13;
+    --hm-surface: #10161d;
+    --hm-raised: #151c25;
+    --hm-line: #232d38;
+    --hm-fg: #e8eef4;
+    --hm-muted: #9aa8b6;
+    --hm-accent: #3fd8c2;
+    --hm-accent-strong: #6ee6d4;
+    --hm-on-accent: #04211d;
+    --hm-accent-soft: #0f2a28;
+    --hm-danger: #ff8a80;
+  }
+}
+
+@layer base {
+  html {
+    background-color: var(--hm-bg);
+    color: var(--hm-fg);
+    font-family: var(--font-sans);
+    -webkit-font-smoothing: antialiased;
+    text-rendering: optimizeLegibility;
+    scroll-padding-top: 5rem;
+  }
+
+  ::selection {
+    background-color: var(--hm-accent);
+    color: var(--hm-on-accent);
+  }
+
+  :focus-visible {
+    outline: 2px solid var(--hm-accent);
+    outline-offset: 3px;
+    border-radius: 4px;
+  }
+}
+
+@layer components {
+  .container-page {
+    margin-inline: auto;
+    width: 100%;
+    max-width: 72rem;
+    padding-inline: 1.25rem;
+  }
+
+  @media (min-width: 640px) {
+    .container-page {
+      padding-inline: 2rem;
+    }
+  }
+
+  .btn {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    gap: 0.5rem;
+    border-radius: 0.5rem;
+    padding: 0.7rem 1.15rem;
+    font-weight: 600;
+    font-size: 0.95rem;
+    line-height: 1.25rem;
+    transition:
+      background-color 150ms,
+      border-color 150ms,
+      color 150ms;
+  }
+
+  .btn-primary {
+    background-color: var(--hm-accent);
+    color: var(--hm-on-accent);
+  }
+
+  .btn-primary:hover {
+    background-color: var(--hm-accent-strong);
+  }
+
+  .btn-secondary {
+    border: 1px solid var(--hm-line);
+    background-color: var(--hm-raised);
+    color: var(--hm-fg);
+  }
+
+  .btn-secondary:hover {
+    border-color: var(--hm-muted);
+  }
+
+  .eyebrow {
+    font-family: var(--font-mono);
+    font-size: 0.78rem;
+    font-weight: 500;
+    letter-spacing: 0.06em;
+    text-transform: uppercase;
+    color: var(--hm-accent);
+  }
+
+  /* Long-form text on the legal pages. */
+  .prose-page {
+    max-width: 44rem;
+    line-height: 1.7;
+    color: var(--hm-fg);
+  }
+
+  .prose-page h2 {
+    margin-top: 2.5rem;
+    margin-bottom: 0.75rem;
+    font-size: 1.35rem;
+    font-weight: 650;
+    letter-spacing: -0.01em;
+  }
+
+  .prose-page h3 {
+    margin-top: 1.75rem;
+    margin-bottom: 0.5rem;
+    font-size: 1.05rem;
+    font-weight: 650;
+  }
+
+  .prose-page p,
+  .prose-page ul {
+    margin-top: 0.85rem;
+  }
+
+  .prose-page ul {
+    list-style: disc;
+    padding-left: 1.4rem;
+  }
+
+  .prose-page li + li {
+    margin-top: 0.35rem;
+  }
+
+  .prose-page a {
+    color: var(--hm-accent);
+    text-decoration: underline;
+    text-underline-offset: 3px;
+  }
+}

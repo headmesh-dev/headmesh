@@ -1,0 +1,28 @@
+---
+title: Self-hosting
+description: Run Headmesh, Headscale and the cell agent on your own servers.
+---
+
+Headmesh is designed to be self-hosted: the server, the cell agent and Headscale all run on infrastructure you
+control, and there's no closed control server in the loop.
+
+:::caution[Not released yet]
+The self-hosting guide will land with the first release. Until then, the deployment files and runbooks in the
+repository are the reference.
+:::
+
+## What you'll run
+
+- **headmesh-server**: the API, the sign-in service and background workers, backed by PostgreSQL.
+- **Headscale**: the open-source coordination server, one per cell.
+- **headmesh-cellagent**: runs beside each Headscale and connects out to the server, so Headscale's API stays
+  private.
+- A reverse proxy for TLS (the reference deployment uses Caddy).
+
+A single small VM can run all of it for a team.
+
+## Where to read more
+
+- [`deploy/`](https://github.com/headmesh-dev/headmesh/tree/main/deploy) in the repository: Compose files,
+  backup and recovery tooling.
+- [`docs/`](https://github.com/headmesh-dev/headmesh/tree/main/docs): architecture, ADRs and runbooks.

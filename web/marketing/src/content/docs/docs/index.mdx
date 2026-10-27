@@ -1,0 +1,28 @@
+---
+title: Headmesh documentation
+description: What Headmesh is, where it stands today and where to read more.
+---
+
+import { LinkCard, CardGrid } from "@astrojs/starlight/components";
+
+Headmesh is an open, self-hostable, multi-tenant control layer for private WireGuard meshes. It builds on
+[Headscale](https://github.com/juanfont/headscale) and the standard Tailscale clients, and adds what you need to
+share machines between people and organisations who don't fully trust each other: isolated workspaces, one-link
+onboarding, time-limited grants and sandboxes for AI agents.
+
+:::note[Early development]
+Headmesh hasn't had its first release yet. These pages are short on purpose and link to the
+[repository](https://github.com/headmesh-dev/headmesh), where the design and the code live. They'll grow as
+features ship. [Join the waitlist](/waitlist/) to hear when early access opens.
+:::
+
+<CardGrid>
+  <LinkCard title="Quickstart" href="/docs/quickstart/" description="How you'll get a device onto a Headmesh network." />
+  <LinkCard title="Concepts" href="/docs/concepts/" description="Workspaces, devices, rules, grants and cells." />
+  <LinkCard title="Self-hosting" href="/docs/self-hosting/" description="Run the whole stack on your own servers." />
+  <LinkCard
+    title="Repository docs"
+    href="https://github.com/headmesh-dev/headmesh/tree/main/docs"
+    description="Design notes, ADRs and runbooks."
+  />
+</CardGrid>

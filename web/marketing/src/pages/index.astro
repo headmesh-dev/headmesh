@@ -1,0 +1,227 @@
+---
+import { REPO_URL, XCELSIOR_URL } from "../../shared/site";
+import GitHubIcon from "../components/GitHubIcon.astro";
+import Icon, { type IconName } from "../components/Icon.astro";
+import MeshDiagram from "../components/MeshDiagram.astro";
+import Base from "../layouts/Base.astro";
+
+const features: { icon: IconName; title: string; body: string }[] = [
+  {
+    icon: "link",
+    title: "One-click onboarding",
+    body: "Invite a device, teammate or GPU with a single link or command. It joins the right network with the right permissions.",
+  },
+  {
+    icon: "layers",
+    title: "True multi-tenancy",
+    body: "Isolated workspaces with their own members, devices and rules. Other tenants' machines aren't just blocked, they're invisible.",
+  },
+  {
+    icon: "clock",
+    title: "Temporary access",
+    body: "Grant one machine or service for a set time. When the time is up, access revokes itself.",
+  },
+  {
+    icon: "bot",
+    title: "Agent sandboxes",
+    body: "Let cloud AI agents work on your real files and private services safely, in a scoped or full-access mode.",
+  },
+  {
+    icon: "server",
+    title: "Yours to run",
+    body: "Open source and self-hostable, with no closed control server between you and your machines.",
+  },
+];
+
+const agentPoints: { icon: IconName; title: string; body: string }[] = [
+  {
+    icon: "shield",
+    title: "Scoped by default",
+    body: "Agents see the folders you mount and the services you grant. Nothing else on your network is reachable.",
+  },
+  {
+    icon: "key",
+    title: "Full access only on purpose",
+    body: "Full-access mode is opt-in, time-limited and refuses to start without a recent backup. When it expires, the sandbox drops back to scoped mode.",
+  },
+  {
+    icon: "eye",
+    title: "Its own identity",
+    body: "The sandbox joins your mesh as a separate device with its own rules, never borrowing your workstation's access.",
+  },
+  {
+    icon: "check",
+    title: "Works with the agents you use",
+    body: "Reach it over MCP, SSH or a remote session from Claude Code, Codex and any MCP client.",
+  },
+];
+
+const parts = [
+  { name: "WireGuard", body: "Every connection is end-to-end encrypted with modern, audited cryptography." },
+  {
+    name: "Headscale",
+    body: "The open-source control server does the coordination. Headmesh drives it; it doesn't fork it.",
+  },
+  {
+    name: "Tailscale clients",
+    body: "Devices run the standard, open-source Tailscale client on every major platform.",
+  },
+];
+---
+
+<Base
+  title="Headmesh"
+  description="Headmesh builds on Headscale and WireGuard to give teams, renters and AI agents secure access to exactly the machines they need, and nothing else."
+>
+  <!-- Hero -->
+  <section class="relative overflow-hidden">
+    <div
+      class="pointer-events-none absolute inset-x-0 top-0 -z-10 h-[34rem] bg-[radial-gradient(60rem_28rem_at_70%_-10%,var(--hm-accent-soft),transparent)]"
+      aria-hidden="true"
+    >
+    </div>
+    <div class="container-page grid items-center gap-14 pt-16 pb-20 sm:pt-24 lg:grid-cols-[1.05fr_1fr] lg:gap-12">
+      <div>
+        <p class="eyebrow">Open source · Self-hostable · Built on Headscale</p>
+        <h1 class="mt-5 text-4xl leading-[1.08] font-bold tracking-tight text-balance sm:text-5xl lg:text-[3.6rem]">
+          Share machines, not your network.
+        </h1>
+        <p class="mt-6 max-w-xl text-lg leading-relaxed text-muted">
+          Headmesh builds on Headscale and WireGuard to give teams, renters and AI agents secure access to exactly the
+          machines they need, and nothing else.
+        </p>
+        <div class="mt-9 flex flex-wrap gap-3">
+          <a href="/waitlist/" class="btn btn-primary">
+            Join the waitlist
+            <Icon name="arrow" class="size-4" />
+          </a>
+          <a href={REPO_URL} class="btn btn-secondary">
+            <GitHubIcon class="size-4" />
+            Star on GitHub
+          </a>
+        </div>
+        <p class="mt-6 text-sm text-muted">In early development. Join the waitlist for early access.</p>
+      </div>
+      <div class="mx-auto w-full max-w-[34rem]">
+        <MeshDiagram />
+      </div>
+    </div>
+  </section>
+
+  <!-- Features -->
+  <section aria-labelledby="features-heading" class="border-t border-line bg-surface/60 py-20 sm:py-24">
+    <div class="container-page">
+      <div class="max-w-2xl">
+        <p class="eyebrow">What Headmesh adds</p>
+        <h2 id="features-heading" class="mt-4 text-3xl font-bold tracking-tight text-balance sm:text-4xl">
+          Tailscale-style networking, built for sharing.
+        </h2>
+        <p class="mt-4 text-lg leading-relaxed text-muted">
+          Headscale gives one organisation an open control server. Headmesh adds what you need to share machines
+          between people and organisations who don't fully trust each other: owners, renters, teammates and AI agents.
+        </p>
+      </div>
+      <ul class="mt-12 grid gap-5 sm:grid-cols-2 lg:grid-cols-6">
+        {
+          features.map((feature, i) => (
+            <li class:list={["rounded-xl border border-line bg-raised p-6", i < 3 ? "lg:col-span-2" : "lg:col-span-3"]}>
+              <span class="inline-flex size-10 items-center justify-center rounded-lg bg-accent-soft text-accent">
+                <Icon name={feature.icon} class="size-5" />
+              </span>
+              <h3 class="mt-5 text-lg font-semibold tracking-tight">{feature.title}</h3>
+              <p class="mt-2 leading-relaxed text-muted">{feature.body}</p>
+            </li>
+          ))
+        }
+      </ul>
+    </div>
+  </section>
+
+  <!-- Agent sandboxes -->
+  <section aria-labelledby="agents-heading" class="py-20 sm:py-28">
+    <div class="container-page grid gap-12 lg:grid-cols-[0.9fr_1.1fr] lg:gap-16">
+      <div>
+        <p class="eyebrow">Agent sandboxes</p>
+        <h2 id="agents-heading" class="mt-4 text-3xl font-bold tracking-tight text-balance sm:text-4xl">
+          Give your AI agents a real machine, not a toy sandbox.
+        </h2>
+        <p class="mt-5 text-lg leading-relaxed text-muted">
+          Cloud agents can't join a private mesh on their own. Headmesh runs a persistent sandbox on your hardware that
+          joins the mesh itself, so agents can work on your real files and private services without your network being
+          opened up to them.
+        </p>
+      </div>
+      <ul class="grid gap-x-8 gap-y-9 sm:grid-cols-2">
+        {
+          agentPoints.map((point) => (
+            <li>
+              <span class="inline-flex size-9 items-center justify-center rounded-lg border border-line text-accent">
+                <Icon name={point.icon} class="size-[18px]" />
+              </span>
+              <h3 class="mt-4 font-semibold tracking-tight">{point.title}</h3>
+              <p class="mt-1.5 leading-relaxed text-muted">{point.body}</p>
+            </li>
+          ))
+        }
+      </ul>
+    </div>
+  </section>
+
+  <!-- Proof -->
+  <section aria-labelledby="proof-heading" class="container-page">
+    <div class="rounded-2xl border border-line bg-surface p-8 sm:p-12">
+      <p class="eyebrow">First customer</p>
+      <h2 id="proof-heading" class="mt-4 text-3xl font-bold tracking-tight sm:text-4xl">Built for Xcelsior Compute</h2>
+      <p class="mt-5 max-w-3xl text-lg leading-relaxed text-muted">
+        Xcelsior Compute, a GPU marketplace, is the first production user of Headmesh. GPU owners and renters connect
+        through it without exposing anyone's home network: a renter reaches the one machine they rented, for as long as
+        the rental lasts, and nothing else.
+      </p>
+      <a
+        href={XCELSIOR_URL}
+        class="mt-7 inline-flex items-center gap-1.5 font-semibold text-accent underline-offset-4 hover:underline"
+      >
+        Visit Xcelsior Compute
+        <Icon name="arrow" class="size-4" />
+      </a>
+    </div>
+  </section>
+
+  <!-- Built on -->
+  <section aria-labelledby="parts-heading" class="container-page py-20 sm:py-24">
+    <h2 id="parts-heading" class="text-2xl font-bold tracking-tight sm:text-3xl">No new networking, no new crypto.</h2>
+    <p class="mt-3 max-w-2xl text-lg leading-relaxed text-muted">
+      Headmesh is a control layer. The parts that move your packets are proven, open and already everywhere.
+    </p>
+    <dl class="mt-10 grid gap-5 sm:grid-cols-3">
+      {
+        parts.map((part) => (
+          <div class="rounded-xl border border-line p-6">
+            <dt class="font-mono text-sm font-semibold text-accent">{part.name}</dt>
+            <dd class="mt-2 leading-relaxed text-muted">{part.body}</dd>
+          </div>
+        ))
+      }
+    </dl>
+  </section>
+
+  <!-- CTA -->
+  <section aria-labelledby="cta-heading" class="container-page">
+    <div class="flex flex-col items-start gap-8 border-t border-line pt-16 sm:flex-row sm:items-center sm:justify-between">
+      <div>
+        <h2 id="cta-heading" class="text-2xl font-bold tracking-tight sm:text-3xl">Be first on the mesh.</h2>
+        <p class="mt-2 text-lg text-muted">Get early access when it opens, or follow along on GitHub.</p>
+      </div>
+      <div class="flex flex-wrap gap-3">
+        <a href="/waitlist/" class="btn btn-primary">
+          Join the waitlist
+          <Icon name="arrow" class="size-4" />
+        </a>
+        <a href={REPO_URL} class="btn btn-secondary">
+          <GitHubIcon class="size-4" />
+          Star on GitHub
+        </a>
+      </div>
+    </div>
+  </section>
+</Base>

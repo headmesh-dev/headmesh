@@ -1,0 +1,40 @@
+---
+import { REPO_URL } from "../../shared/site";
+import Logo from "./Logo.astro";
+import ThemeToggle from "./ThemeToggle.astro";
+
+const path = Astro.url.pathname;
+---
+
+<header class="sticky top-0 z-40 border-b border-line/70 bg-bg/85 backdrop-blur supports-[backdrop-filter]:bg-bg/70">
+  <div class="container-page flex h-16 items-center justify-between gap-4">
+    <a href="/" class="flex items-center gap-2.5 font-semibold tracking-tight" aria-label="Headmesh home">
+      <Logo class="size-7 text-accent" />
+      <span class="text-[1.05rem]">Headmesh</span>
+    </a>
+    <nav aria-label="Main" class="flex items-center gap-1 sm:gap-2">
+      <a
+        href="/docs/"
+        class="rounded-md px-2.5 py-2 text-sm font-medium text-muted transition-colors hover:text-fg"
+        aria-current={path.startsWith("/docs") ? "page" : undefined}
+      >
+        Docs
+      </a>
+      <a
+        href={REPO_URL}
+        class="hidden rounded-md px-2.5 py-2 text-sm font-medium text-muted transition-colors hover:text-fg sm:inline-block"
+      >
+        GitHub
+      </a>
+      <a
+        href="/waitlist/"
+        class="btn btn-primary ml-1 px-3.5 py-2 text-sm whitespace-nowrap"
+        aria-current={path.startsWith("/waitlist") ? "page" : undefined}
+      >
+        <span class="sm:hidden">Waitlist</span>
+        <span class="hidden sm:inline">Join the waitlist</span>
+      </a>
+      <ThemeToggle />
+    </nav>
+  </div>
+</header>

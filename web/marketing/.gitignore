@@ -1,0 +1,7 @@
+# Build and tool output (the root .gitignore covers dist/, node_modules/, .astro/, .wrangler/ and test reports)
+.lighthouseci/
+blob-report/
+# Local Pages Functions secrets for `wrangler pages dev`; see .dev.vars.example
+.dev.vars
+.dev.vars.*
+!.dev.vars.example

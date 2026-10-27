@@ -1,0 +1,30 @@
+---
+title: Quickstart
+description: How a device joins a Headmesh network, and where to follow progress until the first release.
+---
+
+:::caution[Not released yet]
+There is no public release to install yet. This page describes the flow being built; the commands below won't
+work until the first release. Follow the [repository](https://github.com/headmesh-dev/headmesh) or
+[join the waitlist](/waitlist/) to hear when they do.
+:::
+
+## How joining will work
+
+1. An admin of a workspace creates an **invite** for a device or a teammate. Each invite has a role, a use limit
+   and an expiry.
+2. The invite comes with a join page and a one-line command for the device, along the lines of:
+
+   ```sh
+   npx @headmesh/cli join hmj_…
+   ```
+
+3. The CLI enrols the device with a single-use key that expires in minutes, starts the standard Tailscale client
+   pointed at your Headmesh network, and names the device after your workspace.
+4. The device appears in your workspace, and only the rules and grants you've set decide what it can reach.
+
+## Until then
+
+- Read the [concepts](/docs/concepts/) to see how workspaces, rules and grants fit together.
+- Browse the [repository docs](https://github.com/headmesh-dev/headmesh/tree/main/docs) for the design and the
+  current state of each component.
