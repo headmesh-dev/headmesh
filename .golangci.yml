@@ -42,7 +42,7 @@ linters:
         - errors.New(
         - errors.Unwrap(
         - errors.Join(
-        - connect.NewError( # constructs a protocol error; nothing to wrap
+        - connect/v2.NewError( # constructs a protocol error; nothing to wrap
   exclusions:
     generated: strict
     paths:
