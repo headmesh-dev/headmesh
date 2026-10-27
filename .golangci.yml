@@ -37,6 +37,12 @@ linters:
     wrapcheck:
       ignore-package-globs:
         - github.com/headmesh-dev/headmesh/*
+      ignore-sigs:
+        - .Errorf(
+        - errors.New(
+        - errors.Unwrap(
+        - errors.Join(
+        - connect.NewError( # constructs a protocol error; nothing to wrap
   exclusions:
     generated: strict
     paths:
