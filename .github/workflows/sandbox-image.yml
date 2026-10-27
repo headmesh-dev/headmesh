@@ -69,6 +69,9 @@ jobs:
           chmod +x cst
           ./cst test --image headmesh-sandbox:ci --config sandbox/image/container-structure-test.yaml
 
+      - name: Reclaim BuildKit cache before image scan
+        run: docker buildx prune --all --force
+
       - name: Trivy (fail on critical)
         run: |
           docker run --rm -v /var/run/docker.sock:/var/run/docker.sock:ro \
