@@ -1,0 +1,11 @@
+#!/bin/bash
+# Claude Remote Control (longrun, agent; plan §7.2). Supervises the tmux window
+# headmesh:rc rather than the claude process itself, because Remote Control
+# needs a TTY.
+exec 2>&1
+HM_SVC=claude-rc
+# shellcheck source=../../scripts/lib.sh
+. /etc/s6-overlay/scripts/lib.sh
+hm_enabled claude-rc || hm_idle "not enabled (sandbox.toml [entrypoints])"
+hm_agent_env
+exec s6-setuidgid agent /etc/s6-overlay/scripts/claude-rc-loop

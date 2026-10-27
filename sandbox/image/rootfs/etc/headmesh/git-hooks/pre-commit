@@ -1,0 +1,30 @@
+#!/usr/bin/env bash
+# Global pre-commit (plan §6.9, §6.10):
+#   1. gitleaks scan of the staged changes;
+#   2. repo_lock = "enforce": refuse while another live agent holds the repo lock;
+#   3. chain to the repository's own pre-commit hook.
+set -euo pipefail
+HM_HOOK=pre-commit
+# shellcheck source=lib.sh
+. /etc/headmesh/git-hooks/lib.sh
+
+if [[ ${HEADMESH_SKIP_GITLEAKS:-} != 1 ]] && command -v gitleaks >/dev/null 2>&1; then
+	if ! gitleaks git --pre-commit --staged --redact --no-banner --log-level warn; then
+		hm_hook_fail "gitleaks found a possible secret in the staged changes. Remove it, or mark a false positive with a 'gitleaks:allow' comment, then commit again."
+	fi
+fi
+
+if [[ $(hm_runtime HEADMESH_REPO_LOCK) == enforce ]]; then
+	lock="$(git rev-parse --git-common-dir)/headmesh-agent.lock"
+	if [[ -f $lock ]]; then
+		holder=$(jq -r '.agent_id // empty' "$lock" 2>/dev/null || true)
+		heartbeat=$(jq -r '.heartbeat_unix // 0' "$lock" 2>/dev/null || echo 0)
+		age=$(($(date +%s) - heartbeat))
+		if [[ -n $holder && $holder != "${HEADMESH_AGENT_ID:-}" && $age -lt 120 ]]; then
+			who=$(jq -r '"\(.agent // "agent") (task: \(.task // "?"))"' "$lock" 2>/dev/null || echo "$holder")
+			hm_hook_fail "repo_lock=enforce and $who holds this repository (heartbeat ${age}s ago). Ask Aaryn, or wait until it releases the lock."
+		fi
+	fi
+fi
+
+hm_chain "$@"

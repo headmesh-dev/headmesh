@@ -1,0 +1,8 @@
+#!/bin/bash
+# tmux server (longrun, agent; plan §6.7): foreground server on socket `headmesh`.
+exec 2>&1
+HM_SVC=tmux
+# shellcheck source=../../scripts/lib.sh
+. /etc/s6-overlay/scripts/lib.sh
+hm_agent_env
+exec s6-setuidgid agent tmux -D -L headmesh -f /etc/headmesh/tmux.conf

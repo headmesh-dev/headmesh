@@ -1,0 +1,137 @@
+# Sandbox image: build, lint, test, scan; on sandbox-v* tags also push to GHCR and sign
+# (plan §6.2 build checks, §3.3 CI security). Every action is pinned by commit SHA.
+name: sandbox-image
+
+on:
+  pull_request:
+    paths:
+      - "sandbox/**"
+      - ".github/workflows/sandbox-image.yml"
+  push:
+    branches: [main]
+    paths:
+      - "sandbox/**"
+      - ".github/workflows/sandbox-image.yml"
+    tags: ["sandbox-v*"]
+  workflow_dispatch:
+
+permissions: {}
+
+concurrency:
+  group: sandbox-image-${{ github.ref }}
+  cancel-in-progress: ${{ github.event_name == 'pull_request' }}
+
+env:
+  IMAGE: ghcr.io/headmesh-dev/sandbox
+  # Tool images and binaries, pinned.
+  HADOLINT_IMAGE: hadolint/hadolint:v2.15.1@sha256:32dac94127fd60b7b7e3fbfc65e1383b9b5e25c9bfd7b8536de7a539fe68a12d
+  TRIVY_IMAGE: aquasec/trivy:0.76.1@sha256:790fd66d1697395d8693d1acaa1ea702406a20f109b6fc7bac8db623eca6c06c
+  CST_VERSION: v1.22.1
+  CST_SHA256: fa35e89512a8978585f76cf41397956d2e3a30c62c2ad3fb857b1597074d14ca
+
+jobs:
+  build-test:
+    name: build, lint, test, scan
+    runs-on: ubuntu-latest
+    timeout-minutes: 60
+    permissions:
+      contents: read
+    steps:
+      - name: Checkout
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+
+      - name: Lint Dockerfile (hadolint)
+        run: |
+          docker run --rm -i \
+            -v "$PWD/sandbox/image/.hadolint.yaml:/hadolint.yaml:ro" \
+            "$HADOLINT_IMAGE" hadolint --config /hadolint.yaml - < sandbox/image/Dockerfile
+
+      - name: Set up Buildx
+        uses: docker/setup-buildx-action@f87e5991a6d7451dcb8d9637bfbc97413f497069 # v4.4.1
+
+      - name: Build (load for tests)
+        uses: docker/bake-action@59cb1203cd42bcefd40a1b6d73b589e48c86040e # v7.5.0
+        env:
+          VERSION: ci
+          REVISION: ${{ github.sha }}
+          GITHUB_TOKEN: ${{ github.token }}
+        with:
+          source: .
+          files: sandbox/image/docker-bake.hcl
+          targets: sandbox-ci
+
+      - name: container-structure-test
+        run: |
+          curl -fsSLo cst "https://github.com/GoogleContainerTools/container-structure-test/releases/download/${CST_VERSION}/container-structure-test-linux-amd64"
+          echo "${CST_SHA256}  cst" | sha256sum -c -
+          chmod +x cst
+          ./cst test --image headmesh-sandbox:ci --config sandbox/image/container-structure-test.yaml
+
+      - name: Trivy (fail on critical)
+        run: |
+          docker run --rm -v /var/run/docker.sock:/var/run/docker.sock:ro \
+            "$TRIVY_IMAGE" image --scanners vuln --severity CRITICAL --ignore-unfixed \
+            --exit-code 1 --no-progress headmesh-sandbox:ci
+
+  publish:
+    name: push and sign
+    if: startsWith(github.ref, 'refs/tags/sandbox-v')
+    needs: build-test
+    runs-on: ubuntu-latest
+    timeout-minutes: 60
+    permissions:
+      contents: read
+      packages: write
+      id-token: write # cosign keyless signing
+    steps:
+      - name: Checkout
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+
+      - name: Set up Buildx
+        uses: docker/setup-buildx-action@f87e5991a6d7451dcb8d9637bfbc97413f497069 # v4.4.1
+
+      - name: Log in to GHCR
+        uses: docker/login-action@81c6f93d4bc991e510b342a00b419b3bb4efc5c6 # v4.7.0
+        with:
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Version from tag
+        id: version
+        env:
+          REF_NAME: ${{ github.ref_name }}
+        run: |
+          version="${REF_NAME#sandbox-v}"
+          [[ $version =~ ^[0-9]+\.[0-9]+\.[0-9]+(-[0-9A-Za-z.-]+)?$ ]] || { echo "bad tag: $REF_NAME" >&2; exit 1; }
+          echo "version=$version" >> "$GITHUB_OUTPUT"
+          echo "created=$(git log -1 --format=%cI)" >> "$GITHUB_OUTPUT"
+
+      - name: Build and push
+        id: bake
+        uses: docker/bake-action@59cb1203cd42bcefd40a1b6d73b589e48c86040e # v7.5.0
+        env:
+          VERSION: ${{ steps.version.outputs.version }}
+          REVISION: ${{ github.sha }}
+          CREATED: ${{ steps.version.outputs.created }}
+          GITHUB_TOKEN: ${{ github.token }}
+        with:
+          source: .
+          files: sandbox/image/docker-bake.hcl
+          targets: sandbox
+
+      - name: Install cosign
+        uses: sigstore/cosign-installer@6f9f17788090df1f26f669e9d70d6ae9567deba6 # v4.1.2
+
+      - name: Sign the image (keyless)
+        env:
+          METADATA: ${{ steps.bake.outputs.metadata }}
+        run: |
+          digest=$(jq -r '.sandbox["containerimage.digest"]' <<<"$METADATA")
+          [[ $digest == sha256:* ]] || { echo "no digest in bake metadata" >&2; exit 1; }
+          cosign sign --yes "${IMAGE}@${digest}"
+          echo "Signed ${IMAGE}@${digest}" >> "$GITHUB_STEP_SUMMARY"

@@ -1,0 +1,11 @@
+[Unit]
+Description=Nightly Headmesh home backup
+
+[Timer]
+OnCalendar=*-*-* 03:15:00
+RandomizedDelaySec=15min
+# The ASUS is a laptop: run at the next boot if a night was missed.
+Persistent=true
+
+[Install]
+WantedBy=timers.target

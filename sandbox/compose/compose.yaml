@@ -1,0 +1,88 @@
+# Headmesh agent sandbox (plan §6.3).
+#
+# Don't run this file by hand: `headmesh-sandbox up` renders
+# compose.override.generated.yaml from sandbox.toml (mounts, masks, mode
+# environment, GPU) and passes the secrets through the environment of the
+# `docker compose` process only. Compose then copies each secret into the
+# container as /run/secrets/<name>, root:root 0400 (spike T-1).
+#
+# One container per mode, never both at once. No published ports: sandboxd is
+# reached over the tailnet, and from the host through ${root}/run/sandboxd.sock.
+# Never host networking: the container must not inherit the host's tailnet
+# identity or wg-backdoor.
+name: headmesh-sandbox
+
+x-base: &base
+  image: ${HEADMESH_SANDBOX_IMAGE:?run headmesh-sandbox up, which sets the image from sandbox.toml}
+  init: false # s6-overlay is PID 1
+  cap_drop: [ALL]
+  # tailscaled (NET_ADMIN, NET_RAW), s6-setuidgid/setpriv (SETUID, SETGID),
+  # secrets-init (CHOWN, DAC_OVERRIDE), s6 signalling (KILL).
+  cap_add: [NET_ADMIN, NET_RAW, SETUID, SETGID, CHOWN, DAC_OVERRIDE, KILL]
+  security_opt: ["no-new-privileges:true"]
+  devices: ["/dev/net/tun:/dev/net/tun"]
+  stop_signal: SIGTERM
+  stop_grace_period: 90s # the Claude runner needs ≥ 80 s to drain
+  ulimits:
+    nofile: { soft: 65536, hard: 65536 }
+  logging:
+    driver: local
+    options: { max-size: "20m", max-file: "5" }
+  secrets: [ts_authkey, github_token, claude_env_secret, openai_tunnel_key]
+  volumes:
+    - hm-cache-mise:/cache/mise
+    - hm-cache-uv:/cache/uv
+    - hm-cache-npm:/cache/npm
+    - hm-cache-pnpm:/cache/pnpm
+    - hm-cache-go:/cache/go
+    - hm-cache-cargo:/cache/cargo
+  healthcheck:
+    test: ["CMD", "headmesh-sandboxd", "health", "--timeout", "5s"]
+    interval: 30s
+    timeout: 10s
+    start_period: 2m
+    retries: 3
+
+services:
+  sandbox: # Regular (the default)
+    <<: *base
+    profiles: [regular]
+    container_name: headmesh-sandbox
+    restart: unless-stopped
+    networks:
+      hm-sbx: { ipv4_address: 172.31.250.10 }
+
+  sandbox-yolo: # YOLO (opt-in, never restarts by itself; yolo-ttl halts it)
+    <<: *base
+    profiles: [yolo]
+    container_name: headmesh-sandbox-yolo
+    restart: "no"
+    networks:
+      hm-sbx: { ipv4_address: 172.31.250.11 }
+
+networks:
+  hm-sbx:
+    name: hm-sbx
+    driver: bridge
+    driver_opts:
+      # Must start with "br": the host's DOCKER-USER chain only passes br+ bridges.
+      com.docker.network.bridge.name: br-hm-sbx0
+      com.docker.network.bridge.enable_icc: "false"
+    ipam:
+      config:
+        - subnet: 172.31.250.0/24
+          gateway: 172.31.250.1
+
+secrets:
+  ts_authkey: { environment: HM_SECRET_TS_AUTHKEY }
+  github_token: { environment: HM_SECRET_GITHUB_TOKEN }
+  claude_env_secret: { environment: HM_SECRET_CLAUDE_ENV_SECRET }
+  openai_tunnel_key: { environment: HM_SECRET_OPENAI_TUNNEL_KEY }
+
+volumes:
+  hm-cache-mise: {}
+  hm-cache-uv: {}
+  hm-cache-npm: {}
+  hm-cache-pnpm: {}
+  hm-cache-go: {}
+  hm-cache-cargo: {}

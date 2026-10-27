@@ -1,0 +1,25 @@
+#!/bin/bash
+# runner-backoff: called by claude-runner/run before exec'ing the runner. The
+# runner exits after its sessions end (normal, restart at once); fast failures
+# back off 5 s, 10 s, ... up to 300 s so a bad secret can't hammer the API.
+HM_SVC=claude-runner
+# shellcheck source=lib.sh
+. /etc/s6-overlay/scripts/lib.sh
+state=$HM_STATE_DIR/claude-runner.backoff
+last=$HM_STATE_DIR/claude-runner.last-exit
+delay=0
+if [[ -r $last ]]; then
+	read -r started ended code <"$last" || true
+	if [[ ${code:-0} != 0 && $((${ended:-0} - ${started:-0})) -lt 30 ]]; then
+		delay=$(cat "$state" 2>/dev/null || echo 0)
+		delay=$((delay == 0 ? 5 : delay * 2))
+		((delay > 300)) && delay=300
+	fi
+fi
+echo "$delay" >"$state"
+if ((delay > 0)); then
+	hm_state backoff "last run failed quickly (exit ${code:-?}); retrying in ${delay}s"
+	hm_log "backing off ${delay}s"
+	sleep "$delay"
+fi
+date +%s >"$HM_STATE_DIR/claude-runner.started"

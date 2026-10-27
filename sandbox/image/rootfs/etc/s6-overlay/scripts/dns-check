@@ -1,0 +1,11 @@
+#!/bin/bash
+# dns-check (oneshot, agent; plan §6.6 pitfall 3). The check itself is in
+# headmesh-sandboxd; it writes /run/headmesh/dns-check.json, which feeds health.
+# A failed check must not stop the container, so this always exits 0.
+HM_SVC=dns-check
+# shellcheck source=lib.sh
+. /etc/s6-overlay/scripts/lib.sh
+hm_agent_env
+s6-setuidgid agent headmesh-sandboxd dns-check --out /run/headmesh/dns-check.json \
+	|| hm_log "dns-check exited $?"
+exit 0

@@ -65,8 +65,9 @@ masks = [
 # Denylist entries (as written in the denylist, for example "~/.config/gh")
 # that you deliberately allow. Leave empty unless you know why.
 allow_secrets = []
-# Extra paths to treat like the built-in secret denylist.
-extra_denylist = []
+# Extra paths to treat like the built-in secret denylist. The backup tree is
+# listed so YOLO can't read (or, through a writable home, delete) the backups.
+extra_denylist = ["/mnt/storage/backups"]
 
 [mode.regular]
 hostname = "asus-sandbox"

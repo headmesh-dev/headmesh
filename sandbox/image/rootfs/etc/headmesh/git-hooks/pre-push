@@ -1,0 +1,44 @@
+#!/usr/bin/env bash
+# Global pre-push (plan §6.9): the client-side "never force-push main".
+#   - refuses while a rebase or merge is in progress;
+#   - refuses deleting main/master;
+#   - refuses non-fast-forward updates of main/master;
+# then chains to the repository's own pre-push hook with the same stdin.
+set -euo pipefail
+HM_HOOK=pre-push
+# shellcheck source=lib.sh
+. /etc/headmesh/git-hooks/lib.sh
+
+git_dir=$(git rev-parse --git-dir)
+if [[ -d $git_dir/rebase-merge || -d $git_dir/rebase-apply ]]; then
+	hm_hook_fail "a rebase is in progress; finish it (git rebase --continue) or abort it before pushing."
+fi
+if [[ -f $git_dir/MERGE_HEAD ]]; then
+	hm_hook_fail "a merge is in progress; commit or abort it before pushing."
+fi
+
+# All-zero object name of the repository's hash length (SHA-1 or SHA-256).
+zero=$(git hash-object --stdin </dev/null | tr '0-9a-f' '0')
+updates=$(cat)
+
+while read -r local_ref local_sha remote_ref remote_sha; do
+	[[ -z ${local_ref:-} ]] && continue
+	case $remote_ref in
+	refs/heads/main | refs/heads/master) ;;
+	*) continue ;;
+	esac
+	branch=${remote_ref#refs/heads/}
+	if [[ $local_sha == "$zero" ]]; then
+		hm_hook_fail "refusing to delete $branch on the remote."
+	fi
+	if [[ $remote_sha != "$zero" ]]; then
+		if ! git cat-file -e "${remote_sha}^{commit}" 2>/dev/null; then
+			hm_hook_fail "the remote $branch has commits you don't have. Run 'git pull --rebase' and push again."
+		fi
+		if ! git merge-base --is-ancestor "$remote_sha" "$local_sha"; then
+			hm_hook_fail "non-fast-forward push to $branch refused (no force-push to $branch). Run 'git pull --rebase' and push again."
+		fi
+	fi
+done <<<"$updates"
+
+hm_chain "$@" <<<"$updates"

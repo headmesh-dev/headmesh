@@ -1,0 +1,11 @@
+// Optional polkit rule: lets the user aaryn start (and stop) the home backup unit
+// without sudo, so `headmesh-sandbox backup` can trigger it before `up --yolo`.
+// Install: sudo install -m 0644 50-headmesh-home-backup.rules /etc/polkit-1/rules.d/
+polkit.addRule(function (action, subject) {
+    if (action.id == "org.freedesktop.systemd1.manage-units" &&
+        subject.user == "aaryn" &&
+        (action.lookup("unit") == "headmesh-home-backup.service") &&
+        (action.lookup("verb") == "start" || action.lookup("verb") == "stop")) {
+        return polkit.Result.YES;
+    }
+});

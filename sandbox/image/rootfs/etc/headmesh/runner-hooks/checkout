@@ -1,0 +1,4 @@
+#!/bin/sh
+# claude self-hosted-runner lifecycle hook (plan §7.1). Runs as root with the
+# runner's CLAUDE_RUNNER_* environment; the logic lives in headmesh-sandboxd.
+exec /usr/local/bin/headmesh-sandboxd runner-hook checkout

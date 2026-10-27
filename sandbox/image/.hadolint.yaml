@@ -1,0 +1,11 @@
+# hadolint config for sandbox/image/Dockerfile (plan §6.2 build checks).
+failure-threshold: warning
+ignored:
+  # DL3008 "pin versions in apt-get install": the base image is pinned by digest and
+  # packages come from the resolute archive plus resolute-updates/security. Pinning
+  # each deb version would break the build on every Ubuntu security update and
+  # block the fixes trivy asks for. Renovate bumps the base digest instead.
+  - DL3008
+trustedRegistries:
+  - docker.io
+  - ghcr.io

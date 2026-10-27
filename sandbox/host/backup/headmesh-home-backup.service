@@ -1,0 +1,28 @@
+# Headmesh: nightly restic snapshot of the host home directory (plan §6.12).
+# A snapshot under 24 h old is required before `headmesh-sandbox up --yolo`.
+[Unit]
+Description=Headmesh restic backup of /home/aaryn
+Documentation=file:///mnt/storage/projects/headmesh/sandbox/host/README.md
+RequiresMountsFor=/home/aaryn /mnt/storage/backups
+ConditionPathExists=/etc/headmesh/restic.pass
+
+[Service]
+Type=oneshot
+ExecStart=/usr/local/sbin/headmesh-home-backup backup
+Nice=10
+IOSchedulingClass=idle
+CPUSchedulingPolicy=batch
+CacheDirectory=headmesh-restic
+Environment=RESTIC_CACHE_DIR=/var/cache/headmesh-restic
+TimeoutStartSec=6h
+NoNewPrivileges=yes
+PrivateTmp=yes
+ProtectSystem=strict
+ProtectHome=read-only
+ReadWritePaths=/mnt/storage/backups/restic-home -/mnt/storage/headmesh/sandbox/state
+PrivateNetwork=yes
+CapabilityBoundingSet=CAP_DAC_READ_SEARCH CAP_DAC_OVERRIDE CAP_CHOWN CAP_FOWNER
+RestrictAddressFamilies=AF_UNIX
+LockPersonality=yes
+RestrictRealtime=yes
+SystemCallArchitectures=native

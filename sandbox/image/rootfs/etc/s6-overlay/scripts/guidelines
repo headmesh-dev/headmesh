@@ -1,0 +1,13 @@
+#!/bin/bash
+# guidelines (oneshot, agent; plan §6.10): render ~/.claude/CLAUDE.md,
+# ~/.codex/AGENTS.md and the shell banner with the active mode.
+HM_SVC=guidelines
+# shellcheck source=lib.sh
+. /etc/s6-overlay/scripts/lib.sh
+hm_agent_env
+s6-setuidgid agent headmesh-sandboxd guidelines render \
+	--template /etc/headmesh/agent-guidelines.md.tmpl \
+	--home /home/agent \
+	--banner-out /run/headmesh/banner \
+	|| hm_log "guidelines render exited $?"
+exit 0

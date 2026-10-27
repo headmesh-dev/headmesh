@@ -1,0 +1,45 @@
+#!/bin/bash
+# claude-rc supervisor loop (runs as agent; plan §7.2, spike T-2).
+# Remote Control needs a TTY, so it lives in the tmux window `rc` of the session
+# `headmesh`. The loop creates the window, respawns the pane when Remote Control
+# exits (e.g. after ~10 minutes offline) and waits for the first interactive login.
+set -uo pipefail
+HM_SVC=claude-rc
+# shellcheck source=lib.sh
+. /etc/s6-overlay/scripts/lib.sh
+
+tm() { tmux -L headmesh "$@"; }
+name=${TS_HOSTNAME:-$(hostname)}
+workdir=${HEADMESH_RC_DIR:-/home/agent}
+cmd="claude remote-control --name ${name} --spawn same-dir --capacity ${HEADMESH_RC_CAPACITY:-4}"
+
+failures=0
+while :; do
+	if [[ ! -s $HOME/.claude/.credentials.json ]]; then
+		hm_state waiting "needs the one-time login: headmesh sandbox shell, then claude auth login and enable Remote Control"
+		sleep 60
+		continue
+	fi
+	if ! tm has-session -t headmesh 2>/dev/null; then
+		tm new-session -d -s headmesh -n main -c /home/agent 2>/dev/null || true
+	fi
+	pane=$(tm list-panes -t headmesh:rc -F '#{pane_dead} #{pane_dead_status}' 2>/dev/null | head -1)
+	delay=30
+	if [[ -z $pane ]]; then
+		hm_log "starting Remote Control in tmux window rc"
+		tm new-window -d -t headmesh: -n rc -c "$workdir" "$cmd" || true
+		hm_state starting "tmux window headmesh:rc"
+	elif [[ ${pane%% *} == 1 ]]; then
+		failures=$((failures + 1))
+		# Back off while it keeps failing (logged out, offline): 30 s, 60 s, ... 600 s.
+		delay=$((30 << (failures > 5 ? 5 : failures - 1)))
+		((delay > 600)) && delay=600
+		hm_log "Remote Control exited (status ${pane#* }); respawning, next check in ${delay}s"
+		tm respawn-pane -k -t headmesh:rc -c "$workdir" "$cmd" || true
+		hm_state restarting "Remote Control exited with status ${pane#* } (${failures}x); respawned"
+	else
+		failures=0
+		hm_state running "tmux window headmesh:rc"
+	fi
+	sleep "$delay"
+done

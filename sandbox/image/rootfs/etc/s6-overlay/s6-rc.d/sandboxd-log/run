@@ -1,0 +1,5 @@
+#!/bin/sh
+# s6-log for sandboxd: /var/log/headmesh/sandboxd, rotate at 10 MB, keep 10, ISO 8601 timestamps.
+mkdir -p /var/log/headmesh/sandboxd
+chown agent:agent /var/log/headmesh/sandboxd
+exec s6-setuidgid agent s6-log n10 s10000000 T /var/log/headmesh/sandboxd

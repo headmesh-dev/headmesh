@@ -1,0 +1,4 @@
+#!/bin/sh
+# Record how the runner ended; runner-backoff decides the next start delay.
+started=$(cat /run/hm-state/claude-runner.started 2>/dev/null || echo 0)
+echo "$started $(date +%s) $1" >/run/hm-state/claude-runner.last-exit

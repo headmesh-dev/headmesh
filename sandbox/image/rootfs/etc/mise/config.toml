@@ -1,0 +1,17 @@
+# System-wide mise config for the sandbox image (plan §6.2).
+# The image bakes these versions with `mise install --system` into
+# /usr/local/share/mise/installs; projects can still pin their own versions
+# through mise.toml, which install into MISE_DATA_DIR=/cache/mise.
+[tools]
+node = "24.16.0"
+python = "3.14.4"
+uv = "0.12.24"
+go = "1.26.8"
+pnpm = "10.34.9"
+gh = "2.103.3"
+
+[settings]
+# Use python-build-standalone binaries; never compile CPython in the image.
+python.compile = false
+# Root installs system toolchains at build time; there is no sudo in the image.
+system_packages.sudo = false

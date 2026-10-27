@@ -1,0 +1,14 @@
+#!/bin/bash
+# headmesh-sandboxd (longrun, agent; plan §6.8): MCP on :8780 and the unix socket
+# the host CLI uses. Ready when `headmesh-sandboxd health` passes.
+exec 2>&1
+HM_SVC=sandboxd
+# shellcheck source=../../scripts/lib.sh
+. /etc/s6-overlay/scripts/lib.sh
+hm_agent_env
+exec s6-notifyoncheck -d -3 3 -n 0 -w 500 -t 4000 \
+	-c "redirfd -w 1 /dev/null headmesh-sandboxd health --timeout 3s" \
+	s6-setuidgid agent headmesh-sandboxd serve \
+	--config "${HEADMESH_SANDBOX_CONFIG:-/etc/headmesh/config/sandbox.toml}" \
+	--listen :8780 \
+	--unix /run/headmesh/sandboxd.sock

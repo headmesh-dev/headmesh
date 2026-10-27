@@ -1,0 +1,37 @@
+# Headmesh agent sandbox: host egress firewall (plan §6.5).
+# Installs nftables table `inet headmesh_sbx`, hooked before the iptables-nft
+# chains of Docker, ufw and Xcelsior. See sandbox/host/README.md.
+[Unit]
+Description=Headmesh sandbox egress firewall (nftables table inet headmesh_sbx)
+Documentation=file:///mnt/storage/projects/headmesh/sandbox/host/README.md
+# Load the table before Docker starts any container (restart: unless-stopped),
+# and after the tools that restore their own rulesets at boot.
+Before=docker.service
+After=network-pre.target nftables.service netfilter-persistent.service ufw.service
+Wants=network-pre.target
+# Restarted (rules re-applied) whenever docker.service restarts.
+PartOf=docker.service
+ConditionPathExists=/etc/headmesh/sandbox-firewall.conf
+
+[Service]
+Type=oneshot
+RemainAfterExit=yes
+ExecStart=/usr/local/sbin/headmesh-sandbox-firewall apply
+ExecReload=/usr/local/sbin/headmesh-sandbox-firewall apply
+# No ExecStop: the table stays loaded when Docker stops, so a container that
+# Docker restarts on its own is never briefly unfiltered. Remove it explicitly
+# with `headmesh-sandbox-firewall remove`.
+NoNewPrivileges=yes
+ProtectSystem=strict
+ProtectHome=read-only
+PrivateTmp=yes
+ReadWritePaths=/run
+CapabilityBoundingSet=CAP_NET_ADMIN CAP_NET_RAW CAP_DAC_READ_SEARCH
+RestrictAddressFamilies=AF_NETLINK AF_UNIX AF_INET AF_INET6
+LockPersonality=yes
+MemoryDenyWriteExecute=yes
+RestrictRealtime=yes
+SystemCallArchitectures=native
+
+[Install]
+WantedBy=multi-user.target docker.service

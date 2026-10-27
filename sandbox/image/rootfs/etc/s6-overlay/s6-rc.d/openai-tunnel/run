@@ -1,0 +1,20 @@
+#!/bin/bash
+# OpenAI Secure MCP Tunnel client (longrun, hmtunnel; plan §7.4). Runs as its own
+# user so `agent` can't read the runtime key. Outbound only; health and the admin
+# UI stay on 127.0.0.1:8082.
+exec 2>&1
+HM_SVC=openai-tunnel
+# shellcheck source=../../scripts/lib.sh
+. /etc/s6-overlay/scripts/lib.sh
+hm_enabled openai-tunnel || hm_idle "not enabled (sandbox.toml [entrypoints])"
+[[ -s /run/hm-secrets/openai_tunnel_key ]] || hm_idle "no runtime key (secrets/openai_tunnel_key)"
+[[ -n ${HEADMESH_OPENAI_TUNNEL_ID:-} ]] || hm_idle "no tunnel id (sandbox.toml [entrypoints.openai_tunnel] tunnel_id)"
+hm_owned_dir /run/hm-tunnel 0700 hmtunnel
+hm_state running "tunnel ${HEADMESH_OPENAI_TUNNEL_ID}; health on 127.0.0.1:8082"
+export HOME=/run/hm-tunnel XDG_CONFIG_HOME=/run/hm-tunnel
+exec s6-setuidgid hmtunnel tunnel-client run \
+	--profile-dir /etc/headmesh/tunnel \
+	--profile sandbox \
+	--control-plane.tunnel-id "$HEADMESH_OPENAI_TUNNEL_ID" \
+	--control-plane.api-key file:/run/hm-secrets/openai_tunnel_key \
+	--health.url-file /run/hm-tunnel/health.url

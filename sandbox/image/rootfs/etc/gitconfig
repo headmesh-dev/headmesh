@@ -1,0 +1,27 @@
+# System git config for the sandbox (plan §6.9). ~/.gitconfig in the persistent
+# agent home can override anything here.
+[core]
+	hooksPath = /etc/headmesh/git-hooks
+[init]
+	defaultBranch = main
+[pull]
+	rebase = true
+[rebase]
+	autoStash = true
+[fetch]
+	prune = true
+[push]
+	autoSetupRemote = true
+[rerere]
+	enabled = false
+[credential "https://github.com"]
+	helper =
+	helper = /usr/local/libexec/headmesh/git-credential-headmesh
+# Written at container start by the secrets-init service:
+#   identity.gitconfig  user.name / user.email from sandbox.toml [git]
+#   mode.gitconfig      Regular: rewrite SSH GitHub URLs to HTTPS (token auth)
+#                       YOLO:    use the dedicated deploy key over SSH
+# Missing include files are ignored by git.
+[include]
+	path = /run/hm-git/identity.gitconfig
+	path = /run/hm-git/mode.gitconfig

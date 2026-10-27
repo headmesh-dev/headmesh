@@ -1,0 +1,91 @@
+#!/bin/bash
+# tailscale-up (oneshot, root; plan §6.6). Auth-once:
+#   - node already has an identity  -> only re-apply prefs with `tailscale set`;
+#   - never enrolled and a key file -> `tailscale up --auth-key=file:...` once;
+#   - no key                         -> stay logged out (non-network services still run).
+# Never resets or force-reauthenticates the node. The tagged pre-auth key carries the node's
+# tags: Headscale v0.29.6 rejects advertising tags together with a tagged key
+# (spike T-8), so TS_TAGS is only compared with the enrolled tags. Always exits 0
+# so a tailnet problem can't stop the container; the result goes to
+# /run/hm-state/tailscale-up.json.
+set -uo pipefail
+HM_SVC=tailscale-up
+# shellcheck source=lib.sh
+. /etc/s6-overlay/scripts/lib.sh
+
+ts() { tailscale --socket="$TS_SOCKET" "$@"; }
+
+# check_tags: warn (state "degraded") when the node's tags differ from TS_TAGS.
+check_tags() {
+	[[ -n ${TS_TAGS:-} ]] || return 0
+	local want have
+	want=$(tr ',' '\n' <<<"$TS_TAGS" | sed '/^$/d' | sort | paste -sd, -)
+	have=$(ts status --json --peers=false 2>/dev/null | jq -r '(.Self.Tags // []) | sort | join(",")')
+	if [[ $want != "$have" ]]; then
+		hm_log "warning: node tags are [${have:-none}], TS_TAGS wants [$want]; fix the pre-auth key or the node's tags in Headscale"
+		hm_state degraded "node tags [${have:-none}] differ from TS_TAGS [$want]"
+		return 1
+	fi
+	return 0
+}
+key_file=/run/secrets/ts_authkey
+marker=/var/lib/tailscale/.headmesh-enrolled
+hostname=${TS_HOSTNAME:-$(hostname)}
+
+backend=$(ts status --json --peers=false 2>/dev/null | jq -r '.BackendState // empty')
+hm_log "backend state: ${backend:-unknown}"
+
+case $backend in
+Running | Starting)
+	if ts set --hostname="$hostname" --accept-dns=true --accept-routes=false --ssh=true; then
+		hm_state running "already enrolled; prefs re-applied"
+		check_tags
+	else
+		hm_state degraded "tailscale set failed"
+	fi
+	touch "$marker"
+	exit 0
+	;;
+esac
+
+if [[ -e $marker ]]; then
+	# Enrolled before but logged out now (key expiry, node deleted). Re-auth is a
+	# deliberate operator action, never automatic.
+	hm_state needs-reauth "node was enrolled but is logged out; re-enroll with 'headmesh-sandbox' (see README)"
+	hm_log "node was enrolled before but is logged out; not re-authenticating automatically"
+	exit 0
+fi
+
+if [[ ! -s $key_file ]]; then
+	hm_state not-enrolled "no auth key; tailscaled stays logged out"
+	hm_log "no auth key; tailscaled stays logged out"
+	exit 0
+fi
+
+if [[ -z ${TS_LOGIN_SERVER:-} ]]; then
+	hm_state error "TS_LOGIN_SERVER is not set"
+	hm_log "TS_LOGIN_SERVER is not set; not enrolling"
+	exit 0
+fi
+
+args=(
+	up
+	--login-server="$TS_LOGIN_SERVER"
+	--auth-key="file:$key_file"
+	--hostname="$hostname"
+	--accept-dns=true
+	--accept-routes=false
+	--ssh
+	--netfilter-mode=on
+	--timeout=90s
+)
+if ts "${args[@]}"; then
+	touch "$marker"
+	hm_state running "enrolled as $hostname"
+	hm_log "enrolled as $hostname"
+	check_tags
+else
+	hm_state error "tailscale up failed; see /var/log/headmesh/tailscaled"
+	hm_log "tailscale up failed"
+fi
+exit 0

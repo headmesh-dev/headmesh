@@ -1,0 +1,20 @@
+# /etc/headmesh/restic-excludes.txt — paths restic skips in /home/aaryn.
+# restic also skips directories holding a CACHEDIR.TAG (--exclude-caches).
+# Rebuildable caches and package stores:
+/home/aaryn/.cache
+/home/aaryn/.local/share/Trash
+/home/aaryn/.npm/_cacache
+/home/aaryn/.pnpm-store
+/home/aaryn/.local/share/pnpm/store
+/home/aaryn/.cargo/registry
+/home/aaryn/.cargo/git
+/home/aaryn/go/pkg/mod
+/home/aaryn/.rustup/toolchains
+/home/aaryn/.local/share/mise/installs
+/home/aaryn/.local/share/containers
+/home/aaryn/.local/share/docker
+/home/aaryn/.nvm/.cache
+/home/aaryn/snap/*/common/.cache
+node_modules
+.venv
+__pycache__

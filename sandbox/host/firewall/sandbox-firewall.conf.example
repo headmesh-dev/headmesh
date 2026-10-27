@@ -1,0 +1,30 @@
+# /etc/headmesh/sandbox-firewall.conf — read by /usr/local/sbin/headmesh-sandbox-firewall.
+# Shell syntax (KEY=value). Keep these in step with sandbox/compose/compose.yaml
+# and sandbox.toml; `headmesh-sandbox-firewall status` warns when they drift.
+
+# Linux bridge of the Compose network `hm-sbx`. Its name must start with "br"
+# on this host: the persisted DOCKER-USER chain (netfilter-persistent) returns
+# only for lo, tailscale0, docker0 and "br*" and drops every other bridge.
+SBX_BRIDGE=br-hm-sbx0
+
+# Subnet and fixed addresses of the two sandbox containers (one runs at a time).
+SBX_SUBNET=172.31.250.0/24
+SBX_REGULAR_IP=172.31.250.10
+SBX_YOLO_IP=172.31.250.11
+
+# sandbox.toml [mode.yolo] allow_lan. 1 lets the YOLO container (SBX_YOLO_IP
+# only) reach the LAN subnets on the host's physical interfaces. It never opens
+# the host itself, 100.64.0.0/10 (the host's tailnet identity), 169.254.0.0/16 or
+# other Docker bridges.
+YOLO_ALLOW_LAN=0
+
+# UDP ports Tailscale peers on the LAN listen on (direct WireGuard paths).
+TS_UDP_PORTS=41641-41650
+
+# Extra resolvers the bridge may query on port 53. Empty by default: Docker
+# 29's embedded DNS (127.0.0.11) forwards from the host namespace through
+# systemd-resolved, so no DNS packet leaves the bridge (see sandbox/host/README.md).
+ALLOW_DNS_TO=""
+
+# Log dropped packets (rate-limited) with this prefix; empty disables logging.
+LOG_PREFIX="HM-SBX-DROP "

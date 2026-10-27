@@ -1,0 +1,27 @@
+# Monthly integrity check of the home backup repository: reads 5% of the data.
+[Unit]
+Description=Headmesh restic check of the home backup (5% data subset)
+Documentation=file:///mnt/storage/projects/headmesh/sandbox/host/README.md
+RequiresMountsFor=/mnt/storage/backups
+ConditionPathExists=/etc/headmesh/restic.pass
+After=headmesh-home-backup.service
+
+[Service]
+Type=oneshot
+ExecStart=/usr/local/sbin/headmesh-home-backup check
+Nice=10
+IOSchedulingClass=idle
+CacheDirectory=headmesh-restic
+Environment=RESTIC_CACHE_DIR=/var/cache/headmesh-restic
+TimeoutStartSec=6h
+NoNewPrivileges=yes
+PrivateTmp=yes
+ProtectSystem=strict
+ProtectHome=yes
+ReadWritePaths=/mnt/storage/backups/restic-home -/mnt/storage/headmesh/sandbox/state
+PrivateNetwork=yes
+CapabilityBoundingSet=CAP_DAC_READ_SEARCH CAP_DAC_OVERRIDE CAP_CHOWN CAP_FOWNER
+RestrictAddressFamilies=AF_UNIX
+LockPersonality=yes
+RestrictRealtime=yes
+SystemCallArchitectures=native

@@ -1,0 +1,17 @@
+#!/bin/bash
+# tailscaled (longrun, root; plan §6.7). Runs inside the container's own network
+# namespace on the hm-sbx bridge; never the host's tailscaled-xcelsior.
+# Ready when the LocalAPI answers (also while logged out). --no-logs-no-support:
+# no log upload to log.tailscale.com (spike T-8 found the connection otherwise).
+exec 2>&1
+mkdir -p /run/tailscale /var/lib/tailscale
+chmod 0700 /var/lib/tailscale
+exec s6-notifyoncheck -d -3 3 -n 0 -w 500 -t 2000 \
+	-c "redirfd -w 1 /dev/null tailscale --socket=/run/tailscale/tailscaled.sock status --json --peers=false" \
+	tailscaled \
+	--state=/var/lib/tailscale/tailscaled.state \
+	--statedir=/var/lib/tailscale \
+	--socket=/run/tailscale/tailscaled.sock \
+	--tun=hm0 \
+	--port=41641 \
+	--no-logs-no-support

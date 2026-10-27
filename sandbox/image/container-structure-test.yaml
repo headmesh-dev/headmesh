@@ -1,0 +1,217 @@
+# container-structure-test for the sandbox image (plan §6.2 build checks).
+#   container-structure-test test --image headmesh-sandbox:dev \
+#     --config sandbox/image/container-structure-test.yaml
+schemaVersion: 2.0.0
+
+metadataTest:
+  entrypoint: ["/init"]
+  envVars:
+    - key: S6_BEHAVIOUR_IF_STAGE2_FAILS
+      value: "2"
+    - key: S6_KILL_GRACETIME
+      value: "3000"
+    - key: TS_NO_LOGS_NO_SUPPORT
+      value: "true"
+    - key: S6_CMD_WAIT_FOR_SERVICES_MAXTIME
+      value: "120000"
+    - key: TZ
+      value: America/Toronto
+    - key: LANG
+      value: en_US.UTF-8
+    - key: MISE_DATA_DIR
+      value: /cache/mise
+  labels:
+    - key: org.opencontainers.image.source
+      value: https://github.com/headmesh-dev/headmesh
+
+fileExistenceTests:
+  - name: s6-overlay init
+    path: /init
+    shouldExist: true
+  - name: no sudo
+    path: /usr/bin/sudo
+    shouldExist: false
+  - name: no sudo-rs
+    path: /usr/bin/sudo-rs
+    shouldExist: false
+  - name: tailscaled
+    path: /usr/local/bin/tailscaled
+    shouldExist: true
+  - name: tunnel-client
+    path: /usr/local/bin/tunnel-client
+    shouldExist: true
+  - name: headmesh-sandboxd
+    path: /usr/local/bin/headmesh-sandboxd
+    shouldExist: true
+    permissions: "-rwxr-xr-x"
+  - name: headmesh-sandbox
+    path: /usr/local/bin/headmesh-sandbox
+    shouldExist: true
+  - name: hm link
+    path: /usr/local/bin/hm
+    shouldExist: true
+  - name: claude-session wrapper
+    path: /usr/local/bin/claude-session
+    shouldExist: true
+    permissions: "-rwxr-xr-x"
+    uid: 0
+    gid: 0
+  - name: pre-push hook
+    path: /etc/headmesh/git-hooks/pre-push
+    shouldExist: true
+    permissions: "-rwxr-xr-x"
+    uid: 0
+  - name: pre-commit hook
+    path: /etc/headmesh/git-hooks/pre-commit
+    shouldExist: true
+    permissions: "-rwxr-xr-x"
+  - name: commit-msg hook
+    path: /etc/headmesh/git-hooks/commit-msg
+    shouldExist: true
+    permissions: "-rwxr-xr-x"
+  - name: runner checkout hook
+    path: /etc/headmesh/runner-hooks/checkout
+    shouldExist: true
+    permissions: "-rwxr-xr-x"
+  - name: runner post-session hook
+    path: /etc/headmesh/runner-hooks/post-session
+    shouldExist: true
+    permissions: "-rwxr-xr-x"
+  - name: guidelines template
+    path: /etc/headmesh/agent-guidelines.md.tmpl
+    shouldExist: true
+  - name: tunnel profile
+    path: /etc/headmesh/tunnel/sandbox.yaml
+    shouldExist: true
+  - name: agent home
+    path: /home/agent
+    shouldExist: true
+    uid: 1000
+    gid: 1000
+  - name: mise cache volume seed is agent-owned
+    path: /cache/mise
+    shouldExist: true
+    uid: 1000
+    gid: 1000
+  - name: sandboxd service
+    path: /etc/s6-overlay/s6-rc.d/sandboxd/run
+    shouldExist: true
+    permissions: "-rwxr-xr-x"
+  - name: claude-runner graceful drain
+    path: /etc/s6-overlay/s6-rc.d/claude-runner/timeout-kill
+    shouldExist: true
+
+fileContentTests:
+  - name: global hooks path
+    path: /etc/gitconfig
+    expectedContents: ['hooksPath = /etc/headmesh/git-hooks', 'rebase = true', 'autoSetupRemote = true']
+  - name: mise pins
+    path: /etc/mise/config.toml
+    expectedContents: ['node = "24.16.0"', 'python = "3.14.4"', 'uv = "0.12.24"', 'go = "1.26.8"']
+  - name: claude-runner drains for up to 80 s
+    path: /etc/s6-overlay/s6-rc.d/claude-runner/timeout-kill
+    expectedContents: ['80000']
+  - name: tailscaled never uploads logs to Tailscale Inc.
+    path: /etc/s6-overlay/s6-rc.d/tailscaled/run
+    expectedContents: ['--no-logs-no-support']
+  - name: tailscale up never advertises tags (the tagged pre-auth key carries them)
+    path: /etc/s6-overlay/scripts/tailscale-up
+    excludedContents: ['--advertise-tags', '--reset', '--force-reauth']
+  - name: tmux keeps dead panes
+    path: /etc/headmesh/tmux.conf
+    expectedContents: ['remain-on-exit on', 'exit-empty off']
+
+commandTests:
+  - name: agent is UID/GID 1000
+    command: bash
+    args: ["-c", "echo $(id -u agent):$(id -g agent)"]
+    expectedOutput: ["^1000:1000\\n$"]
+  - name: the base image's ubuntu user is gone
+    command: bash
+    args: ["-c", "getent passwd ubuntu || echo absent"]
+    expectedOutput: ["^absent\\n$"]
+  - name: hmtunnel is a separate system user
+    command: bash
+    args: ["-c", "echo $(id -u hmtunnel):$(id -nG agent)"]
+    expectedOutput: ["^990:agent\\n$"]
+  - name: agent is in no privileged group
+    command: bash
+    args: ["-c", "id -nG agent | tr ' ' '\\n' | grep -E -x 'sudo|adm|root|docker|disk' || echo none"]
+    expectedOutput: ["^none\\n$"]
+  - name: no sudo binary anywhere
+    command: bash
+    args: ["-c", "command -v sudo sudo-rs doas || echo none"]
+    expectedOutput: ["^none\\n$"]
+  - name: no setuid or setgid files
+    command: bash
+    args: ["-c", "find / -xdev -type f -perm /6000 2>/dev/null | head -5; echo done"]
+    expectedOutput: ["^done\\n$"]
+  - name: OS matches the host (Ubuntu 26.04)
+    command: bash
+    # CST expands $VARS in args itself, so the tests avoid shell variables.
+    args: ["-c", "sed -n 's/^VERSION_ID=\"\\(.*\\)\"$/\\1/p' /etc/os-release"]
+    expectedOutput: ["^26.04\\n$"]
+  - name: tailscale 1.104.2
+    command: tailscale
+    args: ["version"]
+    expectedOutput: ["^1\\.104\\.2\\n"]
+  - name: claude code 2.1.293
+    command: bash
+    args: ["-c", "HOME=$(mktemp -d) claude --version"]
+    expectedOutput: ["^2\\.1\\.293 "]
+  - name: codex 0.164.0
+    command: bash
+    args: ["-c", "HOME=$(mktemp -d) codex --version"]
+    expectedOutput: ["codex-cli 0\\.164\\.0"]
+  - name: tunnel-client 0.0.18
+    command: tunnel-client
+    args: ["--version"]
+    expectedOutput: ["0\\.0\\.18"]
+  - name: toolchain versions
+    command: bash
+    args: ["-c", "node --version; npm --version; go version; python3.14 --version; uv --version; pnpm --version; gh --version | head -1; gitleaks version; mise --version"]
+    expectedOutput:
+      - "v24\\.16\\.0"
+      - "12\\.2\\.1"
+      - "go1\\.26\\.8 "
+      - "Python 3\\.14\\.4"
+      - "uv 0\\.12\\.24"
+      - "10\\.34\\.9"
+      - "gh version 2\\.103\\.3 "
+      - "8\\.30\\.1"
+      - "2026\\.10\\.20 "
+  - name: agent login shell finds codex, claude and the toolchains
+    command: setpriv
+    args: ["--reuid=1000", "--regid=1000", "--init-groups", "env", "-i", "HOME=/home/agent", "bash", "-lc", "for c in codex claude node npm pnpm go uv python3 gh mise tmux rg fd jq; do command -v $c >/dev/null || echo missing $c; done; echo ok"]
+    expectedOutput: ["^ok\\n$"]
+  - name: setpriv is available for the runner wrapper
+    command: setpriv
+    args: ["--version"]
+    expectedOutput: ["setpriv from util-linux"]
+  - name: s6-rc services compile
+    command: bash
+    args: ["-c", "s6-rc-compile /tmp/compiled /etc/s6-overlay/s6-rc.d /etc/s6-overlay/user-bundles.d /package/admin/s6-overlay/etc/s6-rc/sources && echo compiled"]
+    expectedOutput: ["compiled"]
+  - name: pre-push refuses a non-fast-forward push to main
+    command: setpriv
+    args:
+      - --reuid=1000
+      - --regid=1000
+      - --init-groups
+      - env
+      - HOME=/tmp/hm-hook-test
+      - HEADMESH_SKIP_GITLEAKS=1
+      - bash
+      - -c
+      - |
+        set -e
+        mkdir -p /tmp/hm-hook-test && cd /tmp/hm-hook-test
+        git config --global user.name t && git config --global user.email t@example.invalid
+        git init -q --bare remote.git && git init -q work && cd work
+        git remote add origin ../remote.git
+        echo 1 > f && git add f && git commit -qm one && git push -q origin main
+        echo 2 > f && git commit -qam two && git push -q origin main
+        git reset -q --hard HEAD~1 && echo 3 > f && git commit -qam three
+        if git push -q --force origin main 2>err; then echo "force push allowed"; else grep -q "non-fast-forward push to main refused" err && echo refused; fi
+        git log -1 --format=%B | grep -q '^Agent: shell/' && echo trailer
+    expectedOutput: ["refused\ntrailer"]

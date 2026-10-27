@@ -1,0 +1,18 @@
+# Re-applies the sandbox firewall if the table vanished or no longer matches
+# /etc/headmesh/sandbox-firewall.conf (for example after `nft flush ruleset`).
+[Unit]
+Description=Re-assert the Headmesh sandbox egress firewall
+Documentation=file:///mnt/storage/projects/headmesh/sandbox/host/README.md
+After=headmesh-sandbox-firewall.service
+ConditionPathExists=/etc/headmesh/sandbox-firewall.conf
+
+[Service]
+Type=oneshot
+ExecStart=/usr/local/sbin/headmesh-sandbox-firewall ensure
+NoNewPrivileges=yes
+ProtectSystem=strict
+ProtectHome=read-only
+PrivateTmp=yes
+ReadWritePaths=/run
+CapabilityBoundingSet=CAP_NET_ADMIN CAP_NET_RAW CAP_DAC_READ_SEARCH
+RestrictAddressFamilies=AF_NETLINK AF_UNIX AF_INET AF_INET6

@@ -1,0 +1,6 @@
+#!/bin/bash
+# idle SERVICE REASON: mark SERVICE disabled and sleep forever.
+HM_SVC=$1
+# shellcheck source=lib.sh
+. /etc/s6-overlay/scripts/lib.sh
+hm_idle "$2"

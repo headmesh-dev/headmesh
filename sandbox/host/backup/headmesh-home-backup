@@ -1,0 +1,127 @@
+#!/usr/bin/env bash
+# headmesh-home-backup — restic backup of the host home directory (plan §6.12).
+# A snapshot under 24 h old is a precondition for `headmesh-sandbox up --yolo`.
+#
+#   headmesh-home-backup init     create the repository (once)
+#   headmesh-home-backup backup   snapshot + retention (nightly timer)
+#   headmesh-home-backup check    restic check --read-data-subset=5% (monthly timer)
+#   headmesh-home-backup status   print the status file
+#
+# Runs as root. Writes a world-readable status file (no secrets) so the host CLI
+# can report "last backup age" without root:
+#   $HEADMESH_BACKUP_STATUS (default /mnt/storage/headmesh/sandbox/state/backup-status.json)
+set -euo pipefail
+
+export RESTIC_REPOSITORY=${RESTIC_REPOSITORY:-/mnt/storage/backups/restic-home}
+export RESTIC_PASSWORD_FILE=${RESTIC_PASSWORD_FILE:-/etc/headmesh/restic.pass}
+export RESTIC_CACHE_DIR=${RESTIC_CACHE_DIR:-/var/cache/headmesh-restic}
+SOURCE=${HEADMESH_BACKUP_SOURCE:-/home/aaryn}
+EXCLUDES=${HEADMESH_BACKUP_EXCLUDES:-/etc/headmesh/restic-excludes.txt}
+STATUS=${HEADMESH_BACKUP_STATUS:-/mnt/storage/headmesh/sandbox/state/backup-status.json}
+TAG=headmesh-home
+KEEP=(--keep-daily 7 --keep-weekly 4 --keep-monthly 6)
+
+die() { echo "headmesh-home-backup: $*" >&2; exit 1; }
+
+preflight() {
+    [ "$(id -u)" = 0 ] || die "run as root (sudo or the systemd unit)"
+    command -v restic >/dev/null || die "restic not installed (plan §5.3: install the pinned restic)"
+    [ -f "$RESTIC_PASSWORD_FILE" ] || die "missing $RESTIC_PASSWORD_FILE (root 0400)"
+    local mode owner
+    mode=$(stat -c %a "$RESTIC_PASSWORD_FILE")
+    owner=$(stat -c %u "$RESTIC_PASSWORD_FILE")
+    [ "$owner" = 0 ] && [ "$mode" = 400 ] || die "$RESTIC_PASSWORD_FILE must be root:root 0400 (is uid $owner mode $mode)"
+}
+
+now() { date -u +%Y-%m-%dT%H:%M:%SZ; }
+
+# Merge key/values into the status JSON. Values are already JSON-encoded.
+update_status() {
+    local dir
+    dir=$(dirname "$STATUS")
+    if [ ! -d "$dir" ]; then
+        echo "headmesh-home-backup: $dir missing (run headmesh-sandbox init); status not written" >&2
+        return 0
+    fi
+    local cur='{}'
+    [ -s "$STATUS" ] && cur=$(cat "$STATUS")
+    local args=() k v
+    while [ $# -gt 1 ]; do
+        k=$1 v=$2
+        shift 2
+        args+=(--argjson "$k" "$v")
+    done
+    local filter='. + $ARGS.named | .repo = $repo | .source = $source | .schema = 1'
+    umask 022
+    jq -c "${args[@]}" --arg repo "$RESTIC_REPOSITORY" --arg source "$SOURCE" "$filter" <<<"$cur" >"$STATUS.tmp"
+    chown --reference="$dir" "$STATUS.tmp"
+    chmod 0644 "$STATUS.tmp"
+    mv "$STATUS.tmp" "$STATUS"
+}
+
+js() { jq -Rn --arg v "$1" '$v'; }
+
+cmd_init() {
+    preflight
+    if restic cat config >/dev/null 2>&1; then
+        echo "repository $RESTIC_REPOSITORY already initialised"
+        return 0
+    fi
+    umask 077
+    mkdir -p "$RESTIC_REPOSITORY"
+    chmod 0700 "$RESTIC_REPOSITORY"
+    restic init
+}
+
+cmd_backup() {
+    preflight
+    command -v jq >/dev/null || die "jq not installed"
+    local started rc=0 summary
+    started=$(now)
+    update_status last_attempt_at "$(js "$started")"
+    local exclude_args=(--exclude-caches --one-file-system)
+    [ -f "$EXCLUDES" ] && exclude_args+=(--exclude-file "$EXCLUDES")
+    # --json emits one summary object as the last line.
+    summary=$(restic backup "$SOURCE" --tag "$TAG" --host "$(hostname -s)" "${exclude_args[@]}" --json --quiet | tail -n 1) || rc=$?
+    # restic exits 3 when some files could not be read; the snapshot still exists.
+    if [ "$rc" = 0 ] || [ "$rc" = 3 ]; then
+        local snap added files
+        snap=$(jq -r '.snapshot_id // empty' <<<"$summary" 2>/dev/null || true)
+        added=$(jq -r '.data_added // 0' <<<"$summary" 2>/dev/null || echo 0)
+        files=$(jq -r '.files_new // 0' <<<"$summary" 2>/dev/null || echo 0)
+        update_status last_success_at "$(js "$(now)")" last_snapshot_id "$(js "$snap")" \
+            last_data_added_bytes "$added" last_files_new "$files" last_exit_code "$rc" \
+            last_started_at "$(js "$started")"
+    else
+        update_status last_exit_code "$rc" last_error_at "$(js "$(now)")"
+        die "restic backup failed (exit $rc)"
+    fi
+    restic forget --tag "$TAG" --group-by host,tags "${KEEP[@]}" --prune --quiet ||
+        die "restic forget/prune failed"
+    update_status last_prune_at "$(js "$(now)")"
+    echo "backup ok: snapshot ${summary:+$(jq -r '.snapshot_id // "?"' <<<"$summary")}"
+}
+
+cmd_check() {
+    preflight
+    command -v jq >/dev/null || die "jq not installed"
+    if restic check --read-data-subset=5%; then
+        update_status last_check_ok_at "$(js "$(now)")" last_check_exit_code 0
+    else
+        local rc=$?
+        update_status last_check_exit_code "$rc" last_check_error_at "$(js "$(now)")"
+        die "restic check failed (exit $rc)"
+    fi
+}
+
+cmd_status() {
+    if [ -r "$STATUS" ]; then cat "$STATUS"; else echo "no status file at $STATUS" >&2; exit 1; fi
+}
+
+case "${1:-}" in
+    init) cmd_init ;;
+    backup) cmd_backup ;;
+    check) cmd_check ;;
+    status) cmd_status ;;
+    *) echo "usage: $0 init|backup|check|status" >&2; exit 2 ;;
+esac

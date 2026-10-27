@@ -40,8 +40,8 @@ func TestGitleaksWhenAvailable(t *testing.T) {
 	if r.Gitleaks == "" {
 		t.Skip("gitleaks not installed")
 	}
-	in := `aws_secret_access_key = "wJalrXUtnFEMI/K7MDENG/bPxRfiCYEXAMPLEKEY"`
-	if got := r.String(context.Background(), in); strings.Contains(got, "wJalrXUtnFEMI") {
+	in := `api_key = "abcdef0123456789ABCDEF0123456789"`
+	if got := r.String(context.Background(), in); strings.Contains(got, "abcdef0123456789") {
 		t.Errorf("gitleaks finding not redacted: %q", got)
 	}
 }

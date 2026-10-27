@@ -1,0 +1,5 @@
+#!/bin/sh
+# s6-log for tmux: /var/log/headmesh/tmux, rotate at 10 MB, keep 10, ISO 8601 timestamps.
+mkdir -p /var/log/headmesh/tmux
+chown agent:agent /var/log/headmesh/tmux
+exec s6-setuidgid agent s6-log n10 s10000000 T /var/log/headmesh/tmux

@@ -1,0 +1,18 @@
+#!/bin/sh
+# Stand-in for the `headmesh` CLI inside the sandbox image. The full CLI lives in
+# cmd/headmesh (another track); until it ships the sandbox commands, this maps
+#   headmesh sandbox <args>  ->  headmesh-sandbox <args>
+#   headmesh agent <args>    ->  headmesh-sandbox agent <args>
+case "${1:-}" in
+sandbox)
+	shift
+	exec /usr/local/bin/headmesh-sandbox "$@"
+	;;
+agent)
+	exec /usr/local/bin/headmesh-sandbox "$@"
+	;;
+*)
+	echo "headmesh: only 'headmesh sandbox ...' and 'headmesh agent ...' are available in the sandbox image" >&2
+	exit 64
+	;;
+esac

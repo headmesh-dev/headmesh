@@ -1,0 +1,15 @@
+#!/bin/bash
+# yolo-ttl (longrun, root; plan §6.11): in YOLO mode, halt the container when the
+# TTL expires. The next `headmesh sandbox up` starts Regular again.
+exec 2>&1
+HM_SVC=yolo-ttl
+# shellcheck source=../../scripts/lib.sh
+. /etc/s6-overlay/scripts/lib.sh
+[[ ${HEADMESH_MODE:-regular} == yolo ]] || hm_idle "regular mode"
+if [[ -z ${HEADMESH_YOLO_EXPIRES_AT:-} ]]; then
+	hm_log "YOLO mode without HEADMESH_YOLO_EXPIRES_AT; halting now"
+	exec /run/s6/basedir/bin/halt
+fi
+hm_state running "halts at ${HEADMESH_YOLO_EXPIRES_AT}"
+exec headmesh-sandboxd yolo-ttl --expires-at "$HEADMESH_YOLO_EXPIRES_AT" \
+	--halt /run/s6/basedir/bin/halt

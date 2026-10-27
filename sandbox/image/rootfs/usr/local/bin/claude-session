@@ -1,0 +1,54 @@
+#!/bin/bash
+# `claude self-hosted-runner --exec-path` wrapper (plan §7.1, spike T-1).
+#
+# The runner runs as root so it can read the environment secret
+# (/run/secrets/claude_env_secret, root 0400). Every session it spawns goes
+# through this wrapper, which drops to `agent` before exec'ing Claude Code:
+#   - SELF_HOSTED_RUNNER_* (incl. the environment secret, if passed by env) and
+#     other runner credentials are removed from the environment;
+#   - any inherited descriptor that points into /run/secrets is closed;
+#   - setpriv switches to agent with its supplementary groups and no inheritable
+#     capabilities; no-new-privileges (Compose security_opt) stops regaining any.
+set -euo pipefail
+
+claude_bin=${HEADMESH_CLAUDE_BIN:-/usr/local/bin/claude}
+
+for var in $(compgen -e); do
+	case $var in
+	SELF_HOSTED_RUNNER_* | CLAUDE_RUNNER_POOL_SECRET | CLAUDE_RUNNER_ENVIRONMENT_SECRET)
+		unset "$var"
+		;;
+	esac
+done
+
+for fd_path in "/proc/$$/fd/"*; do
+	fd=${fd_path##*/}
+	[[ $fd =~ ^[0-9]+$ ]] || continue
+	(( fd > 2 )) || continue
+	target=$(readlink "$fd_path" 2>/dev/null || true)
+	if [[ $target == /run/secrets/* ]]; then
+		eval "exec ${fd}<&-"
+	fi
+done
+
+export HEADMESH_ENTRYPOINT=claude-runner
+export HEADMESH_SESSION=${CLAUDE_RUNNER_SESSION_ID:-${HEADMESH_SESSION:-unknown}}
+
+if [[ $(id -u) -ne 0 ]]; then
+	# Already unprivileged (runner started as agent): nothing to drop.
+	exec "$claude_bin" "$@"
+fi
+
+agent_uid=$(id -u agent)
+agent_gid=$(id -g agent)
+
+# Files the runner prepared for the child must be readable after the drop.
+if [[ -n ${CLAUDE_RUNNER_WORK_ORDER_FILE:-} && -f ${CLAUDE_RUNNER_WORK_ORDER_FILE} ]]; then
+	chown "$agent_uid:$agent_gid" "$CLAUDE_RUNNER_WORK_ORDER_FILE"
+fi
+
+# The working directory (the session's checkout) is kept as the runner set it.
+export HOME=/home/agent USER=agent LOGNAME=agent SHELL=/bin/bash
+
+exec setpriv --reuid="$agent_uid" --regid="$agent_gid" --init-groups --inh-caps=-all \
+	-- "$claude_bin" "$@"

@@ -1,0 +1,21 @@
+# tunnel-client profile for the OpenAI Secure MCP Tunnel (plan §7.4).
+# The openai-tunnel service passes the tunnel id and the runtime key as flags:
+#   --control-plane.tunnel-id "$HEADMESH_OPENAI_TUNNEL_ID"
+#   --control-plane.api-key file:/run/hm-secrets/openai_tunnel_key
+# ChatGPT/Codex send the sandboxd bearer token themselves (the OAuth server can't
+# be tunneled), so no extra MCP headers are configured here.
+config_version: 1
+control_plane:
+  base_url: "https://api.openai.com"
+health:
+  # Loopback only; the runner uses 8081 and sandboxd 8780.
+  listen_addr: "127.0.0.1:8082"
+admin_ui:
+  open_browser: false
+log:
+  level: info
+  format: json
+mcp:
+  server_urls:
+    - channel: main
+      url: "http://127.0.0.1:8780/mcp"

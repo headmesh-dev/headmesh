@@ -1,0 +1,8 @@
+# Build context is sandbox/. The image needs the Go module and image/rootfs only.
+**/.git
+**/*.test
+**/testdata/tmp
+docs
+tests/acceptance/results
+image/*
+!image/rootfs

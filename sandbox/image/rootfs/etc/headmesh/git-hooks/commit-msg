@@ -1,0 +1,23 @@
+#!/usr/bin/env bash
+# Global commit-msg (plan §6.9): add an `Agent: <entrypoint>/<session>` trailer so
+# agent commits are attributable, then chain to the repository's own hook.
+set -euo pipefail
+HM_HOOK=commit-msg
+# shellcheck source=lib.sh
+. /etc/headmesh/git-hooks/lib.sh
+
+msg_file=$1
+if [[ ${HEADMESH_NO_AGENT_TRAILER:-} != 1 ]]; then
+	entrypoint=${HEADMESH_ENTRYPOINT:-}
+	session=${HEADMESH_SESSION:-}
+	if [[ -z $entrypoint ]]; then
+		if [[ -n ${SSH_CONNECTION:-} ]]; then entrypoint=ssh; else entrypoint=shell; fi
+	fi
+	if [[ -z $session ]]; then
+		session=${CLAUDE_RUNNER_SESSION_ID:-$(hostname)}
+	fi
+	git interpret-trailers --in-place --if-exists doNothing \
+		--trailer "Agent: ${entrypoint}/${session}" "$msg_file"
+fi
+
+hm_chain "$@"

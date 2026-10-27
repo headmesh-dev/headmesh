@@ -1,0 +1,24 @@
+#!/bin/bash
+# Claude self-hosted runner (longrun, root; plan §7.1, spike T-1).
+# The runner runs as root so the environment secret (root 0400) stays out of the
+# sessions' reach; sessions start through claude-session as `agent`.
+exec 2>&1
+HM_SVC=claude-runner
+# shellcheck source=../../scripts/lib.sh
+. /etc/s6-overlay/scripts/lib.sh
+hm_enabled claude-runner || hm_idle "not enabled (sandbox.toml [entrypoints])"
+[[ -s /run/secrets/claude_env_secret ]] || hm_idle "no environment secret (secrets/claude_env_secret)"
+/etc/s6-overlay/scripts/runner-backoff
+mkdir -p /srv/runner
+hm_state running "polling api.anthropic.com; health on 127.0.0.1:8081"
+export HOME=/root
+exec claude self-hosted-runner \
+	--environment-secret-file /run/secrets/claude_env_secret \
+	--base-dir /srv/runner \
+	--capacity "${HEADMESH_RUNNER_CAPACITY:-1}" \
+	--health-port 8081 \
+	--client-label "${TS_HOSTNAME:-$(hostname)}" \
+	--hooks-dir /etc/headmesh/runner-hooks \
+	--exec-path /usr/local/bin/claude-session \
+	--push-outcome-on-release \
+	--kill-session-after-min 240
