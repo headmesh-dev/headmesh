@@ -1,0 +1,46 @@
+[Unit]
+Description=Headmesh cell agent (applies Headmesh policy to the local Headscale under guardrails)
+Documentation=https://headmesh.dev/docs
+After=network-online.target headscale.service
+Wants=network-online.target
+Requires=headscale.service
+
+[Service]
+Type=simple
+ExecStart=/usr/local/bin/headmesh-cellagent run -config /etc/headmesh/cellagent.json
+Restart=always
+RestartSec=5s
+
+# Runs as its own user; membership of the headscale group grants access to the Headscale unix socket only.
+User=headmesh-cellagent
+Group=headmesh-cellagent
+SupplementaryGroups=headscale
+StateDirectory=headmesh-cellagent
+StateDirectoryMode=0700
+
+NoNewPrivileges=true
+ProtectSystem=strict
+ProtectHome=true
+PrivateTmp=true
+PrivateDevices=true
+ProtectKernelTunables=true
+ProtectKernelModules=true
+ProtectControlGroups=true
+ProtectClock=true
+ProtectHostname=true
+RestrictNamespaces=true
+RestrictRealtime=true
+RestrictSUIDSGID=true
+LockPersonality=true
+MemoryDenyWriteExecute=true
+SystemCallArchitectures=native
+SystemCallFilter=@system-service
+SystemCallFilter=~@privileged @resources
+CapabilityBoundingSet=
+AmbientCapabilities=
+RestrictAddressFamilies=AF_UNIX AF_INET AF_INET6
+ReadWritePaths=/var/lib/headmesh-cellagent
+ReadOnlyPaths=/etc/headmesh
+
+[Install]
+WantedBy=multi-user.target

@@ -1,0 +1,13 @@
+version: v2
+modules:
+  - path: proto
+deps:
+  - buf.build/googleapis/googleapis
+lint:
+  use: [STANDARD]
+  ignore:
+    - proto/headscale
+breaking:
+  use: [FILE]
+  ignore:
+    - proto/headscale

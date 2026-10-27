@@ -17,7 +17,12 @@ func Principals(d Device) []string {
 // of Tailscale grant semantics Headmesh emits — tag and user principals with explicit or "*" ports — and is
 // used by the access-explain API and by property tests that check compiled policies against the model.
 func (doc Document) Allows(src, dst Device, proto string, port int) bool {
-	sp, dp := Principals(src), Principals(dst)
+	return doc.AllowsPrincipals(Principals(src), Principals(dst), proto, port)
+}
+
+// AllowsPrincipals reports whether a node known by principals sp may reach a node known by principals dp on
+// proto/port. Cell agents use it to check local reachability invariants without a device model.
+func (doc Document) AllowsPrincipals(sp, dp []string, proto string, port int) bool {
 	if len(sp) == 0 || len(dp) == 0 {
 		return false
 	}

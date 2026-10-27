@@ -1,0 +1,179 @@
+syntax = "proto3";
+
+// The cell protocol connects headmesh-server to the headmesh-cellagent running beside each Headscale.
+//
+// Direction matters for security: the agent always dials out to the server (HTTPS + mTLS, Connect bidi stream),
+// so a Headscale host never opens an inbound port and its gRPC API never leaves the box — the agent talks to
+// Headscale over its local unix socket. The server sends desired state (a policy timeline) and narrowly typed
+// operations; the agent reports observed state and results. Every operation is idempotent by id and signed by
+// the server's Ed25519 key so a compromised transport cannot inject work.
+package cell.v1;
+
+import "google/protobuf/timestamp.proto";
+
+service CellService {
+  // Sync is a long-lived bidirectional stream: the agent sends SyncRequests (Hello first), the server sends
+  // SyncResponses.
+  rpc Sync(stream SyncRequest) returns (stream SyncResponse);
+}
+
+message SyncRequest {
+  oneof msg {
+    Hello hello = 1;
+    Observed observed = 2;
+    OpResult op_result = 3;
+    PolicyApplied policy_applied = 4;
+    Heartbeat heartbeat = 5;
+  }
+}
+
+message SyncResponse {
+  oneof msg {
+    Welcome welcome = 1;
+    DesiredPolicy desired_policy = 2;
+    Op op = 3;
+    Heartbeat heartbeat = 4;
+  }
+}
+
+enum Mode {
+  MODE_UNSPECIFIED = 0;
+  // Read-only: report nodes and policy, never change Headscale.
+  MODE_OBSERVE = 1;
+  // Apply policy and operations, subject to local guardrails.
+  MODE_ENFORCE = 2;
+}
+
+message Hello {
+  string cell_name = 1;
+  string agent_version = 2;
+  string headscale_version = 3;
+  // SHA-256 of the Noise public key, so the server can detect a cell that silently became a different tailnet.
+  string noise_public_key_sha256 = 4;
+  Mode mode = 5;
+  string active_policy_sha256 = 6;
+  uint64 active_policy_revision = 7;
+}
+
+message Welcome {
+  string session_id = 1;
+  google.protobuf.Timestamp server_time = 2;
+  // The server's current Ed25519 public key for op signatures (raw 32 bytes).
+  bytes op_signing_key = 3;
+}
+
+message Node {
+  uint64 id = 1;
+  string name = 2;
+  string given_name = 3;
+  repeated string ip_addresses = 4;
+  repeated string tags = 5;
+  string user = 6;
+  bool online = 7;
+  google.protobuf.Timestamp last_seen = 8;
+  uint64 pre_auth_key_id = 9;
+  google.protobuf.Timestamp expiry = 10;
+  repeated string approved_routes = 11;
+  repeated string available_routes = 12;
+}
+
+message Observed {
+  // When full_snapshot is true, nodes is the complete node list and anything not in it no longer exists.
+  bool full_snapshot = 1;
+  repeated Node nodes = 2;
+  repeated uint64 removed_node_ids = 3;
+  string active_policy_sha256 = 4;
+  bool headscale_healthy = 5;
+  string detail = 6;
+}
+
+message PolicyRevision {
+  uint64 revision = 1;
+  string sha256 = 2;
+  string hujson = 3;
+  google.protobuf.Timestamp effective_at = 4;
+}
+
+message DesiredPolicy {
+  // Sorted by effective_at; the first entry is in force now. The agent applies later entries on schedule even
+  // if it loses its connection to the server.
+  repeated PolicyRevision timeline = 1;
+}
+
+message PolicyApplied {
+  uint64 revision = 1;
+  string sha256 = 2;
+  google.protobuf.Timestamp applied_at = 3;
+  bool ok = 4;
+  string error = 5;
+  // True when a local guardrail refused the revision (invariant violation, failed CheckPolicy).
+  bool refused_by_guardrail = 6;
+}
+
+message Op {
+  string id = 1;
+  google.protobuf.Timestamp not_after = 2;
+  oneof kind {
+    CreatePreAuthKey create_pre_auth_key = 10;
+    SetTags set_tags = 11;
+    RenameNode rename_node = 12;
+    DeleteNode delete_node = 13;
+    ExpireNode expire_node = 14;
+    SetApprovedRoutes set_approved_routes = 15;
+  }
+  // Ed25519 signature over the deterministic encoding of this message with signature unset.
+  bytes signature = 100;
+}
+
+message CreatePreAuthKey {
+  repeated string acl_tags = 1;
+  bool reusable = 2;
+  bool ephemeral = 3;
+  google.protobuf.Timestamp expiration = 4;
+}
+
+message SetTags {
+  uint64 node_id = 1;
+  repeated string tags = 2;
+}
+
+message RenameNode {
+  uint64 node_id = 1;
+  string new_name = 2;
+}
+
+message DeleteNode {
+  uint64 node_id = 1;
+}
+
+message ExpireNode {
+  uint64 node_id = 1;
+  bool disable_expiry = 2;
+}
+
+message SetApprovedRoutes {
+  uint64 node_id = 1;
+  repeated string routes = 2;
+}
+
+message OpResult {
+  string op_id = 1;
+  bool ok = 2;
+  string error = 3;
+  bool refused_by_guardrail = 4;
+  oneof result {
+    PreAuthKeyResult pre_auth_key = 10;
+    Node node = 11;
+  }
+}
+
+message PreAuthKeyResult {
+  uint64 id = 1;
+  // The key itself. It travels only over this stream and is never persisted by the server.
+  string key = 2;
+  google.protobuf.Timestamp expiration = 3;
+}
+
+message Heartbeat {
+  google.protobuf.Timestamp at = 1;
+}
