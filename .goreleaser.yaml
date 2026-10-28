@@ -1,0 +1,126 @@
+# GoReleaser 2.19 (plan §10): one release per `v*` tag, built by .github/workflows/release.yml.
+# Local dry run: goreleaser release --snapshot --clean --skip=sign,sbom
+version: 2
+
+project_name: headmesh
+
+before:
+  hooks:
+    - go mod download
+
+builds:
+  - id: headmesh
+    main: ./cmd/headmesh
+    binary: headmesh
+    env: [CGO_ENABLED=0]
+    goos: [linux, darwin, windows]
+    goarch: [amd64, arm64]
+    flags: [-trimpath]
+    ldflags: ["-s -w -X main.version={{ .Version }}"]
+    mod_timestamp: "{{ .CommitTimestamp }}"
+  - id: headmesh-server
+    main: ./cmd/headmesh-server
+    binary: headmesh-server
+    env: [CGO_ENABLED=0]
+    goos: [linux]
+    goarch: [amd64, arm64]
+    flags: [-trimpath]
+    ldflags: ["-s -w -X main.version={{ .Version }}"]
+    mod_timestamp: "{{ .CommitTimestamp }}"
+  - id: headmesh-cellagent
+    main: ./cmd/headmesh-cellagent
+    binary: headmesh-cellagent
+    env: [CGO_ENABLED=0]
+    goos: [linux]
+    goarch: [amd64, arm64]
+    flags: [-trimpath]
+    ldflags: ["-s -w -X main.version={{ .Version }}"]
+    mod_timestamp: "{{ .CommitTimestamp }}"
+
+archives:
+  # The CLI is Apache-2.0; the server and cell agent are AGPL-3.0-only (LICENSING.md), so each archive carries its own
+  # license.
+  - id: headmesh
+    ids: [headmesh]
+    name_template: "headmesh_{{ .Version }}_{{ .Os }}_{{ .Arch }}"
+    formats: [tar.gz]
+    format_overrides:
+      - goos: windows
+        formats: [zip]
+    files: [LICENSE, LICENSING.md, README.md]
+  - id: headmesh-server
+    ids: [headmesh-server]
+    name_template: "headmesh-server_{{ .Version }}_{{ .Os }}_{{ .Arch }}"
+    formats: [tar.gz]
+    files:
+      - src: cmd/headmesh-server/LICENSE
+        dst: LICENSE
+      - LICENSING.md
+  - id: headmesh-cellagent
+    ids: [headmesh-cellagent]
+    name_template: "headmesh-cellagent_{{ .Version }}_{{ .Os }}_{{ .Arch }}"
+    formats: [tar.gz]
+    files:
+      - src: cmd/headmesh-cellagent/LICENSE
+        dst: LICENSE
+      - LICENSING.md
+      - src: deploy/cellagent/*
+        dst: deploy
+
+nfpms:
+  - id: headmesh
+    ids: [headmesh]
+    package_name: headmesh
+    file_name_template: "{{ .ConventionalFileName }}"
+    vendor: Xcelsior Compute Inc.
+    homepage: https://headmesh.dev
+    maintainer: Headmesh <hello@headmesh.dev>
+    description: Join, invite and grant access on a Headmesh network.
+    license: Apache-2.0
+    formats: [deb, rpm]
+    bindir: /usr/bin
+
+checksum:
+  name_template: checksums.txt
+  algorithm: sha256
+
+# Keyless: the release workflow's OIDC identity signs the checksum file, which covers every artifact. Verify with
+#   cosign verify-blob --bundle checksums.txt.sigstore.json \
+#     --certificate-identity-regexp '^https://github.com/headmesh-dev/headmesh/' \
+#     --certificate-oidc-issuer https://token.actions.githubusercontent.com checksums.txt
+signs:
+  - cmd: cosign
+    artifacts: checksum
+    signature: "${artifact}.sigstore.json"
+    args: [sign-blob, "--bundle=${signature}", "${artifact}", --yes]
+    output: true
+
+sboms:
+  - artifacts: archive
+
+changelog:
+  use: github
+  sort: asc
+  groups:
+    - title: Features
+      regexp: '^.*?feat(\(.+\))??!?:.+$'
+      order: 0
+    - title: Fixes
+      regexp: '^.*?fix(\(.+\))??!?:.+$'
+      order: 1
+    - title: Other changes
+      order: 999
+  filters:
+    exclude: ['^docs', '^test', '^ci', '^chore']
+
+release:
+  github:
+    owner: headmesh-dev
+    name: headmesh
+  # Tags with a pre-release suffix (v0.1.0-alpha.1) are published as GitHub pre-releases.
+  prerelease: auto
+  mode: replace
+  footer: |
+    Verify downloads against `checksums.txt` and its keyless signature (`checksums.txt.sigstore.json`); see
+    `.goreleaser.yaml` for the command. Build provenance is attested with GitHub artifact attestations
+    (`gh attestation verify <file> --repo headmesh-dev/headmesh`).
