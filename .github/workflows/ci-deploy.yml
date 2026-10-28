@@ -1,0 +1,70 @@
+name: ci-deploy
+
+# deploy/ (ADR 0013): shellcheck every script, then run deploy/tests/e2e.sh, which drives the real deploy.sh,
+# bootstrap.sh and deployctl.sh against an Ubuntu 26.04 container with systemd. Nothing here reaches hm-prod-1.
+
+on:
+  pull_request:
+    paths:
+      - deploy/**
+      - .github/workflows/ci-deploy.yml
+  push:
+    branches: [main]
+    paths:
+      - deploy/**
+      - .github/workflows/ci-deploy.yml
+  workflow_dispatch:
+
+permissions: {}
+
+concurrency:
+  group: ci-deploy-${{ github.ref }}
+  cancel-in-progress: true
+
+env:
+  NODE_VERSION: 24.16.0
+  PNPM_VERSION: 10.34.9
+  SHELLCHECK_IMAGE: koalaman/shellcheck:v0.11.0@sha256:61862eba1fcf09a484ebcc6feea46f1782532571a34ed51fedf90dd25f925a8d
+
+jobs:
+  shellcheck:
+    name: shellcheck
+    runs-on: ubuntu-26.04
+    permissions:
+      contents: read
+    timeout-minutes: 5
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - name: shellcheck deploy/
+        run: |
+          docker run --rm -v "$PWD:/mnt:ro" -w /mnt "$SHELLCHECK_IMAGE" -x -P deploy/lib:deploy/server:deploy \
+            -e SC2029,SC2094 \
+            deploy/deploy.sh deploy/server/*.sh deploy/lib/*.sh deploy/tests/*.sh \
+            deploy/compose/bootstrap.sh deploy/breakglass/*.sh deploy/cellagent/*.sh deploy/host/*.sh
+
+  e2e:
+    name: Deploy end to end (systemd container)
+    needs: shellcheck
+    runs-on: ubuntu-26.04
+    permissions:
+      contents: read
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - uses: actions/setup-go@b7ad1dad31e06c5925ef5d2fc7ad053ef454303e # v7.0.0
+        with:
+          go-version-file: go.mod
+      - uses: pnpm/action-setup@ea17c68df8912ef543352723c149a84f56e3d413 # v6.1.0
+        with:
+          version: ${{ env.PNPM_VERSION }}
+      - uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7.1.0
+        with:
+          node-version: ${{ env.NODE_VERSION }}
+      - name: Install dependencies
+        run: pnpm install --frozen-lockfile --filter @headmesh/marketing...
+      - name: Run deploy/tests/e2e.sh
+        run: deploy/tests/e2e.sh
