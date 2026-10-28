@@ -20,6 +20,8 @@ metadataTest:
       value: en_US.UTF-8
     - key: MISE_DATA_DIR
       value: /cache/mise
+    - key: UV_PROJECT_ENVIRONMENT
+      value: .venv-sandbox
   labels:
     - key: org.opencontainers.image.source
       value: https://github.com/headmesh-dev/headmesh

@@ -15,6 +15,9 @@ export MISE_CACHE_DIR=/cache/mise/cache
 export UV_CACHE_DIR=/cache/uv
 export UV_TOOL_DIR=/cache/uv/tools
 export UV_PYTHON_INSTALL_DIR=/cache/uv/python
+# Shared project folders keep the host's .venv; the sandbox builds its own next
+# to it (container Python lives at a different path, so sharing would break both).
+export UV_PROJECT_ENVIRONMENT=.venv-sandbox
 export npm_config_cache=/cache/npm
 export NPM_CONFIG_PREFIX=/cache/npm-global
 export npm_config_store_dir=/cache/pnpm/store

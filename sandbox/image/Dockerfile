@@ -176,6 +176,7 @@ ENV PATH=/usr/local/share/mise/bin:/command:/usr/local/sbin:/usr/local/bin:/usr/
     UV_CACHE_DIR=/cache/uv \
     UV_TOOL_DIR=/cache/uv/tools \
     UV_PYTHON_INSTALL_DIR=/cache/uv/python \
+    UV_PROJECT_ENVIRONMENT=.venv-sandbox \
     npm_config_cache=/cache/npm \
     NPM_CONFIG_PREFIX=/cache/npm-global \
     npm_config_store_dir=/cache/pnpm/store \
