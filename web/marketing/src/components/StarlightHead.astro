@@ -1,8 +1,15 @@
 ---
-// Starlight's <head> plus the site's fonts, so the docs use the same faces and fallbacks as the marketing pages.
+// Starlight's <head> plus the site's fonts, structured data and pointers to the Markdown views, so the docs match the
+// marketing pages and agents can find /llms.txt and this page's .md copy.
 import Default from "@astrojs/starlight/components/Head.astro";
 import FontFaces from "./FontFaces.astro";
+import StructuredData from "./StructuredData.astro";
+
+const id = Astro.locals.starlightRoute?.entry?.id;
 ---
 
 <Default><slot /></Default>
 <FontFaces />
+<StructuredData />
+{id && <link rel="alternate" type="text/markdown" href={`/${id}.md`} title="This page as Markdown" />}
+<link rel="alternate" type="text/plain" href="/llms.txt" title="llms.txt" />

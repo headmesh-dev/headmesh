@@ -1,0 +1,61 @@
+---
+// schema.org JSON-LD for search engines and AI agents: who publishes the site and the site itself on every page, and
+// on the home page the software it describes. The CSP step hashes this block like any other inline script.
+import { CONTACT_EMAIL, REPO_URL, SENDER, SITE_URL, XCELSIOR_URL } from "../../shared/site.ts";
+import { SUMMARY } from "../agents/markdown.ts";
+
+interface Props {
+  /** Describe the Headmesh software too (the home page). */
+  software?: boolean;
+}
+
+const { software = false } = Astro.props;
+const license = `${REPO_URL}/blob/main/LICENSING.md`;
+const organization = {
+  "@type": "Organization",
+  "@id": `${SITE_URL}/#organization`,
+  name: "Headmesh",
+  url: SITE_URL,
+  logo: `${SITE_URL}/brand/headmesh-v1/icons/icon-512.png`,
+  email: CONTACT_EMAIL,
+  sameAs: [REPO_URL],
+  parentOrganization: { "@type": "Organization", name: SENDER.legalName, url: XCELSIOR_URL },
+};
+const website = {
+  "@type": "WebSite",
+  "@id": `${SITE_URL}/#website`,
+  name: "Headmesh",
+  url: SITE_URL,
+  description: SUMMARY,
+  inLanguage: "en",
+  publisher: { "@id": organization["@id"] },
+};
+const application = {
+  "@type": "SoftwareApplication",
+  "@id": `${SITE_URL}/#software`,
+  name: "Headmesh",
+  description: SUMMARY,
+  url: SITE_URL,
+  applicationCategory: "DeveloperApplication",
+  applicationSubCategory: "Networking",
+  operatingSystem: "Linux, macOS",
+  isAccessibleForFree: true,
+  offers: { "@type": "Offer", price: "0", priceCurrency: "USD" },
+  license,
+  publisher: { "@id": organization["@id"] },
+};
+const sourceCode = {
+  "@type": "SoftwareSourceCode",
+  "@id": `${SITE_URL}/#source`,
+  name: "Headmesh",
+  codeRepository: REPO_URL,
+  programmingLanguage: ["Go", "TypeScript"],
+  license,
+  targetProduct: { "@id": application["@id"] },
+};
+const graph = software ? [organization, website, application, sourceCode] : [organization, website];
+// Escape "<" so no value can close the script element.
+const json = JSON.stringify({ "@context": "https://schema.org", "@graph": graph }).replaceAll("<", "\\u003c");
+---
+
+<script is:inline type="application/ld+json" set:html={json} />

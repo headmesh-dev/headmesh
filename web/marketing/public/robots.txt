@@ -1,4 +1,23 @@
+# headmesh.dev welcomes search engines and AI agents. An LLM-friendly index of the site is at
+# https://headmesh.dev/llms.txt, and every docs page has a Markdown copy (https://headmesh.dev/docs/quickstart.md).
+
 User-agent: *
 Allow: /
+Disallow: /api/
+
+# AI crawlers and assistants, named so each operator sees an explicit welcome.
+User-agent: GPTBot
+User-agent: OAI-SearchBot
+User-agent: ChatGPT-User
+User-agent: ClaudeBot
+User-agent: Claude-SearchBot
+User-agent: Claude-User
+User-agent: PerplexityBot
+User-agent: Perplexity-User
+User-agent: Google-Extended
+User-agent: Applebot-Extended
+User-agent: CCBot
+Allow: /
+Disallow: /api/
 
 Sitemap: https://headmesh.dev/sitemap-index.xml

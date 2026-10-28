@@ -4,6 +4,7 @@ import { PUBLIC_CF_ANALYTICS_TOKEN } from "astro:env/client";
 import FontFaces from "../components/FontFaces.astro";
 import Footer from "../components/Footer.astro";
 import Header from "../components/Header.astro";
+import StructuredData from "../components/StructuredData.astro";
 
 interface Props {
   title: string;
@@ -12,9 +13,11 @@ interface Props {
   ogImage?: string;
   /** Keep the page out of search results (confirmation and unsubscribe pages). */
   noindex?: boolean;
+  /** Add schema.org data describing the Headmesh software (the home page). */
+  software?: boolean;
 }
 
-const { title, description, ogImage = "home", noindex = false } = Astro.props;
+const { title, description, ogImage = "home", noindex = false, software = false } = Astro.props;
 const site = Astro.site ?? new URL("https://headmesh.dev");
 const canonical = new URL(Astro.url.pathname, site);
 const ogImageUrl = new URL(`/og/${ogImage}.png`, site);
@@ -36,6 +39,8 @@ const fullTitle = title === "Headmesh" ? title : `${title} · Headmesh`;
     <link rel="icon" href="/favicon.svg" type="image/svg+xml" />
     <link rel="apple-touch-icon" href="/apple-touch-icon.png" />
     <link rel="sitemap" href="/sitemap-index.xml" />
+    <link rel="alternate" type="text/plain" href="/llms.txt" title="llms.txt" />
+    <StructuredData software={software} />
 
     <meta property="og:type" content="website" />
     <meta property="og:site_name" content="Headmesh" />
