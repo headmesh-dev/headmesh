@@ -104,6 +104,7 @@ describe("loadConfig", () => {
     EMAIL_FROM: "Headmesh <waitlist@mail.headmesh.dev>",
     TURNSTILE_SECRET_KEY: "secret",
     RESEND_API_KEY: "re_key",
+    RESEND_CONFIRMATION_TEMPLATE_ID: "headmesh-waitlist-confirmation",
     WAITLIST_SECRET: "x".repeat(48),
   };
 
@@ -121,8 +122,14 @@ describe("loadConfig", () => {
   it("refuses to start with missing or weak settings", () => {
     expect(() => loadConfig({ ...env, WAITLIST_SECRET: "short" })).toThrow(/at least 32/);
     expect(() => loadConfig({ ...env, RESEND_API_KEY: "" })).toThrow(/RESEND_API_KEY is required/);
+    expect(() => loadConfig({ ...env, RESEND_CONFIRMATION_TEMPLATE_ID: "" })).toThrow(
+      /RESEND_CONFIRMATION_TEMPLATE_ID is required/,
+    );
     expect(() => loadConfig({ ...env, SITE_URL: "ftp://headmesh.dev" })).toThrow(/SITE_URL/);
     expect(() => loadConfig({ ...env, WAITLIST_PORT: "99999" })).toThrow(/WAITLIST_PORT/);
-    expect(loadConfig({ ...env, RESEND_API_KEY: "", EMAIL_DELIVERY: "log" }).emailDelivery).toBe("log");
+    expect(
+      loadConfig({ ...env, RESEND_API_KEY: "", RESEND_CONFIRMATION_TEMPLATE_ID: "", EMAIL_DELIVERY: "log" })
+        .emailDelivery,
+    ).toBe("log");
   });
 });

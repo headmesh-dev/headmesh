@@ -18,6 +18,7 @@ export const testConfig: Config = {
   emailDelivery: "resend",
   turnstileSecretKey: "test-turnstile-secret",
   resendApiKey: "test-resend-key",
+  confirmationTemplateId: "test-confirmation-template",
   waitlistSecret: "test-waitlist-secret-that-is-long-enough-0123456789",
   clientIpHeader: "x-real-ip",
 };
@@ -50,15 +51,15 @@ export interface SentEmail {
   from: string;
   to: string[];
   reply_to?: string;
-  subject: string;
-  text: string;
-  html: string;
+  template: { id: string; variables: { CONFIRM_URL: string; UNSUBSCRIBE_URL: string; SITE_URL: string } };
   headers: Record<string, string>;
 }
 
 export interface Upstreams {
   turnstile: { success: boolean; action?: string; "error-codes"?: string[] } | "down";
   resendStatus: number;
+  resendRetryAfter: string | undefined;
+  resendCalls: { email: SentEmail; idempotencyKey: string }[];
   sent: SentEmail[];
   turnstileCalls: { secret: string; response: string; remoteip?: string }[];
 }
@@ -71,6 +72,8 @@ export function stubUpstreams(): Upstreams {
   const upstreams: Upstreams = {
     turnstile: { success: true, action: "waitlist" },
     resendStatus: 200,
+    resendRetryAfter: undefined,
+    resendCalls: [],
     sent: [],
     turnstileCalls: [],
   };
@@ -86,8 +89,20 @@ export function stubUpstreams(): Upstreams {
       const headers = new Headers(init?.headers);
       if (headers.get("authorization") !== "Bearer test-resend-key") throw new Error("wrong Resend key");
       if (!headers.get("idempotency-key")?.startsWith("waitlist-confirm/")) throw new Error("no idempotency key");
+      upstreams.resendCalls.push({
+        email: JSON.parse(String(init?.body)),
+        idempotencyKey: headers.get("idempotency-key") ?? "",
+      });
       if (upstreams.resendStatus === 200) upstreams.sent.push(JSON.parse(String(init?.body)));
-      return Response.json({ id: "email_123" }, { status: upstreams.resendStatus });
+      return Response.json(
+        upstreams.resendStatus === 200
+          ? { id: "email_123" }
+          : { name: "api_error", message: "Simulated provider failure", statusCode: upstreams.resendStatus },
+        {
+          status: upstreams.resendStatus,
+          ...(upstreams.resendRetryAfter && { headers: { "retry-after": upstreams.resendRetryAfter } }),
+        },
+      );
     }
     if (new URL(url).hostname === "127.0.0.1") return realFetch(input, init);
     throw new Error(`unexpected fetch to ${url}`);
@@ -99,8 +114,8 @@ export function stubUpstreams(): Upstreams {
 export function tokensFromLastEmail(upstreams: Upstreams) {
   const email = upstreams.sent.at(-1);
   if (!email) throw new Error("no email sent");
-  const confirmToken = /\/waitlist\/confirm\/#token=([^\s"]+)/.exec(email.text)?.[1];
-  const unsubscribeToken = /\/waitlist\/unsubscribe\/#token=([^\s"]+)/.exec(email.text)?.[1];
+  const confirmToken = new URL(email.template.variables.CONFIRM_URL).hash.slice("#token=".length);
+  const unsubscribeToken = new URL(email.template.variables.UNSUBSCRIBE_URL).hash.slice("#token=".length);
   if (!confirmToken || !unsubscribeToken) throw new Error("tokens missing from email");
   return { confirmToken, unsubscribeToken };
 }

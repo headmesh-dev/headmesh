@@ -110,7 +110,8 @@ server's copy):
   Without a site key the build uses Cloudflare's always-pass test key. `deploy.sh` sets `HEADMESH_PRODUCTION=1`
   for prod, which fails the build while the Turnstile key is the test key or `SENDER.postalAddress` is empty.
 - `deploy/env/<env>/waitlist.env`: the service's settings (`server/config.ts`): `SITE_URL`, `EMAIL_FROM`,
-  `EMAIL_REPLY_TO`, `EMAIL_DELIVERY` (`resend` in prod, `log` in test), `TURNSTILE_SECRET_KEY`, `RESEND_API_KEY`
+  `EMAIL_REPLY_TO`, `EMAIL_DELIVERY` (`resend` in prod, `log` in test), `TURNSTILE_SECRET_KEY`, `RESEND_API_KEY`,
+  `RESEND_CONFIRMATION_TEMPLATE_ID`
   and `WAITLIST_SECRET`. The listen address, port and database path are set per instance on the server.
 
 ```sh
@@ -126,9 +127,20 @@ sign-up. The service starts before the site, so a new form never posts to an old
 1. **CASL sender address.** Fill in `SENDER.postalAddress` in `shared/site.ts`. Production builds fail without it.
 2. **Turnstile.** In the Cloudflare dashboard, add a Turnstile widget (Managed) for `headmesh.dev`. The site key goes
    in `deploy/env/prod/build.env`, the secret in `deploy/env/prod/waitlist.env`.
-3. **Resend.** Add the domain `mail.headmesh.dev`, create the SPF, DKIM and bounce (MX) records it lists in
-   Cloudflare DNS, and wait for verification. Publish a DMARC record for `headmesh.dev` if there isn't one. Put an API
-   key restricted to sending from that domain in `deploy/env/prod/waitlist.env`.
+3. **Resend.** Add the domain `mail.headmesh.dev`, create exactly the DNS records it returns (including DKIM,
+   SPF, MX and any CNAME) in Cloudflare, and wait for verification. CNAME records must use DNS-only mode.
+   The [Cloudflare import file](../../deploy/resend-mail-dns-import.txt) contains the three sending records
+   returned for this setup. Review them against the current Resend domain before importing.
+   Preserve the existing root DMARC policy. Use `RESEND_SETUP_API_KEY` from the root `.env` for operator setup;
+   the service's `RESEND_API_KEY` must have sending-only access restricted to `mail.headmesh.dev`.
+   Publish the `headmesh-waitlist-confirmation` template and put its ID or alias in
+   `RESEND_CONFIRMATION_TEMPLATE_ID`. It requires `CONFIRM_URL`, `UNSUBSCRIBE_URL` and `SITE_URL`, with no default
+   link values. `server/emails.ts` is the source for initial publication and local previews; runtime sends use
+   the hosted template through the official SDK. Template copy can be edited and published in Resend without a
+   code deploy. Real delivery requires both the sending key and template setting; test/log mode needs neither.
+   The service retries transient errors with bounded backoff and stable idempotency payloads, and logs the
+   provider email ID after acceptance. A successful API call is acceptance; check Resend's delivery event too.
+   Deployed waitlist env files set `NODE_ENV=production` so the SDK does not emit verbose provider errors.
 4. **Web Analytics.** Add `headmesh.dev` under _Web Analytics_ with the manual JS snippet (not automatic injection,
    so the CSP stays exact), and put its token in `deploy/env/prod/build.env`.
 5. **DNS and TLS:** see [`deploy/README.md`](../../deploy/README.md#dns-and-tls).

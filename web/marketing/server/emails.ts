@@ -10,8 +10,8 @@ const escapeHtml = (value: string) =>
   value.replaceAll("&", "&amp;").replaceAll("<", "&lt;").replaceAll(">", "&gt;").replaceAll('"', "&quot;");
 
 /**
- * The double opt-in email. It is itself a commercial electronic message under CASL, so it identifies the sender
- * (name, mailing address, contact email) and carries a working unsubscribe link.
+ * Source for publishing/previewing the hosted Resend confirmation template. Runtime sends use its ID and variables.
+ * The double opt-in email identifies the sender and carries a working unsubscribe link.
  */
 export function confirmationEmail(links: { confirm: string; unsubscribe: string; site: string }): ConfirmationEmail {
   const sender = `${SENDER.legalName}, ${SENDER.postalAddress}`;

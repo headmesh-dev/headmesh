@@ -20,6 +20,8 @@ export interface Config {
   turnstileSecretKey: string;
   /** Resend API key restricted to sending from mail.headmesh.dev. Required when emailDelivery is "resend". */
   resendApiKey: string | undefined;
+  /** Published Resend template ID or alias used for waitlist confirmations. Required with real delivery. */
+  confirmationTemplateId: string | undefined;
   /** At least 32 random characters. Keys the token HMACs and the IP hash; rotating it voids outstanding links. */
   waitlistSecret: string;
   /** Header nginx puts the client address in. Trusted because the service only listens behind nginx. */
@@ -42,12 +44,17 @@ const schema = z
     EMAIL_DELIVERY: z.enum(["resend", "log"]).default("resend"),
     TURNSTILE_SECRET_KEY: z.string().min(1),
     RESEND_API_KEY: optional,
+    RESEND_CONFIRMATION_TEMPLATE_ID: optional,
     WAITLIST_SECRET: z.string().min(32, "WAITLIST_SECRET must be at least 32 characters"),
     CLIENT_IP_HEADER: z.string().min(1).default("x-real-ip"),
   })
   .refine((env) => env.EMAIL_DELIVERY === "log" || env.RESEND_API_KEY, {
     message: "RESEND_API_KEY is required when EMAIL_DELIVERY is resend",
     path: ["RESEND_API_KEY"],
+  })
+  .refine((env) => env.EMAIL_DELIVERY === "log" || env.RESEND_CONFIRMATION_TEMPLATE_ID, {
+    message: "RESEND_CONFIRMATION_TEMPLATE_ID is required when EMAIL_DELIVERY is resend",
+    path: ["RESEND_CONFIRMATION_TEMPLATE_ID"],
   });
 
 export function loadConfig(env: NodeJS.ProcessEnv = process.env): Config {
@@ -67,6 +74,7 @@ export function loadConfig(env: NodeJS.ProcessEnv = process.env): Config {
     emailDelivery: e.EMAIL_DELIVERY,
     turnstileSecretKey: e.TURNSTILE_SECRET_KEY,
     resendApiKey: e.RESEND_API_KEY,
+    confirmationTemplateId: e.RESEND_CONFIRMATION_TEMPLATE_ID,
     waitlistSecret: e.WAITLIST_SECRET,
     clientIpHeader: e.CLIENT_IP_HEADER.toLowerCase(),
   };

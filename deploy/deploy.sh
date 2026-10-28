@@ -263,9 +263,9 @@ build_backend() {
 build_waitlist() {
   local out="${WORK}/waitlist"
   log "build: waitlist service ${RELEASE}"
-  # package.json "files" limits the copy to server/, shared/ and migrations/; dependencies are only zod.
+  # package.json "files" limits the copy to server/, shared/ and migrations/, plus production dependencies.
   pnpm --dir "${ROOT}" --filter @headmesh/marketing deploy --prod "${out}" >/dev/null
-  [[ -f "${out}/server/main.ts" && -d "${out}/node_modules/zod" && ! -d "${out}/src" ]] || die "waitlist bundle is incomplete"
+  [[ -f "${out}/server/main.ts" && -d "${out}/node_modules/zod" && -d "${out}/node_modules/resend" && ! -d "${out}/src" ]] || die "waitlist bundle is incomplete"
 }
 
 # build_site <env>: the static site with that environment's build settings.

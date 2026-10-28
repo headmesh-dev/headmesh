@@ -1,0 +1,10 @@
+; Cloudflare DNS import for the headmesh.dev zone.
+; Resend domain: mail.headmesh.dev, region: us-east-1.
+; These are the three sending records returned by Resend during setup.
+; TTL 1 selects Cloudflare Auto. The CNAME explicitly uses DNS-only mode.
+; Review the records before importing. DKIM and the root DMARC record already exist.
+$ORIGIN headmesh.dev.
+$TTL 1
+send.mail.headmesh.dev. 1 IN MX 10 feedback-smtp.us-east-1.amazonses.com.
+send.mail.headmesh.dev. 1 IN TXT "v=spf1 include:amazonses.com ~all"
+rsend.mail.headmesh.dev. 1 IN CNAME send.forge.rmta.net. ; cf_tags=cf-proxied:false

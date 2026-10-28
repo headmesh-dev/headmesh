@@ -1,7 +1,6 @@
 import { SENDER } from "../shared/site.ts";
 import type { Config } from "./config.ts";
 import { hashIp, signToken, verifyToken } from "./crypto.ts";
-import { confirmationEmail } from "./emails.ts";
 import { fail, HttpError, log, ok, readJson, readText } from "./http.ts";
 import { sendWithResend } from "./resend.ts";
 import { fieldErrors, signupSchema, tokenSchema } from "./schema.ts";
@@ -41,10 +40,14 @@ export function handleSignup(request: Request, { config, store }: WaitlistContex
     const signup = parsed.data;
 
     const delivery = config.emailDelivery;
-    if (delivery === "resend" && (!SENDER.postalAddress || !config.resendApiKey)) {
+    if (delivery === "resend" && (!SENDER.postalAddress || !config.resendApiKey || !config.confirmationTemplateId)) {
       // Fail closed: never send a consent request that CASL wouldn't accept.
       log("error", "waitlist.signup.misconfigured", {
-        missing: !SENDER.postalAddress ? "SENDER.postalAddress" : "RESEND_API_KEY",
+        missing: !SENDER.postalAddress
+          ? "SENDER.postalAddress"
+          : !config.resendApiKey
+            ? "RESEND_API_KEY"
+            : "RESEND_CONFIRMATION_TEMPLATE_ID",
       });
       return fail("unavailable");
     }
@@ -72,9 +75,12 @@ export function handleSignup(request: Request, { config, store }: WaitlistContex
     if (confirmed || recentlySent) return ok(202);
 
     const origin = config.siteUrl;
+    const confirmationAttempt = Math.floor(Date.now() / RESEND_CONFIRMATION_AFTER_MS);
+    // Stable token timestamps keep retries in the same idempotency window byte-identical.
+    const issuedAt = Math.floor((confirmationAttempt * RESEND_CONFIRMATION_AFTER_MS) / 1000);
     const [confirmToken, unsubscribeToken] = await Promise.all([
-      signToken(config.waitlistSecret, "confirm", row.id, nowSeconds()),
-      signToken(config.waitlistSecret, "unsubscribe", row.id, nowSeconds()),
+      signToken(config.waitlistSecret, "confirm", row.id, issuedAt),
+      signToken(config.waitlistSecret, "unsubscribe", row.id, issuedAt),
     ]);
     const links = {
       confirm: `${origin}/waitlist/confirm/#token=${confirmToken}`,
@@ -85,19 +91,21 @@ export function handleSignup(request: Request, { config, store }: WaitlistContex
     if (delivery === "log") {
       log("info", "waitlist.signup.email_logged", { links });
     } else {
-      const email = confirmationEmail(links);
-      const sent = await sendWithResend(config.resendApiKey ?? "", {
+      if (!config.resendApiKey || !config.confirmationTemplateId) return fail("unavailable");
+      const sent = await sendWithResend(config.resendApiKey, {
         from: config.emailFrom,
         to: signup.email,
         ...(config.emailReplyTo && { replyTo: config.emailReplyTo }),
-        ...email,
+        templateId: config.confirmationTemplateId,
+        variables: { CONFIRM_URL: links.confirm, UNSUBSCRIBE_URL: links.unsubscribe, SITE_URL: links.site },
         oneClickUnsubscribeUrl: `${origin}/api/waitlist/unsubscribe?token=${encodeURIComponent(unsubscribeToken)}`,
-        idempotencyKey: `waitlist-confirm/${row.id}/${Math.floor(Date.now() / RESEND_CONFIRMATION_AFTER_MS)}`,
+        idempotencyKey: `waitlist-confirm/${row.id}/${confirmationAttempt}`,
       });
       if (!sent.ok) {
         log("error", "waitlist.signup.email_failed", { status: sent.status });
         return fail("unavailable");
       }
+      log("info", "waitlist.signup.email_sent", { emailId: sent.id });
     }
 
     store.markConfirmSent(row.id, nowIso());

@@ -1,10 +1,11 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { handle } from "../../server/app.ts";
+import { confirmationEmail } from "../../server/emails.ts";
 import { RESEND_CONFIRMATION_AFTER_MS, SIGNUPS_PER_IP_PER_HOUR } from "../../server/waitlist.ts";
 import { CONSENT_VERSION } from "../../shared/site.ts";
 import { createContext, IP, rows, signupBody, stubUpstreams, tokensFromLastEmail, type Upstreams } from "./helpers.ts";
 
-// The committed SENDER has no postal address yet (it must be filled in before launch); tests supply one.
+// Keep sender fixtures independent of the public business address.
 const sender = vi.hoisted(() => ({
   legalName: "Xcelsior Compute Inc.",
   postalAddress: "1 Test Street, Toronto ON M5V 0A1, Canada",
@@ -72,8 +73,21 @@ describe("POST /api/waitlist", () => {
     expect(email?.to).toEqual(["ada@example.com"]);
     expect(email?.from).toBe("Headmesh <waitlist@mail.headmesh.dev>");
     expect(email?.reply_to).toBe("hello@headmesh.dev");
-    // Sender identification and an unsubscribe mechanism, in both parts.
-    for (const part of [email?.text, email?.html]) {
+    expect(email?.template.id).toBe("test-confirmation-template");
+    expect(email?.template.variables).toEqual({
+      CONFIRM_URL: expect.stringContaining("https://headmesh.dev/waitlist/confirm/#token="),
+      UNSUBSCRIBE_URL: expect.stringContaining("https://headmesh.dev/waitlist/unsubscribe/#token="),
+      SITE_URL: "https://headmesh.dev",
+    });
+    expect(email).not.toHaveProperty("html");
+    expect(email).not.toHaveProperty("text");
+    // The source used to publish the hosted template retains sender identification in both parts.
+    const preview = confirmationEmail({
+      confirm: email?.template.variables.CONFIRM_URL ?? "",
+      unsubscribe: email?.template.variables.UNSUBSCRIBE_URL ?? "",
+      site: "https://headmesh.dev",
+    });
+    for (const part of [preview.text, preview.html]) {
       expect(part).toContain("Xcelsior Compute Inc., 1 Test Street, Toronto ON M5V 0A1, Canada");
       expect(part).toContain("hello@headmesh.dev");
       expect(part).toContain("https://headmesh.dev/waitlist/unsubscribe/#token=");
@@ -178,13 +192,30 @@ describe("POST /api/waitlist", () => {
   });
 
   it("reports email delivery failures and lets the person retry", async () => {
+    vi.useFakeTimers({ toFake: ["Date"] });
+    vi.setSystemTime(new Date("2026-10-28T12:01:00Z"));
     upstreams.resendStatus = 500;
     expect((await signup(signupBody())).status).toBe(503);
     expect(rows(ctx.db)[0]?.confirm_sent_at).toBeNull();
+    expect(upstreams.resendCalls).toHaveLength(3);
 
+    upstreams.resendStatus = 401;
+    expect((await signup(signupBody())).status).toBe(503);
+    expect(upstreams.resendCalls).toHaveLength(4);
+
+    upstreams.resendStatus = 429;
+    upstreams.resendRetryAfter = "60";
+    expect((await signup(signupBody())).status).toBe(503);
+    expect(upstreams.resendCalls).toHaveLength(5);
+
+    vi.setSystemTime(Date.now() + 5000);
     upstreams.resendStatus = 200;
+    upstreams.resendRetryAfter = undefined;
     expect((await signup(signupBody())).status).toBe(202);
     expect(upstreams.sent).toHaveLength(1);
+    expect(upstreams.resendCalls).toHaveLength(6);
+    // A later retry uses the exact same body and key, even though token issuance is time-dependent.
+    for (const call of upstreams.resendCalls) expect(call).toEqual(upstreams.resendCalls[0]);
   });
 
   it("fails closed when CASL sender identification is missing", async () => {
