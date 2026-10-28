@@ -95,8 +95,7 @@
             "rw": { "$ref": "#/$defs/pathlist" },
             "ro": { "$ref": "#/$defs/pathlist" },
             "allow_lan": { "type": "boolean" },
-            "backup_max_age": { "$ref": "#/$defs/duration" },
-            "ssh_key": { "type": "string", "pattern": "^(/.*)?$" }
+            "backup_max_age": { "$ref": "#/$defs/duration" }
           }
         }
       }

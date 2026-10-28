@@ -12,10 +12,10 @@ import (
 // fakeHost builds a small host tree under a temp dir that stands in for "/".
 func fakeHost(t *testing.T) (string, *config.Config) {
 	t.Helper()
-	T := t.TempDir()
+	tmp := t.TempDir()
 	mk := func(p string, file bool) {
 		t.Helper()
-		full := filepath.Join(T, p)
+		full := filepath.Join(tmp, p)
 		if file {
 			if err := os.MkdirAll(filepath.Dir(full), 0o755); err != nil {
 				t.Fatal(err)
@@ -29,27 +29,29 @@ func fakeHost(t *testing.T) (string, *config.Config) {
 			t.Fatal(err)
 		}
 	}
-	for _, d := range []string{"etc", "usr/bin", "proc", "tmp", "home/u/.ssh", "home/u/.config/gh", "mnt/storage/docker/overlay2",
-		"mnt/storage/projects/app/.git", "mnt/storage/projects/data", "mnt/storage/backups/restic-home", "srv/hm/home", "var/lib"} {
+	for _, d := range []string{
+		"etc", "usr/bin", "proc", "tmp", "home/u/.ssh", "home/u/.config/gh", "mnt/storage/docker/overlay2",
+		"mnt/storage/projects/app/.git", "mnt/storage/projects/data", "mnt/storage/backups/restic-home", "srv/hm/home", "var/lib",
+	} {
 		mk(d, false)
 	}
 	for _, f := range []string{"home/u/.netrc", "home/u/.ssh/id_ed25519", "mnt/storage/projects/app/.env", "swap.img"} {
 		mk(f, true)
 	}
-	if err := os.Symlink("usr/bin", filepath.Join(T, "bin")); err != nil {
+	if err := os.Symlink("usr/bin", filepath.Join(tmp, "bin")); err != nil {
 		t.Fatal(err)
 	}
 	src := string(config.Example())
 	repl := []string{
-		`root = "/mnt/storage/headmesh/sandbox"`, `root = "` + T + `/srv/hm"`,
-		`host_home = "/home/aaryn"`, `host_home = "` + T + `/home/u"`,
-		"rw = [\n  \"/mnt/storage/projects/xcelsior\",\n  \"/mnt/storage/projects/headmesh\",\n]", `rw = ["` + T + `/mnt/storage/projects/app"]`,
-		"ro = []\n# Files", `ro = ["` + T + "/mnt/storage/projects/data\"]\n# Files",
-		`"/mnt/storage/projects/xcelsior/.env",`, `"` + T + `/mnt/storage/projects/app/.env",`,
-		`rw = ["/home/aaryn"]`, `rw = ["` + T + `/home/u"]`,
-		"\"aabiro/xcelsior\" = \"/mnt/storage/projects/xcelsior\"\n\"headmesh-dev/headmesh\" = \"/mnt/storage/projects/headmesh\"", `"acme/app" = "` + T + `/mnt/storage/projects/app"`,
-		`project = "/mnt/storage/projects/xcelsior"`, `project = "` + T + `/mnt/storage/projects/app"`,
-		`restic_repo = "/mnt/storage/backups/restic-home"`, `restic_repo = "` + T + `/mnt/storage/backups/restic-home"`,
+		`root = "/mnt/storage/headmesh/sandbox"`, `root = "` + tmp + `/srv/hm"`,
+		`host_home = "/home/aaryn"`, `host_home = "` + tmp + `/home/u"`,
+		"rw = [\n  \"/mnt/storage/projects/xcelsior\",\n  \"/mnt/storage/projects/headmesh\",\n]", `rw = ["` + tmp + `/mnt/storage/projects/app"]`,
+		"ro = []\n# Files", `ro = ["` + tmp + "/mnt/storage/projects/data\"]\n# Files",
+		`"/mnt/storage/projects/xcelsior/.env",`, `"` + tmp + `/mnt/storage/projects/app/.env",`,
+		`rw = ["/home/aaryn"]`, `rw = ["` + tmp + `/home/u"]`,
+		"\"aabiro/xcelsior\" = \"/mnt/storage/projects/xcelsior\"\n\"headmesh-dev/headmesh\" = \"/mnt/storage/projects/headmesh\"", `"acme/app" = "` + tmp + `/mnt/storage/projects/app"`,
+		`project = "/mnt/storage/projects/xcelsior"`, `project = "` + tmp + `/mnt/storage/projects/app"`,
+		`restic_repo = "/mnt/storage/backups/restic-home"`, `restic_repo = "` + tmp + `/mnt/storage/backups/restic-home"`,
 		`gpu = "off"`, `gpu = "shared"`,
 	}
 	for i := 0; i < len(repl); i += 2 {
@@ -62,12 +64,12 @@ func fakeHost(t *testing.T) (string, *config.Config) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	return T, cfg
+	return tmp, cfg
 }
 
-func hostFor(T string) Host {
-	h := OS([]string{filepath.Join(T, "mnt/storage/docker")})
-	h.Root = T
+func hostFor(root string) Host {
+	h := OS([]string{filepath.Join(root, "mnt/storage/docker")})
+	h.Root = root
 	return h
 }
 
@@ -80,8 +82,8 @@ func targets(svc Service) map[string]Mount {
 }
 
 func TestRenderRegularAndYOLO(t *testing.T) {
-	T, cfg := fakeHost(t)
-	res, err := Render(cfg, hostFor(T))
+	root, cfg := fakeHost(t)
+	res, err := Render(cfg, hostFor(root))
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -89,13 +91,13 @@ func TestRenderRegularAndYOLO(t *testing.T) {
 		t.Fatalf("services %v", res.Services)
 	}
 	reg, yolo := targets(res.Services[0]), targets(res.Services[1])
-	app := T + "/mnt/storage/projects/app"
+	app := root + "/mnt/storage/projects/app"
 
 	// Regular: project rw, data ro, the .env mask, infra mounts, no host view.
 	if m := reg[app]; m.ReadOnly || m.Source != app {
 		t.Fatalf("regular app mount %+v", m)
 	}
-	if m := reg[T+"/mnt/storage/projects/data"]; !m.ReadOnly || m.Recursive != "readonly" {
+	if m := reg[root+"/mnt/storage/projects/data"]; !m.ReadOnly || m.Recursive != "readonly" {
 		t.Fatalf("regular data mount %+v", m)
 	}
 	if m := reg[app+"/.env"]; m.Source != "/dev/null" || !m.ReadOnly {
@@ -125,12 +127,12 @@ func TestRenderRegularAndYOLO(t *testing.T) {
 			t.Errorf("host view should not bind %s", absent)
 		}
 	}
-	for _, mask := range []string{"/host/mnt/storage/backups/restic-home", T + "/home/u/.ssh", "/host/home/u/.ssh", "/host/home/u/.netrc", "/host/mnt/storage/projects/app/.env", app + "/.env"} {
+	for _, mask := range []string{"/host/mnt/storage/backups/restic-home", root + "/home/u/.ssh", "/host/home/u/.ssh", "/host/home/u/.netrc", "/host/mnt/storage/projects/app/.env", app + "/.env"} {
 		if m, ok := yolo[mask]; !ok || !strings.HasPrefix(m.Purpose, "mask") {
 			t.Errorf("missing mask %s (%+v)", mask, m)
 		}
 	}
-	if m := yolo[T+"/home/u/.ssh"]; m.Type != "tmpfs" {
+	if m := yolo[root+"/home/u/.ssh"]; m.Type != "tmpfs" {
 		t.Errorf("dir mask should be tmpfs: %+v", m)
 	}
 	if m := yolo["/host/home/u/.netrc"]; m.Source != "/dev/null" {
@@ -142,8 +144,10 @@ func TestRenderRegularAndYOLO(t *testing.T) {
 	}
 
 	out := string(res.Override)
-	for _, want := range []string{`HEADMESH_MODE: "yolo"`, `HEADMESH_YOLO_EXPIRES_AT: "${HEADMESH_YOLO_EXPIRES_AT:-}"`, `- "nvidia.com/gpu=all"`,
-		`recursive: "readonly"`, `propagation: "rprivate"`, `hostname: "asus-sandbox-yolo"`, `mem_limit: "10g"`, "create_host_path: false"} {
+	for _, want := range []string{
+		`HEADMESH_MODE: "yolo"`, `HEADMESH_YOLO_EXPIRES_AT: "${HEADMESH_YOLO_EXPIRES_AT:-}"`, `- "nvidia.com/gpu=all"`,
+		`recursive: "readonly"`, `propagation: "rprivate"`, `hostname: "asus-sandbox-yolo"`, `mem_limit: "10g"`, "create_host_path: false",
+	} {
 		if !strings.Contains(out, want) {
 			t.Errorf("override lacks %q", want)
 		}
@@ -154,33 +158,33 @@ func TestRenderRegularAndYOLO(t *testing.T) {
 }
 
 func TestRenderRefusals(t *testing.T) {
-	T, cfg := fakeHost(t)
-	cfg.Mounts.RW = append(cfg.Mounts.RW, T+"/home/u/.ssh")
-	if _, err := Render(cfg, hostFor(T)); err == nil || !strings.Contains(err.Error(), "denylisted") {
+	root, cfg := fakeHost(t)
+	cfg.Mounts.RW = append(cfg.Mounts.RW, root+"/home/u/.ssh")
+	if _, err := Render(cfg, hostFor(root)); err == nil || !strings.Contains(err.Error(), "denylisted") {
 		t.Fatalf("denylisted mount: %v", err)
 	}
-	T, cfg = fakeHost(t)
-	cfg.Mounts.RO = append(cfg.Mounts.RO, T+"/mnt/storage")
-	if _, err := Render(cfg, hostFor(T)); err == nil || !strings.Contains(err.Error(), "data-root") {
+	root, cfg = fakeHost(t)
+	cfg.Mounts.RO = append(cfg.Mounts.RO, root+"/mnt/storage")
+	if _, err := Render(cfg, hostFor(root)); err == nil || !strings.Contains(err.Error(), "data-root") {
 		t.Fatalf("data-root overlap: %v", err)
 	}
-	T, cfg = fakeHost(t)
-	cfg.Mounts.RW = append(cfg.Mounts.RW, T+"/nope")
-	if _, err := Render(cfg, hostFor(T)); err == nil || !strings.Contains(err.Error(), "no such file") {
+	root, cfg = fakeHost(t)
+	cfg.Mounts.RW = append(cfg.Mounts.RW, root+"/nope")
+	if _, err := Render(cfg, hostFor(root)); err == nil || !strings.Contains(err.Error(), "no such file") {
 		t.Fatalf("missing mount: %v", err)
 	}
-	T, cfg = fakeHost(t)
+	root, cfg = fakeHost(t)
 	cfg.Mounts.AllowSecrets = []string{"~/.config/gh"}
-	cfg.Mounts.RO = append(cfg.Mounts.RO, T+"/home/u/.config/gh")
-	if _, err := Render(cfg, hostFor(T)); err != nil {
+	cfg.Mounts.RO = append(cfg.Mounts.RO, root+"/home/u/.config/gh")
+	if _, err := Render(cfg, hostFor(root)); err != nil {
 		t.Fatalf("allow_secrets not honoured: %v", err)
 	}
 }
 
 func TestMissingMaskIsAWarning(t *testing.T) {
-	T, cfg := fakeHost(t)
-	cfg.Mounts.Masks = append(cfg.Mounts.Masks, T+"/mnt/storage/projects/app/.env.gone")
-	res, err := Render(cfg, hostFor(T))
+	root, cfg := fakeHost(t)
+	cfg.Mounts.Masks = append(cfg.Mounts.Masks, root+"/mnt/storage/projects/app/.env.gone")
+	res, err := Render(cfg, hostFor(root))
 	if err != nil {
 		t.Fatal(err)
 	}

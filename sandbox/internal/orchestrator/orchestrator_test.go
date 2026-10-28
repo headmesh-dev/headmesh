@@ -69,7 +69,9 @@ func (f *fakeAPI) handler(t *testing.T) http.Handler {
 		send(`{"type":"agent.session.turn.output_text.delta","delta":"sub ","turn":{"id":"t2","subagent_id":"sa_1"}}`)
 		send(`{"type":"agent.session.turn.completed","turn":{"id":"t2","subagent_id":"sa_1"}}`)
 		send(`{"type":"agent.session.turn.output_text.delta","delta":"5/5 checks ","turn":{"id":"t1"}}`)
-		send("{\"type\":\"agent.session.turn.output_text.delta\",\n\"delta\":\"passed\",\"turn\":{\"id\":\"t1\"}}")
+		// One event split over two data lines.
+		_, _ = fmt.Fprintf(w, "data: {\"type\":\"agent.session.turn.output_text.delta\",\ndata: \"delta\":\"passed\",\"turn\":{\"id\":\"t1\"}}\n\n")
+		fl.Flush()
 		send(`{"type":"agent.session.turn.output_text.done","text":"5/5 checks passed","turn":{"id":"t1"}}`)
 		if f.failTurn {
 			send(`{"type":"agent.session.turn.failed","turn":{"id":"t1"}}`)

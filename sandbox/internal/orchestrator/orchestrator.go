@@ -166,7 +166,7 @@ func (e Event) Root() bool { return e.Turn.SubagentID == "" }
 // stream ends or ctx is done. The returned channel carries the final error.
 func (c *Client) Stream(ctx context.Context, sessionID string, out chan<- Event) <-chan error {
 	errc := make(chan error, 1)
-	resp, err := c.req(ctx, http.MethodGet, "/v1/agents/sessions/"+sessionID+"/events?stream=true", nil, map[string]string{"Accept": "text/event-stream"})
+	resp, err := c.req(ctx, http.MethodGet, "/v1/agents/sessions/"+sessionID+"/events?stream=true", nil, map[string]string{"Accept": "text/event-stream"}) //nolint:bodyclose // closed by the reader goroutine
 	if err != nil {
 		errc <- err
 		close(out)

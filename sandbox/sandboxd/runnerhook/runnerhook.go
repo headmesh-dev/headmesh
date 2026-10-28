@@ -17,6 +17,7 @@ import (
 	"os/exec"
 	"path/filepath"
 	"regexp"
+	"slices"
 	"strings"
 	"time"
 
@@ -97,7 +98,7 @@ func (h *Hook) git(ctx context.Context, dir string, args ...string) (string, err
 	if len(env) == 0 {
 		env = os.Environ()
 	}
-	cmd.Env = append(env[:len(env):len(env)], "GIT_TERMINAL_PROMPT=0")
+	cmd.Env = append(slices.Clone(env), "GIT_TERMINAL_PROMPT=0")
 	out, err := cmd.CombinedOutput()
 	if err != nil {
 		return string(out), fmt.Errorf("git %s: %w: %s", args[0], err, strings.TrimSpace(string(out)))

@@ -142,7 +142,6 @@ type YOLOMode struct {
 	RO           []string `koanf:"ro"`
 	AllowLAN     bool     `koanf:"allow_lan"`
 	BackupMaxAge string   `koanf:"backup_max_age"`
-	SSHKey       string   `koanf:"ssh_key"`
 }
 
 // Sandboxd configures the MCP daemon.

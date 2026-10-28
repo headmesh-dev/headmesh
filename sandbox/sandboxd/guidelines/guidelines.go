@@ -134,7 +134,7 @@ func Banner(d Data, others string) string {
 		}
 	}
 	var b strings.Builder
-	fmt.Fprintf(&b, "Headmesh sandbox %s · mode %s\n", d.Hostname, mode)
+	_, _ = fmt.Fprintf(&b, "Headmesh sandbox %s · mode %s\n", d.Hostname, mode)
 	if others != "" {
 		b.WriteString(others + "\n")
 	}

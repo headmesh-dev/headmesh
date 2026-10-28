@@ -53,7 +53,7 @@ func scalar(v any) (string, bool) {
 
 func key(k string) string {
 	for _, r := range k {
-		if !(r == '_' || r == '-' || r == '.' || (r >= 'a' && r <= 'z') || (r >= 'A' && r <= 'Z') || (r >= '0' && r <= '9')) {
+		if r != '_' && r != '-' && r != '.' && (r < 'a' || r > 'z') && (r < 'A' || r > 'Z') && (r < '0' || r > '9') {
 			return strconv.Quote(k)
 		}
 	}

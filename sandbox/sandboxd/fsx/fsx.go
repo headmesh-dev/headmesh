@@ -214,7 +214,7 @@ func (f *FS) Read(path string, offset, limit int) (ReadResult, error) {
 				if len(text) > MaxLineChars {
 					text = string(textx.CutUTF8([]byte(text), MaxLineChars)) + " … [line truncated]"
 				}
-				fmt.Fprintf(&out, "%6d\t%s\n", line, text)
+				_, _ = fmt.Fprintf(&out, "%6d\t%s\n", line, text)
 				if res.StartLine == 0 {
 					res.StartLine = line
 				}

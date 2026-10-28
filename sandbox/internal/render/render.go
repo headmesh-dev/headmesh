@@ -22,9 +22,8 @@ import (
 
 // Container paths (sandbox/docs/container-contract.md).
 const (
-	ConfigDir    = "/etc/headmesh/config"
-	HostView     = "/host"
-	SSHKeyTarget = "/etc/headmesh/ssh/id_ed25519"
+	ConfigDir = "/etc/headmesh/config"
+	HostView  = "/host"
 )
 
 // Host abstracts the filesystem render inspects, for tests.
@@ -130,8 +129,10 @@ func serviceName(m config.Mode) string {
 
 func (r *renderer) service(m config.Mode) (Service, error) {
 	cfg := r.cfg
-	svc := Service{Mode: m, Name: serviceName(m), Hostname: cfg.Hostname(m), Memory: cfg.Resources.Memory,
-		CPUs: cfg.Resources.CPUs, GPU: cfg.GPU == "shared"}
+	svc := Service{
+		Mode: m, Name: serviceName(m), Hostname: cfg.Hostname(m), Memory: cfg.Resources.Memory,
+		CPUs: cfg.Resources.CPUs, GPU: cfg.GPU == "shared",
+	}
 	svc.Env = yamlw.Map{
 		{K: "HEADMESH_MODE", V: string(m)},
 		{K: "HEADMESH_ENTRYPOINTS", V: strings.Join(cfg.EnabledEntrypoints(), ",")},
@@ -142,8 +143,8 @@ func (r *renderer) service(m config.Mode) (Service, error) {
 		{K: "HEADMESH_RUNNER_KILL_AFTER_MIN", V: strconv.Itoa(cfg.Entrypoints.ClaudeRunner.KillSessionAfterMin)},
 		{K: "HEADMESH_RC_CAPACITY", V: strconv.Itoa(cfg.Entrypoints.ClaudeRC.Capacity)},
 		{K: "HEADMESH_RC_SPAWN", V: cfg.Entrypoints.ClaudeRC.Spawn},
-		{K: "HEADMESH_RC_CWD", V: cfg.Entrypoints.ClaudeRC.CWD},
-		{K: "HEADMESH_TUNNEL_ID", V: cfg.Entrypoints.OpenAITunnel.TunnelID},
+		{K: "HEADMESH_RC_DIR", V: cfg.Entrypoints.ClaudeRC.CWD},
+		{K: "HEADMESH_OPENAI_TUNNEL_ID", V: cfg.Entrypoints.OpenAITunnel.TunnelID},
 		{K: "HEADMESH_GIT_USER_NAME", V: cfg.Git.UserName},
 		{K: "HEADMESH_GIT_USER_EMAIL", V: cfg.Git.UserEmail},
 		{K: "TS_LOGIN_SERVER", V: cfg.Tailnet.LoginServer},
@@ -198,13 +199,6 @@ func (r *renderer) service(m config.Mode) (Service, error) {
 			errs = append(errs, err)
 		}
 		svc.Mounts = append(svc.Mounts, hv...)
-		if key := cfg.Mode.YOLO.SSHKey; key != "" {
-			if _, err := r.host.Lstat(key); err != nil {
-				errs = append(errs, fmt.Errorf("mode.yolo.ssh_key %s: %w", key, err))
-			} else {
-				svc.Mounts = append(svc.Mounts, Mount{Type: "bind", Source: key, Target: SSHKeyTarget, ReadOnly: true, Purpose: "YOLO deploy key"})
-			}
-		}
 	}
 	if err := errors.Join(errs...); err != nil {
 		return svc, err
@@ -220,7 +214,7 @@ func (r *renderer) checkSource(p string) error {
 		return fmt.Errorf("mount %s: %w", p, err)
 	}
 	if err := r.deny.CheckMount(p); err != nil {
-		return err //nolint:wrapcheck // MountViolation is self-describing
+		return err
 	}
 	for _, d := range r.host.DataRoots {
 		if config.IsWithin(d, p) || config.IsWithin(p, d) {
@@ -271,8 +265,10 @@ func (r *renderer) hostView(root, dir string) ([]Mount, error) {
 			continue
 		}
 		rel := strings.TrimPrefix(p, strings.TrimSuffix(root, "/"))
-		out = append(out, Mount{Type: "bind", Source: p, Target: HostView + rel, ReadOnly: true, Recursive: "readonly",
-			Propagation: "rprivate", Purpose: "YOLO host view"})
+		out = append(out, Mount{
+			Type: "bind", Source: p, Target: HostView + rel, ReadOnly: true, Recursive: "readonly",
+			Propagation: "rprivate", Purpose: "YOLO host view",
+		})
 	}
 	return out, nil
 }

@@ -49,7 +49,7 @@ func main() {
 		if errors.As(err, &ec) {
 			os.Exit(int(ec))
 		}
-		fmt.Fprintln(os.Stderr, "error:", err)
+		_, _ = fmt.Fprintln(os.Stderr, "error:", err)
 		os.Exit(1)
 	}
 }
@@ -97,7 +97,7 @@ func modeFromEnv() (config.Mode, time.Time, error) {
 
 func versionCmd() *cobra.Command {
 	return &cobra.Command{Use: "version", Short: "Print the version", Run: func(cmd *cobra.Command, _ []string) {
-		fmt.Fprintln(cmd.OutOrStdout(), version)
+		_, _ = fmt.Fprintln(cmd.OutOrStdout(), version)
 	}}
 }
 
@@ -206,7 +206,7 @@ func listenUnix(ctx context.Context, path string) (net.Listener, error) {
 	if err != nil {
 		return nil, fmt.Errorf("listen %s: %w", path, err)
 	}
-	if err := os.Chmod(path, 0o660); err != nil {
+	if err := os.Chmod(path, 0o660); err != nil { //nolint:gosec // G302: socket shared with the host user (same uid) through the bind mount
 		_ = ln.Close()
 		return nil, fmt.Errorf("chmod socket: %w", err)
 	}
@@ -224,11 +224,11 @@ func healthCmd() *cobra.Command {
 			defer cancel()
 			h, err := sockclient.New(sock).Health(ctx)
 			if err != nil {
-				fmt.Fprintln(cmd.ErrOrStderr(), err)
+				_, _ = fmt.Fprintln(cmd.ErrOrStderr(), err)
 				return exitCode(1)
 			}
 			b, _ := json.Marshal(h)
-			fmt.Fprintln(cmd.OutOrStdout(), string(b))
+			_, _ = fmt.Fprintln(cmd.OutOrStdout(), string(b))
 			if !h.OK {
 				return exitCode(1)
 			}
@@ -296,7 +296,7 @@ func dnsCheckCmd() *cobra.Command {
 			if err := procutil.WriteJSONAtomic(out, res, 0o644); err != nil {
 				return err
 			}
-			fmt.Fprintf(cmd.OutOrStdout(), "dns-check %s: %s\n", res.Status, res.Message)
+			_, _ = fmt.Fprintf(cmd.OutOrStdout(), "dns-check %s: %s\n", res.Status, res.Message)
 			if strict && res.Status == "failed" {
 				return exitCode(1)
 			}
@@ -350,7 +350,7 @@ func guidelinesCmd() *cobra.Command {
 					return fmt.Errorf("banner: %w", err)
 				}
 			}
-			fmt.Fprintf(cmd.OutOrStdout(), "guidelines rendered for %s mode\n", mode)
+			_, _ = fmt.Fprintf(cmd.OutOrStdout(), "guidelines rendered for %s mode\n", mode)
 			return nil
 		},
 	}
@@ -382,7 +382,7 @@ func yoloTTLCmd() *cobra.Command {
 				if left <= 0 {
 					break
 				}
-				fmt.Fprintf(cmd.OutOrStdout(), "YOLO mode: halting in %s (at %s)\n", left.Round(time.Second), exp.Format(time.RFC3339))
+				_, _ = fmt.Fprintf(cmd.OutOrStdout(), "YOLO mode: halting in %s (at %s)\n", left.Round(time.Second), exp.Format(time.RFC3339))
 				select {
 				case <-ctx.Done():
 					return nil
@@ -396,8 +396,8 @@ func yoloTTLCmd() *cobra.Command {
 				})
 				_ = l.Close()
 			}
-			fmt.Fprintln(cmd.OutOrStdout(), "YOLO TTL expired; halting the container")
-			return syscall.Exec(halt, []string{halt}, os.Environ()) //nolint:gosec,wrapcheck // G204: fixed s6 halt path
+			_, _ = fmt.Fprintln(cmd.OutOrStdout(), "YOLO TTL expired; halting the container")
+			return syscall.Exec(halt, []string{halt}, os.Environ()) //nolint:gosec // G204: fixed s6 halt path
 		},
 	}
 	cmd.Flags().StringVar(&expiresAt, "expires-at", "", "RFC 3339 time (default $HEADMESH_YOLO_EXPIRES_AT)")
@@ -448,7 +448,7 @@ func runnerHookCmd() *cobra.Command {
 			defer cancel()
 			res, err := h.RunCheckout(ctx, runnerhook.CheckoutFromEnv())
 			for _, w := range res.Warnings {
-				fmt.Fprintln(cmd.ErrOrStderr(), "warning:", w)
+				_, _ = fmt.Fprintln(cmd.ErrOrStderr(), "warning:", w)
 			}
 			return err
 		},
@@ -470,7 +470,7 @@ func runnerHookCmd() *cobra.Command {
 			h := &runnerhook.Hook{Config: cfg}
 			rep := h.Report(ctx, p)
 			b, _ := json.MarshalIndent(rep, "", "  ")
-			fmt.Fprintln(cmd.OutOrStdout(), string(b))
+			_, _ = fmt.Fprintln(cmd.OutOrStdout(), string(b))
 			c := sockclient.New(sock)
 			// Best effort: a failure here must not hold up the runner.
 			var list struct{ Agents []agents.Agent }
@@ -483,7 +483,7 @@ func runnerHookCmd() *cobra.Command {
 			}
 			name := "runner-session-" + strings.TrimPrefix(p.SessionID, "session_") + ".json"
 			if err := c.Call(ctx, "artifact_put", map[string]any{"name": name, "content": string(b)}, nil); err != nil {
-				fmt.Fprintln(cmd.ErrOrStderr(), "warning: could not store the session report:", err)
+				_, _ = fmt.Fprintln(cmd.ErrOrStderr(), "warning: could not store the session report:", err)
 			}
 			return nil
 		},
@@ -575,7 +575,7 @@ func agentsCmd() *cobra.Command {
 				if ag.Active {
 					state = "active"
 				}
-				fmt.Fprintf(&b, "%s  %-14s %-6s %s  %s\n", ag.ID, ag.Agent, state, strings.Join(ag.Repos, ","), ag.Task)
+				_, _ = fmt.Fprintf(&b, "%s  %-14s %-6s %s  %s\n", ag.ID, ag.Agent, state, strings.Join(ag.Repos, ","), ag.Task)
 			}
 			if b.Len() == 0 {
 				b.WriteString("no agents registered\n")

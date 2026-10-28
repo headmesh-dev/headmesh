@@ -91,8 +91,8 @@ ro = []
 allow_lan = false
 # A restic snapshot of host_home younger than this is required before `up --yolo`.
 backup_max_age = "24h"
-# Dedicated deploy key, mounted only in YOLO at /etc/headmesh/ssh/id_ed25519.
-ssh_key = ""
+# YOLO pushes over SSH with a dedicated deploy key ("headmesh-sandbox-yolo (asus)"),
+# kept in ${root}/secrets/github_ssh_key and passed to the container only in YOLO.
 
 # GitHub owner/repo -> shared working copy. The Claude runner's checkout hook
 # links these instead of cloning; unmapped repos get a fresh clone in runner-work.
