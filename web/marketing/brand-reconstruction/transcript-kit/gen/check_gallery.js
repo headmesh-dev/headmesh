@@ -22,6 +22,7 @@ try {
   await writeFile(path.join(root, "gallery-validation.json"), JSON.stringify({ passed: true, loadedImages: await page.locator("img").count(), familyFilters: [13, 3, 4, 13], mobileOverflow: false }, null, 2) + "\n");
   console.log("Offline gallery: all images loaded, family filters passed, 390px viewport has no horizontal overflow.");
   const manifest = JSON.parse(await readFile(path.join(root, "png/manifest.json"), "utf8"));
+  const extrasCount = manifest.entries.filter(entry => entry.group === "Extras").length;
   await page.setViewportSize({ width: 1440, height: 1000 });
   await page.goto(pathToFileURL(path.join(root, "png/index.html")).href);
   await page.locator("img").evaluateAll(async images => {
@@ -33,13 +34,13 @@ try {
   await page.getByLabel("Show assets:").selectOption("D4");
   assert.equal(await page.locator("article:visible").count(), 26);
   await page.getByLabel("Show assets:").selectOption("Extras");
-  assert.equal(await page.locator("article:visible").count(), 14);
+  assert.equal(await page.locator("article:visible").count(), extrasCount);
   await page.getByLabel("Show assets:").selectOption("all");
   await page.setViewportSize({ width: 390, height: 844 });
   assert.equal(await page.evaluate(() => document.documentElement.scrollWidth > innerWidth), false);
   await writeFile(path.join(root, "png/gallery-validation.json"), JSON.stringify({
     passed: true, pngs: manifest.count, loadedImages: manifest.count * 2,
-    filters: [manifest.count, 26, 14, manifest.count], mobileOverflow: false,
+    filters: [manifest.count, 26, extrasCount, manifest.count], mobileOverflow: false,
   }, null, 2) + "\n");
   console.log(`PNG catalog: ${manifest.count * 2} previews loaded, filters passed, 390px viewport has no horizontal overflow.`);
 } finally {

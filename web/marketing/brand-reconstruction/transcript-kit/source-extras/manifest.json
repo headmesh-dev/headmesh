@@ -1,8 +1,28 @@
 [
   {
+    "file": "selected-brand/icons/app-icon-circle-on-dark.svg",
+    "source": "public/brand/headmesh-v1/icons/app-icon-circle-on-dark.svg",
+    "sha256": "42c69ac720abe4387e1f26d44fb8c5fb8bb0b0b406e91b179d7a945723db8c3d"
+  },
+  {
+    "file": "selected-brand/icons/app-icon-circle-on-light.svg",
+    "source": "public/brand/headmesh-v1/icons/app-icon-circle-on-light.svg",
+    "sha256": "dc9bf49c984b69215ff9bb689f5a4b966a3e4467660abf6aef50b3a99f7fec70"
+  },
+  {
     "file": "selected-brand/icons/app-icon-on-light.svg",
     "source": "public/brand/headmesh-v1/icons/app-icon-on-light.svg",
     "sha256": "f0fe5b1eeca43a315dc0ccf88277746d049d13330d8f126d252151088ff81d36"
+  },
+  {
+    "file": "selected-brand/icons/app-icon-square-on-dark.svg",
+    "source": "public/brand/headmesh-v1/icons/app-icon-square-on-dark.svg",
+    "sha256": "8b3ff904283dd4b2912a82f79ad2a969996c2b879db68a76fe3a11982be74e7a"
+  },
+  {
+    "file": "selected-brand/icons/app-icon-square-on-light.svg",
+    "source": "public/brand/headmesh-v1/icons/app-icon-square-on-light.svg",
+    "sha256": "85dfa8e6428e6c3185efe03d8a2aa43a5331dff48ca6a40c1781a77687a43b5e"
   },
   {
     "file": "selected-brand/icons/app-icon.svg",

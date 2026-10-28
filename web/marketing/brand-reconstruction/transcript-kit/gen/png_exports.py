@@ -119,6 +119,27 @@ def sheet(entries, name):
     board.save(directory / f"{name}.jpg", quality=92, subsampling=0)
 
 
+def icon_gallery(entries):
+    directory = PNG / "selected-brand/icons"
+    icons = {Path(entry["png"]).stem: entry for entry in entries if Path(entry["png"]).parent == Path("selected-brand/icons")}
+    variants = [
+        ("Rounded square", "Dark", "app-icon"),
+        ("Rounded square", "Light", "app-icon-on-light"),
+        ("Circle", "Dark", "app-icon-circle-on-dark"),
+        ("Circle", "Light", "app-icon-circle-on-light"),
+        ("Square", "Dark", "app-icon-square-on-dark"),
+        ("Square", "Light", "app-icon-square-on-light"),
+    ]
+    cards = []
+    for shape, theme, name in variants:
+        entry = icons[name]
+        svg = "../../../" + entry["svg"]
+        cards.append(f'<article><h2>{shape} · {theme}</h2><div class="image"><img src="{name}.png" width="512" height="512" alt="Headmesh {shape.lower()} icon, {theme.lower()} theme"></div><p><a href="{name}.png" download>PNG · 512 × 512</a> · <a href="{svg}" download>SVG</a></p></article>')
+    (directory / "index.html").write_text('''<!doctype html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>Headmesh icon shapes</title><style>
+    :root{color-scheme:dark}body{margin:0;background:#070b12;color:#f2f6f9;font:16px/1.5 system-ui}main{max-width:1040px;margin:auto;padding:24px}h1{font-size:32px}h2{font-size:18px}p{color:#9aa8bc}a{color:#3cefb4}.grid{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:24px}article{border:1px solid #1c2736;border-radius:12px;padding:20px}.image{background:repeating-conic-gradient(#1c2736 0% 25%,#111a26 0% 50%) 0 0/24px 24px;padding:20px}img{display:block;width:100%;height:auto;border-radius:0}article p{margin-bottom:0}@media(max-width:600px){.grid{grid-template-columns:1fr}}
+    </style></head><body><main><h1>Headmesh · icon shapes</h1><p>Rounded square, circle, and sharp square. Every shape uses the same shared-leg mark and padding, in light and dark themes.</p><p>The light theme intentionally uses deeper evergreen-to-blue; the dark theme uses mint-to-cyan. Both gradients are fully opaque. Checkerboards show transparency outside the rounded and circular backgrounds.</p><p><a href="../../index.html">All PNG assets</a></p><div class="grid">''' + ''.join(cards) + '</div></main></body></html>\n')
+
+
 def gallery(entries):
     cards = []
     for entry in entries:
@@ -131,7 +152,9 @@ def gallery(entries):
     content = f'''<!doctype html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>Headmesh PNG assets</title><style>
     :root{{color-scheme:dark}}body{{margin:0;background:#070b12;color:#f2f6f9;font:15px/1.5 system-ui}}main{{max-width:1200px;margin:auto;padding:24px}}a{{color:#3cefb4}}h1{{font-size:32px}}h2{{font:13px/1.5 monospace;overflow-wrap:anywhere}}.intro,p{{color:#9aa8bc}}select{{padding:10px;background:#111a26;color:#f2f6f9;border:1px solid #1c2736;border-radius:8px}}article{{border-bottom:1px solid #1c2736;padding:16px 0}}article[hidden]{{display:none}}.pair{{display:grid;grid-template-columns:1fr 1fr;gap:12px}}img{{width:100%;height:180px;object-fit:contain;box-sizing:border-box;padding:16px;border-radius:10px}}.dark{{background:repeating-conic-gradient(#0b111a 0% 25%,#111a26 0% 50%) 0 0/24px 24px}}.light{{background:repeating-conic-gradient(#f4f7f6 0% 25%,#e9efee 0% 50%) 0 0/24px 24px}}@media(max-width:500px){{.pair{{grid-template-columns:1fr}}}}
     </style></head><body><main><h1>Headmesh PNG assets</h1><p class="intro">{len(entries)} PNGs, one per SVG. Original proportions and transparency are preserved. SVGs without explicit dimensions use a 512 px export width. The legacy 234 size-specific PNGs are also retained in ../out/headmesh-brand/.</p><p><a href="../index.html">Brand gallery</a> · <a href="manifest.json">Source map and dimensions</a> · <a href="validation.json">Export checks</a> · <a href="contact-sheets/D4.jpg">D4 Shared Leg contact sheet</a></p><label for="group">Show assets: </label><select id="group">{options}</select>{''.join(cards)}</main><script>document.querySelector('select').addEventListener('change',event=>{{document.querySelectorAll('[data-group]').forEach(card=>card.hidden=event.target.value!=='all'&&card.dataset.group!==event.target.value)}});</script></body></html>'''
+    content = content.replace('<a href="../index.html">Brand gallery</a>', '<a href="selected-brand/icons/index.html">Icon shapes · SVG + PNG</a> · <a href="../index.html">Brand gallery</a>', 1)
     (PNG / "index.html").write_text(content)
+    icon_gallery(entries)
 
 
 def verify():
@@ -188,7 +211,7 @@ def verify():
 def main():
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("action", choices=("build", "prepare", "verify"))
-    parser.add_argument("--sync-site", action="store_true", help="Refresh the 13 exact site SVG copies from this checkout before rendering")
+    parser.add_argument("--sync-site", action="store_true", help="Refresh the selected-brand and site SVG copies from this checkout before rendering")
     args = parser.parse_args()
     if args.sync_site:
         sync_site()

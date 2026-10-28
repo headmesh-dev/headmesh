@@ -81,14 +81,21 @@ function lockupSvg({ dark }) {
   return svgDocument(880, 200, `Headmesh wordmark for ${dark ? "dark" : "light"} backgrounds`, body, defs);
 }
 
-function appIconSvg({ light = false }) {
+function appIconSvg({ light = false, shape = "rounded" }) {
   const background = light ? colors.paper : colors.ink;
   const fill = light ? colors.ink : colors.white;
   const start = light ? colors.evergreen : colors.mint;
   const end = light ? colors.blue : colors.cyan;
   const defs = `<linearGradient id="appGradient" x1="222" y1="280" x2="290" y2="424" gradientUnits="userSpaceOnUse"><stop stop-color="${start}"/><stop offset="1" stop-color="${end}"/></linearGradient>`;
-  const body = `<rect width="512" height="512" rx="116" fill="${background}"/><g>${markPaths(fill, "appGradient")}</g>`;
-  return svgDocument(512, 512, `Headmesh app icon ${light ? "on light" : "on dark"}`, body, defs);
+  const backgrounds = {
+    rounded: `<rect width="512" height="512" rx="116" fill="${background}"/>`,
+    circle: `<circle cx="256" cy="256" r="256" fill="${background}"/>`,
+    square: `<rect width="512" height="512" fill="${background}"/>`,
+  };
+  if (!Object.hasOwn(backgrounds, shape)) throw new Error(`Unknown icon shape: ${shape}`);
+  const body = `${backgrounds[shape]}<g>${markPaths(fill, "appGradient")}</g>`;
+  const title = shape === "rounded" ? "Headmesh app icon" : `Headmesh ${shape} app icon`;
+  return svgDocument(512, 512, `${title} ${light ? "on light" : "on dark"}`, body, defs);
 }
 
 const pointSets = [
@@ -367,6 +374,12 @@ const lightMark = markSvg({
 });
 const darkIcon = appIconSvg({});
 const lightIcon = appIconSvg({ light: true });
+const shapedIcons = ["circle", "square"].flatMap((shape) =>
+  [false, true].map((light) => ({
+    name: `app-icon-${shape}-on-${light ? "light" : "dark"}`,
+    svg: appIconSvg({ light, shape }),
+  })),
+);
 const og = socialCard(1200, 630, "og");
 const xBanner = socialCard(1500, 500, "x");
 const linkedin = socialCard(1584, 396, "linkedin");
@@ -379,6 +392,7 @@ await Promise.all([
   save("icons/app-icon.svg", darkIcon),
   save("icons/app-icon-on-light.svg", lightIcon),
   save("icons/favicon.svg", darkIcon),
+  ...shapedIcons.map(({ name, svg }) => save(`icons/${name}.svg`, svg)),
   save("social/og-image-1200x630.svg", og),
   save("social/x-banner-1500x500.svg", xBanner),
   save("social/linkedin-banner-1584x396.svg", linkedin),
@@ -396,6 +410,7 @@ await Promise.all([
   renderPng(darkIcon, "icons/icon-512.png", 512),
   renderPng(lightIcon, "icons/icon-192-light.png", 192),
   renderPng(lightIcon, "icons/icon-512-light.png", 512),
+  ...shapedIcons.map(({ name, svg }) => renderPng(svg, `icons/${name}.png`, 512)),
   renderSocialPng(og, "social/og-image-1200x630.png", 1200, 630, "og"),
   renderSocialPng(xBanner, "social/x-banner-1500x500.png", 1500, 500, "x"),
   renderSocialPng(linkedin, "social/linkedin-banner-1584x396.png", 1584, 396, "linkedin"),
@@ -421,6 +436,28 @@ await save(
 await save(
   "preview.html",
   `<!doctype html>\n<html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1"><title>Headmesh brand kit — D4 Shared Leg</title><style>body{margin:0;padding:32px;background:#252d38;color:#d9e2ec;font:14px/1.5 Geist,Arial,sans-serif}h1{font:700 24px/1.2 'Bricolage Grotesque',Geist,Arial,sans-serif;margin:0 0 24px}.row{display:grid;grid-template-columns:180px 1fr 1fr;gap:16px;align-items:center;margin:12px 0}.sample{min-height:150px;padding:24px;border-radius:12px;display:flex;align-items:center;justify-content:center}.dark{background:#070b12}.light{background:#f4f7f6}.logo{max-width:100%;max-height:110px}.cards{display:grid;grid-template-columns:repeat(auto-fit,minmax(300px,1fr));gap:16px;margin-top:28px}.card{width:100%;border-radius:10px}.label{font:12px/1.5 'Geist Mono',monospace;color:#aab7c5}</style></head><body><h1>Headmesh · D4 “Shared Leg”</h1><div class="row"><div class="label">Horizontal lockup</div><div class="sample dark"><img class="logo" src="logos/lockup-on-dark.svg" alt="Headmesh logo on dark"></div><div class="sample light"><img class="logo" src="logos/lockup-on-light.svg" alt="Headmesh logo on light"></div></div><div class="row"><div class="label">Standalone mark</div><div class="sample dark"><img class="logo" src="logos/mark-on-dark.svg" alt="Headmesh mark on dark"></div><div class="sample light"><img class="logo" src="logos/mark-on-light.svg" alt="Headmesh mark on light"></div></div><div class="cards"><img class="card" src="social/og-image-1200x630.png" alt="Open Graph card"><img class="card" src="social/x-banner-1500x500.png" alt="X banner"><img class="card" src="social/linkedin-banner-1584x396.png" alt="LinkedIn banner"></div></body></html>\n`,
+);
+
+await save(
+  "icons/README.md",
+  `# Headmesh D4 icon shapes
+
+All shapes use the same 512 × 512 canvas, shared-leg mark, gradient axis, and mark placement.
+
+| Shape | Theme | SVG | PNG |
+| --- | --- | --- | --- |
+| Rounded square | Dark | [SVG](app-icon.svg) | [PNG](icon-512.png) |
+| Rounded square | Light | [SVG](app-icon-on-light.svg) | [PNG](icon-512-light.png) |
+| Circle | Dark | [SVG](app-icon-circle-on-dark.svg) | [PNG](app-icon-circle-on-dark.png) |
+| Circle | Light | [SVG](app-icon-circle-on-light.svg) | [PNG](app-icon-circle-on-light.png) |
+| Square | Dark | [SVG](app-icon-square-on-dark.svg) | [PNG](app-icon-square-on-dark.png) |
+| Square | Light | [SVG](app-icon-square-on-light.svg) | [PNG](app-icon-square-on-light.png) |
+
+The light theme intentionally uses evergreen-to-blue (#0A7A5C → #0A70B0) on paper (#F4F7F6).
+The dark theme uses mint-to-cyan (#3CEFB4 → #27BFF5) on ink (#070B12).
+The shared leg is fully opaque in both themes; the contrast comes from the palette, not reduced opacity.
+PNG corners outside the rounded and circular backgrounds remain transparent. Squares have sharp, opaque corners.
+`,
 );
 
 console.log(`Generated Headmesh D4 asset kit at ${root}`);
