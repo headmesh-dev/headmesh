@@ -2,7 +2,7 @@
 
 - Status: answered (2026-10-27): the executor runs as `agent`; Codex's own command sandbox does not, so sessions must use `danger-full-access` and rely on the container
 - Plan: §7.6, §17 T-16 (fallback: a dedicated child container with the same mounts)
-- Environment: sandbox image, `@openai/codex@0.162.1`, user `agent`, plan §6.3 options
+- Environment: sandbox image, `@openai/codex@0.162.1`, re-run on `0.164.0` (the current pin) with identical results, user `agent`, plan §6.3 options
   (`cap_drop: ALL` + the listed adds, `no-new-privileges`, Docker's default seccomp and
   AppArmor `docker-default` profiles); host has `kernel.apparmor_restrict_unprivileged_userns=1`
 
