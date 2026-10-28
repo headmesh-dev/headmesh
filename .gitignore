@@ -24,6 +24,7 @@ test-results/
 *.pem
 *.key
 !proto/**/*.key
+deploy/env/*/*.env
 deploy/secrets/*.dec.*
 deploy/secrets/*.plain.*
 age.key

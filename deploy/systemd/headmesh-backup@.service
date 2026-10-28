@@ -1,0 +1,7 @@
+# Daily copy of one environment's waitlist database (headmesh-backup@prod, headmesh-backup@test).
+[Unit]
+Description=Back up the headmesh.dev waitlist database (%i)
+
+[Service]
+Type=oneshot
+ExecStart=/usr/local/lib/headmesh/deployctl.sh backup %i

@@ -1,0 +1,79 @@
+# Headmesh {{ENV}} environment: marketing site, waitlist and API. Rendered by deploy/deploy.sh from
+# deploy/nginx/site.conf.tmpl and installed as /etc/nginx/sites-available/headmesh-{{ENV}}.conf.
+
+# Active blue/green instances; deployctl rewrites these on every switch (nginx -t before each reload).
+include {{NGINX_ROOT}}/{{ENV}}/waitlist-upstream.conf;
+include {{NGINX_ROOT}}/{{ENV}}/backend-upstream.conf;
+
+server {
+    listen 80;
+    listen [::]:80;
+    server_name {{SITE_HOST}} {{EXTRA_HOSTS}} {{API_HOST}};
+    location / {
+        return 301 https://$host$request_uri;
+    }
+}
+{{EXTRA_HOSTS_SERVER}}
+server {
+    listen 443 ssl;
+    listen [::]:443 ssl;
+    http2 on;
+    server_name {{SITE_HOST}};
+    include /etc/nginx/snippets/headmesh-tls.conf;
+    access_log /var/log/nginx/headmesh-{{ENV}}-site.log headmesh_json;
+    limit_conn headmesh_conn 64;
+
+    root {{SRV_ROOT}}/{{ENV}}/marketing/current/site;
+    index index.html;
+    absolute_redirect off;
+    error_page 404 /404.html;
+
+    # CSP (with this release's inline-script hashes) and the other security headers. Re-included in every location
+    # that adds its own headers, because nginx doesn't merge add_header across levels.
+    include {{SRV_ROOT}}/{{ENV}}/marketing/current/nginx/security-headers*.conf;
+    {{NOINDEX_HEADER}}
+
+    location / {
+        try_files $uri $uri/ =404;
+    }
+
+    location /_astro/ {
+        include {{SRV_ROOT}}/{{ENV}}/marketing/current/nginx/security-headers*.conf;
+        {{NOINDEX_HEADER}}
+        add_header Cache-Control "public, max-age=31536000, immutable" always;
+        try_files $uri =404;
+    }
+
+    location ~ ^/github/?$ {
+        return 302 {{REPO_URL}};
+    }
+
+    location ^~ /api/waitlist {
+        limit_req zone=headmesh_waitlist burst=5 nodelay;
+        client_max_body_size 16k;
+        proxy_pass http://headmesh_{{ENV}}_waitlist;
+        include /etc/nginx/snippets/headmesh-proxy.conf;
+    }
+}
+
+server {
+    listen 443 ssl;
+    listen [::]:443 ssl;
+    http2 on;
+    server_name {{API_HOST}};
+    include /etc/nginx/snippets/headmesh-tls.conf;
+    access_log /var/log/nginx/headmesh-{{ENV}}-api.log headmesh_json;
+    limit_conn headmesh_conn 128;
+    client_max_body_size 1m;
+
+    add_header Strict-Transport-Security "max-age=63072000; includeSubDomains; preload" always;
+    add_header X-Content-Type-Options "nosniff" always;
+    add_header Referrer-Policy "no-referrer" always;
+    {{NOINDEX_HEADER}}
+
+    location / {
+        limit_req zone=headmesh_api burst=40 nodelay;
+        proxy_pass http://headmesh_{{ENV}}_backend;
+        include /etc/nginx/snippets/headmesh-proxy.conf;
+    }
+}

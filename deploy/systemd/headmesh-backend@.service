@@ -1,0 +1,51 @@
+# Headmesh control server (API + mTLS cell endpoint), one instance per environment and colour:
+# headmesh-backend@prod-blue etc. Installed by deploy/server/bootstrap.sh. deployctl.sh points
+# /srv/headmesh/slots/backend-%i at a release and writes /etc/headmesh/instances/backend-%i.env (backend.env,
+# the generated db.env and secrets.env, plus this instance's ports).
+[Unit]
+Description=Headmesh control server (%i)
+After=network-online.target postgresql.service
+Wants=network-online.target
+StartLimitIntervalSec=60
+StartLimitBurst=5
+
+[Service]
+Type=simple
+User=headmesh
+Group=headmesh
+EnvironmentFile=/etc/headmesh/instances/backend-%i.env
+WorkingDirectory=/srv/headmesh/slots/backend-%i
+ExecStart=/srv/headmesh/slots/backend-%i/headmesh-server serve
+Restart=on-failure
+RestartSec=2
+TimeoutStopSec=30
+UMask=0027
+MemoryMax=768M
+TasksMax=256
+
+NoNewPrivileges=yes
+CapabilityBoundingSet=
+AmbientCapabilities=
+ProtectSystem=strict
+ProtectHome=yes
+PrivateTmp=yes
+PrivateDevices=yes
+ProtectClock=yes
+ProtectHostname=yes
+ProtectKernelTunables=yes
+ProtectKernelModules=yes
+ProtectKernelLogs=yes
+ProtectControlGroups=yes
+ProtectProc=invisible
+RestrictAddressFamilies=AF_INET AF_INET6 AF_UNIX
+RestrictNamespaces=yes
+RestrictRealtime=yes
+RestrictSUIDSGID=yes
+LockPersonality=yes
+MemoryDenyWriteExecute=yes
+SystemCallArchitectures=native
+SystemCallFilter=@system-service
+ReadOnlyPaths=/etc/headmesh
+
+[Install]
+WantedBy=multi-user.target

@@ -1,0 +1,49 @@
+# headmesh.dev waitlist service, one instance per environment and colour: headmesh-waitlist@prod-blue etc.
+# Installed by deploy/server/bootstrap.sh. deployctl.sh points /srv/headmesh/slots/waitlist-%i at a release and
+# writes /etc/headmesh/instances/waitlist-%i.env (the environment's waitlist.env plus this instance's port).
+[Unit]
+Description=headmesh.dev waitlist (%i)
+After=network-online.target
+Wants=network-online.target
+StartLimitIntervalSec=60
+StartLimitBurst=5
+
+[Service]
+Type=simple
+User=headmesh
+Group=headmesh
+EnvironmentFile=/etc/headmesh/instances/waitlist-%i.env
+WorkingDirectory=/srv/headmesh/slots/waitlist-%i
+ExecStart=/opt/node/bin/node server/main.ts
+Restart=on-failure
+RestartSec=2
+TimeoutStopSec=20
+UMask=0027
+MemoryMax=256M
+TasksMax=64
+
+NoNewPrivileges=yes
+CapabilityBoundingSet=
+AmbientCapabilities=
+ProtectSystem=strict
+ProtectHome=yes
+PrivateTmp=yes
+PrivateDevices=yes
+ProtectClock=yes
+ProtectHostname=yes
+ProtectKernelTunables=yes
+ProtectKernelModules=yes
+ProtectKernelLogs=yes
+ProtectControlGroups=yes
+ProtectProc=invisible
+RestrictAddressFamilies=AF_INET AF_INET6 AF_UNIX
+RestrictNamespaces=yes
+RestrictRealtime=yes
+RestrictSUIDSGID=yes
+LockPersonality=yes
+SystemCallArchitectures=native
+SystemCallFilter=@system-service
+ReadWritePaths=/var/lib/headmesh
+
+[Install]
+WantedBy=multi-user.target

@@ -1,0 +1,14 @@
+# Redirects the {{ENV}} environment's extra hostnames to {{SITE_HOST}}. Rendered into site.conf.tmpl only when the
+# environment has extra hosts (deploy/lib/environments.sh EXTRA_HOSTS).
+
+server {
+    listen 443 ssl;
+    listen [::]:443 ssl;
+    http2 on;
+    server_name {{EXTRA_HOSTS}};
+    include /etc/nginx/snippets/headmesh-tls.conf;
+    access_log /var/log/nginx/headmesh-{{ENV}}-site.log headmesh_json;
+    location / {
+        return 301 https://{{SITE_HOST}}$request_uri;
+    }
+}

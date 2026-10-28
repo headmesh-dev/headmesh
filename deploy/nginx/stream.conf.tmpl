@@ -1,0 +1,11 @@
+# Headmesh {{ENV}}: public mTLS cell endpoint. TLS passes through untouched to the active backend colour, which
+# verifies the cell agent's client certificate itself. Installed as {{NGINX_ROOT}}/{{ENV}}/stream.conf.
+include {{NGINX_ROOT}}/{{ENV}}/cell-upstream.conf;
+
+server {
+    listen {{CELL_PORT}};
+    listen [::]:{{CELL_PORT}};
+    proxy_pass headmesh_{{ENV}}_cell;
+    proxy_connect_timeout 5s;
+    proxy_timeout 1h;
+}
