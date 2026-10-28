@@ -18,4 +18,4 @@ and spike notes are in [`sandbox/docs/adr/`](../../sandbox/docs/adr/).
 | [0011](0011-tenancy-on-tagged-nodes.md) | Tenancy on Headscale tagged nodes and `grants`, no fork | accepted 2026-10-27 |
 | [0012](0012-shared-checkout-on-main.md) | Parallel tracks share one checkout on `main` | accepted 2026-10-27 |
 | [0013](0013-nginx-and-systemd-on-hm-prod-1.md) | nginx + systemd on hm-prod-1; headmesh.dev self-hosted there | accepted 2026-10-28 |
-| [0014](0014-core-spike-outcomes.md) | Spikes T-4, T-5, T-12, T-14: what the core and plugins found | accepted 2026-10-28 |
+| [0014](0014-core-spike-outcomes.md) | Spikes T-4, T-5, T-12, T-13, T-14: what the core and plugins found | accepted 2026-10-28 |

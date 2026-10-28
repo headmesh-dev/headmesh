@@ -22,6 +22,7 @@ import (
 	"math/big"
 	"os"
 	"path/filepath"
+	"strconv"
 	"strings"
 	"sync"
 	"testing"
@@ -339,7 +340,7 @@ func TestTenantIsolationOnRealHeadscale(t *testing.T) {
 	granted := baseSnapshot(true)
 	granted.Grants = []policy.Grant{{
 		ID: "g1", Grantor: orgB, Grantee: orgA, Src: policy.DeviceSel(a1), Dst: b1,
-		Ports: []policy.Port{"tcp:8080"}, StartsAt: time.Now().Add(-time.Minute), ExpiresAt: time.Now().Add(time.Hour),
+		Ports: []policy.Port{"tcp:8080", "tcp:7070"}, StartsAt: time.Now().Add(-time.Minute), ExpiresAt: time.Now().Add(time.Hour),
 	}}
 	store.set(granted)
 	if err := hub.RefreshAndWait(ctx, cellName); err != nil {
@@ -350,7 +351,7 @@ func TestTenantIsolationOnRealHeadscale(t *testing.T) {
 	waitUntil(t, 30*time.Second, "granted port opens", func() bool { return A1.reach(ctx, t, B1.ip, 8080) })
 	t.Logf("granted port reachable after %s (includes path setup between newly visible peers)", time.Since(opened))
 	if A1.reach(ctx, t, B1.ip, 9090) {
-		t.Error("a grant for tcp:8080 also opened tcp:9090")
+		t.Error("a grant for tcp:8080 and tcp:7070 also opened tcp:9090")
 	}
 	if A2.reach(ctx, t, B1.ip, 8080) {
 		t.Error("a grant for device a1 also admitted a2")
@@ -358,6 +359,31 @@ func TestTenantIsolationOnRealHeadscale(t *testing.T) {
 	if B1.reach(ctx, t, A1.ip, 8080) {
 		t.Error("a grant is one-directional; the grantor must not reach the grantee")
 	}
+
+	// --- An established flow under the grant (spike T-13) ---------------------------------------------------------
+	// Revocation must stop a connection that is already open, not only refuse new ones. B1 echoes every line back;
+	// A1 sends its clock once every half second over one long-lived connection and logs what comes back.
+	if code, out := B1.exec(ctx, t, "sh", "-c",
+		"rm -f /tmp/echo.fifo && mkfifo /tmp/echo.fifo && nohup sh -c 'cat /tmp/echo.fifo | nc -l -p 7070 > /tmp/echo.fifo' >/dev/null 2>&1 &"); code != 0 {
+		t.Fatalf("echo server on %s: %s", B1.name, out)
+	}
+	time.Sleep(time.Second)
+	if code, out := A1.exec(ctx, t, "sh", "-c", fmt.Sprintf(
+		"nohup sh -c '(while true; do date +%%s; sleep 0.5; done) | nc %s 7070 > /tmp/echo.log 2>/dev/null' >/dev/null 2>&1 &", B1.ip)); code != 0 {
+		t.Fatalf("flow client on %s: %s", A1.name, out)
+	}
+	echoes := func() (count int, last int64) {
+		_, out := A1.exec(ctx, t, "sh", "-c", "wc -l < /tmp/echo.log; tail -n 1 /tmp/echo.log")
+		f := strings.Fields(out)
+		if len(f) > 0 {
+			count, _ = strconv.Atoi(f[0])
+		}
+		if len(f) > 1 {
+			last, _ = strconv.ParseInt(f[1], 10, 64)
+		}
+		return count, last
+	}
+	waitUntil(t, 20*time.Second, "established flow carries data", func() bool { n, _ := echoes(); return n >= 3 })
 
 	// --- Revocation latency -----------------------------------------------------------------------------------
 	store.set(baseSnapshot(true))
@@ -370,6 +396,20 @@ func TestTenantIsolationOnRealHeadscale(t *testing.T) {
 	t.Logf("revocation enforced on the wire in %s (SLO p99 < 5s; includes a probe timeout of up to 5s)", latency)
 	if latency > 15*time.Second {
 		t.Errorf("revocation took %s", latency)
+	}
+
+	// The established flow: no echo may arrive more than the SLO after the revocation started, and none at all once
+	// it is enforced.
+	before, last := echoes()
+	time.Sleep(5 * time.Second)
+	after, _ := echoes()
+	cut := time.Unix(last, 0).Sub(start.Truncate(time.Second))
+	t.Logf("established flow: last echo %s after revocation started; %d echoes in the 5s after enforcement", cut, after-before)
+	if after > before {
+		t.Errorf("an established flow kept carrying data after revocation (%d echoes in 5s)", after-before)
+	}
+	if cut > 5*time.Second {
+		t.Errorf("an established flow carried data for %s after revocation started (SLO 5s)", cut)
 	}
 }
 
