@@ -1,0 +1,8 @@
+---
+// Starlight's <head> plus the site's fonts, so the docs use the same faces and fallbacks as the marketing pages.
+import Default from "@astrojs/starlight/components/Head.astro";
+import FontFaces from "./FontFaces.astro";
+---
+
+<Default><slot /></Default>
+<FontFaces />

@@ -1,6 +1,7 @@
 ---
 import "../styles/global.css";
 import { PUBLIC_CF_ANALYTICS_TOKEN } from "astro:env/client";
+import FontFaces from "../components/FontFaces.astro";
 import Footer from "../components/Footer.astro";
 import Header from "../components/Header.astro";
 
@@ -25,6 +26,7 @@ const fullTitle = title === "Headmesh" ? title : `${title} · Headmesh`;
   <head>
     <meta charset="utf-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <FontFaces />
     <title>{fullTitle}</title>
     <meta name="description" content={description} />
     <link rel="canonical" href={canonical} />

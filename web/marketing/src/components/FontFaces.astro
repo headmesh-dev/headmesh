@@ -1,0 +1,9 @@
+---
+// The site's fonts (configured in astro.config.mjs). Body and display fonts are preloaded so they arrive before first
+// paint; the mono font is used below the fold and loads on demand.
+import { Font } from "astro:assets";
+---
+
+<Font cssVariable="--font-geist" preload />
+<Font cssVariable="--font-bricolage" preload />
+<Font cssVariable="--font-geist-mono" />

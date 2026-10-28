@@ -4,7 +4,7 @@ import { existsSync } from "node:fs";
 import sitemap from "@astrojs/sitemap";
 import starlight from "@astrojs/starlight";
 import tailwindcss from "@tailwindcss/vite";
-import { defineConfig, envField } from "astro/config";
+import { defineConfig, envField, fontProviders } from "astro/config";
 import { REPO_URL, SENDER, SITE_URL } from "./shared/site.ts";
 
 /** Cloudflare's "always passes" Turnstile test site key, used when no real key is configured. */
@@ -55,6 +55,56 @@ export default defineConfig({
     // Ship stylesheets as files so the CSP can stay `style-src 'self'` (see public/_headers).
     inlineStylesheets: "never",
   },
+  // Self-hosted from the Fontsource packages (no CDN at build or run time). Astro writes the @font-face rules, preloads
+  // what <FontFaces> asks for, and adds a fallback face whose metrics match each font, so swapping in the web font
+  // doesn't shift the layout (it cost up to 0.15 CLS on slower machines).
+  fonts: [
+    {
+      provider: fontProviders.local(),
+      name: "Geist",
+      cssVariable: "--font-geist",
+      fallbacks: ["sans-serif"],
+      options: {
+        variants: [
+          {
+            src: ["@fontsource-variable/geist/files/geist-latin-wght-normal.woff2"],
+            weight: "100 900",
+            style: "normal",
+          },
+        ],
+      },
+    },
+    {
+      provider: fontProviders.local(),
+      name: "Geist Mono",
+      cssVariable: "--font-geist-mono",
+      fallbacks: ["monospace"],
+      options: {
+        variants: [
+          {
+            src: ["@fontsource-variable/geist-mono/files/geist-mono-latin-wght-normal.woff2"],
+            weight: "100 900",
+            style: "normal",
+          },
+        ],
+      },
+    },
+    {
+      provider: fontProviders.local(),
+      name: "Bricolage Grotesque",
+      cssVariable: "--font-bricolage",
+      fallbacks: ["sans-serif"],
+      options: {
+        variants: [
+          {
+            src: ["@fontsource-variable/bricolage-grotesque/files/bricolage-grotesque-latin-standard-normal.woff2"],
+            weight: "200 800",
+            style: "normal",
+          },
+        ],
+      },
+    },
+  ],
   redirects: {
     // nginx answers /github with a real 302 (deploy/nginx); this generated page is the fallback for
     // `astro preview`.
@@ -75,7 +125,7 @@ export default defineConfig({
       title: "Headmesh Docs",
       description: "Documentation for Headmesh, the open, self-hostable, multi-tenant mesh built on Headscale.",
       logo: { dark: "./src/assets/logo.svg", light: "./src/assets/logo-on-light.svg", alt: "Headmesh" },
-      components: { SiteTitle: "./src/components/DocsSiteTitle.astro" },
+      components: { Head: "./src/components/StarlightHead.astro", SiteTitle: "./src/components/DocsSiteTitle.astro" },
       favicon: "/favicon.svg",
       disable404Route: true,
       pagefind: false,

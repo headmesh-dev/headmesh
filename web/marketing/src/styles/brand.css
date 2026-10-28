@@ -1,13 +1,10 @@
-@import "@fontsource-variable/bricolage-grotesque/standard.css";
-@import "@fontsource-variable/geist";
-@import "@fontsource-variable/geist-mono";
-
 /* D4 Shared Leg: the marketing site and Starlight both consume these tokens. */
 :root {
   color-scheme: light;
-  --hm-font-body: "Geist Variable", ui-sans-serif, system-ui, -apple-system, "Segoe UI", sans-serif;
-  --hm-font-display: "Bricolage Grotesque Variable", "Geist Variable", ui-sans-serif, sans-serif;
-  --hm-font-mono: "Geist Mono Variable", ui-monospace, SFMono-Regular, Menlo, monospace;
+  /* Set by the Fonts API (astro.config.mjs, <FontFaces>): each is the font, its metric-matched fallback and a generic. */
+  --hm-font-body: var(--font-geist);
+  --hm-font-display: var(--font-bricolage);
+  --hm-font-mono: var(--font-geist-mono);
   --hm-bg: #f4f7f6;
   --hm-surface: #e9efee;
   --hm-raised: #ffffff;
