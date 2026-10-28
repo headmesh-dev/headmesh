@@ -5,9 +5,19 @@
     "sha256": "42c69ac720abe4387e1f26d44fb8c5fb8bb0b0b406e91b179d7a945723db8c3d"
   },
   {
+    "file": "selected-brand/icons/app-icon-circle-on-gradient.svg",
+    "source": "public/brand/headmesh-v1/icons/app-icon-circle-on-gradient.svg",
+    "sha256": "43d930eff6b2b721c1d0338619bba6c57707022c8a0375327d36a98e3d5d5097"
+  },
+  {
     "file": "selected-brand/icons/app-icon-circle-on-light.svg",
     "source": "public/brand/headmesh-v1/icons/app-icon-circle-on-light.svg",
     "sha256": "dc9bf49c984b69215ff9bb689f5a4b966a3e4467660abf6aef50b3a99f7fec70"
+  },
+  {
+    "file": "selected-brand/icons/app-icon-on-gradient.svg",
+    "source": "public/brand/headmesh-v1/icons/app-icon-on-gradient.svg",
+    "sha256": "b870e3b00617b39f8045cbbc26309f27bfc0988b024bb91ed5f8c9c502295485"
   },
   {
     "file": "selected-brand/icons/app-icon-on-light.svg",
@@ -18,6 +28,11 @@
     "file": "selected-brand/icons/app-icon-square-on-dark.svg",
     "source": "public/brand/headmesh-v1/icons/app-icon-square-on-dark.svg",
     "sha256": "8b3ff904283dd4b2912a82f79ad2a969996c2b879db68a76fe3a11982be74e7a"
+  },
+  {
+    "file": "selected-brand/icons/app-icon-square-on-gradient.svg",
+    "source": "public/brand/headmesh-v1/icons/app-icon-square-on-gradient.svg",
+    "sha256": "aef6fb6172f56507b38dc74e1572068d2f6583526de944043b8d85ee1b0df233"
   },
   {
     "file": "selected-brand/icons/app-icon-square-on-light.svg",
@@ -35,6 +50,56 @@
     "sha256": "11715cd85fad8144465a81a4f3951c36b1e95d75877a9300ca186d48fbc248f0"
   },
   {
+    "file": "selected-brand/logos/lockup-horizontal-black-on-gradient.svg",
+    "source": "public/brand/headmesh-v1/logos/lockup-horizontal-black-on-gradient.svg",
+    "sha256": "547733e7f3e9c6075ccf7d7a3a2fd80dd75d25f479789b49a5aa8ab07046d60c"
+  },
+  {
+    "file": "selected-brand/logos/lockup-horizontal-black-on-white.svg",
+    "source": "public/brand/headmesh-v1/logos/lockup-horizontal-black-on-white.svg",
+    "sha256": "1dad2c8a82b1049e41d697c05bb2576aeca067bd4748430a1b1169fa3b9cbb97"
+  },
+  {
+    "file": "selected-brand/logos/lockup-horizontal-black.svg",
+    "source": "public/brand/headmesh-v1/logos/lockup-horizontal-black.svg",
+    "sha256": "8cd12ed37e21d0c100c7898a310b5f6df70baadd35e4839facab2ba52a138e17"
+  },
+  {
+    "file": "selected-brand/logos/lockup-horizontal-gradient-on-black.svg",
+    "source": "public/brand/headmesh-v1/logos/lockup-horizontal-gradient-on-black.svg",
+    "sha256": "e77a8f1a4e0187965095fc5e83af5bf7b907e5f61ef3e52ca424f4795ba60b92"
+  },
+  {
+    "file": "selected-brand/logos/lockup-horizontal-gradient-on-white.svg",
+    "source": "public/brand/headmesh-v1/logos/lockup-horizontal-gradient-on-white.svg",
+    "sha256": "33fd62ba5ec2c546537fb6802fd9ba6f47bc6866a74857dfb6abf2fb57ae1e73"
+  },
+  {
+    "file": "selected-brand/logos/lockup-horizontal-gradient.svg",
+    "source": "public/brand/headmesh-v1/logos/lockup-horizontal-gradient.svg",
+    "sha256": "2d07b8d2f4a5e051b648b7114ea61c9227dd91c1c67ef94f4a2f25ea9ed28a8d"
+  },
+  {
+    "file": "selected-brand/logos/lockup-horizontal-on-dark.svg",
+    "source": "public/brand/headmesh-v1/logos/lockup-horizontal-on-dark.svg",
+    "sha256": "f12341abaf2fdeb5dc69d7bb7331e4970d7f49e9f2067c3a43a36103797cc88d"
+  },
+  {
+    "file": "selected-brand/logos/lockup-horizontal-on-light.svg",
+    "source": "public/brand/headmesh-v1/logos/lockup-horizontal-on-light.svg",
+    "sha256": "29f2e099f0388350641678b0756832e3a806271a4c5f8873a41f9c476e5ce0ed"
+  },
+  {
+    "file": "selected-brand/logos/lockup-horizontal-white-on-black.svg",
+    "source": "public/brand/headmesh-v1/logos/lockup-horizontal-white-on-black.svg",
+    "sha256": "80f874c84112a46ac65db6c351796f8c783f100ff1090744898a2ca495c873ab"
+  },
+  {
+    "file": "selected-brand/logos/lockup-horizontal-white.svg",
+    "source": "public/brand/headmesh-v1/logos/lockup-horizontal-white.svg",
+    "sha256": "7c23b4db61212a8ce36eccbe8722a12b38af2b8cc9d4acbd23b9655616a12b1d"
+  },
+  {
     "file": "selected-brand/logos/lockup-on-dark.svg",
     "source": "public/brand/headmesh-v1/logos/lockup-on-dark.svg",
     "sha256": "0edac91efe7bc64d87f0ee088486b10f2bb5126372a64fb7ff725e07b06d9c46"
@@ -45,6 +110,86 @@
     "sha256": "08768a237ddecd5be93cac16ccac340e0137e805d8c42d9673dad18665dbf7ad"
   },
   {
+    "file": "selected-brand/logos/lockup-vertical-black-on-gradient.svg",
+    "source": "public/brand/headmesh-v1/logos/lockup-vertical-black-on-gradient.svg",
+    "sha256": "01a80b6df34c6d6cc7c36ffd9f493d11886365a0f40844aea852fcfcdce1c124"
+  },
+  {
+    "file": "selected-brand/logos/lockup-vertical-black-on-white.svg",
+    "source": "public/brand/headmesh-v1/logos/lockup-vertical-black-on-white.svg",
+    "sha256": "062660f3b813d5cdbbcaf228520809714394a33fa21f807fea3f488d38a8af57"
+  },
+  {
+    "file": "selected-brand/logos/lockup-vertical-black.svg",
+    "source": "public/brand/headmesh-v1/logos/lockup-vertical-black.svg",
+    "sha256": "3d2638009cfae8b892dd5d08a0f90a95402593e3fdc30521a2b07806a0aa544b"
+  },
+  {
+    "file": "selected-brand/logos/lockup-vertical-gradient-on-black.svg",
+    "source": "public/brand/headmesh-v1/logos/lockup-vertical-gradient-on-black.svg",
+    "sha256": "1bf995fd63d976912810b76d6b3c1dfdeb0c9f900d031f4d019df9c2960114f7"
+  },
+  {
+    "file": "selected-brand/logos/lockup-vertical-gradient-on-white.svg",
+    "source": "public/brand/headmesh-v1/logos/lockup-vertical-gradient-on-white.svg",
+    "sha256": "20a99d658bf6314688f24de7f0d556719fb41aa2aaa6fa6465bb109e37af05e2"
+  },
+  {
+    "file": "selected-brand/logos/lockup-vertical-gradient.svg",
+    "source": "public/brand/headmesh-v1/logos/lockup-vertical-gradient.svg",
+    "sha256": "9d6696a2dd9f02c3cfeb41263dc9d92f46aa402aa5a288d136529f0c85c9b696"
+  },
+  {
+    "file": "selected-brand/logos/lockup-vertical-on-dark.svg",
+    "source": "public/brand/headmesh-v1/logos/lockup-vertical-on-dark.svg",
+    "sha256": "1bfcaa28a597ea55ca589f3f6385e7bf373ff5318da684db3135a1e368e2ad5b"
+  },
+  {
+    "file": "selected-brand/logos/lockup-vertical-on-light.svg",
+    "source": "public/brand/headmesh-v1/logos/lockup-vertical-on-light.svg",
+    "sha256": "73da523820ea7bc436b0e5e7e9a887e3a8e37616355aa42ea51818fa4360a832"
+  },
+  {
+    "file": "selected-brand/logos/lockup-vertical-white-on-black.svg",
+    "source": "public/brand/headmesh-v1/logos/lockup-vertical-white-on-black.svg",
+    "sha256": "30826b9775e741e6b693f49e86119a886b267c19eb4ab14ce5221aa741543ebe"
+  },
+  {
+    "file": "selected-brand/logos/lockup-vertical-white.svg",
+    "source": "public/brand/headmesh-v1/logos/lockup-vertical-white.svg",
+    "sha256": "289e3295925934441837bc6ffc486eca3dde62ad7bfd08985e455846f9c43ad3"
+  },
+  {
+    "file": "selected-brand/logos/mark-black-on-gradient.svg",
+    "source": "public/brand/headmesh-v1/logos/mark-black-on-gradient.svg",
+    "sha256": "6502d783d95ecc2e85f683120ec352242291bf4a4b5a5cad51d8f71fd149308c"
+  },
+  {
+    "file": "selected-brand/logos/mark-black-on-white.svg",
+    "source": "public/brand/headmesh-v1/logos/mark-black-on-white.svg",
+    "sha256": "a58b5da099b3b49afddccd4e42eb6bace6d5935aa6c5af17ec6d314bf53dac6e"
+  },
+  {
+    "file": "selected-brand/logos/mark-black.svg",
+    "source": "public/brand/headmesh-v1/logos/mark-black.svg",
+    "sha256": "856bdd6e21336cbc640d104adab32e0843b4ac81cb405c547d3856ac997eccf3"
+  },
+  {
+    "file": "selected-brand/logos/mark-gradient-on-black.svg",
+    "source": "public/brand/headmesh-v1/logos/mark-gradient-on-black.svg",
+    "sha256": "62b24082e11e28d3f5574f551db8548654be14d798cab290fa6567521a1e42cc"
+  },
+  {
+    "file": "selected-brand/logos/mark-gradient-on-white.svg",
+    "source": "public/brand/headmesh-v1/logos/mark-gradient-on-white.svg",
+    "sha256": "ac53e1c48d046ef91fc80ce3aaa47227e0e6640ceef6019a6e8eeb585b2d4077"
+  },
+  {
+    "file": "selected-brand/logos/mark-gradient.svg",
+    "source": "public/brand/headmesh-v1/logos/mark-gradient.svg",
+    "sha256": "c47f0b75c543950f31922112497531b22c1c6310dc624115a7aedd3964973704"
+  },
+  {
     "file": "selected-brand/logos/mark-on-dark.svg",
     "source": "public/brand/headmesh-v1/logos/mark-on-dark.svg",
     "sha256": "a6a6f6325c3fb6cad877216b109cdf2fcca465a21f76dc1243bb377837b7b328"
@@ -53,6 +198,66 @@
     "file": "selected-brand/logos/mark-on-light.svg",
     "source": "public/brand/headmesh-v1/logos/mark-on-light.svg",
     "sha256": "de65f6f42061130ee29e176c3eb6e7c0a97d85be2538e6ddc40352cadaef099c"
+  },
+  {
+    "file": "selected-brand/logos/mark-white-on-black.svg",
+    "source": "public/brand/headmesh-v1/logos/mark-white-on-black.svg",
+    "sha256": "69aa93429069991732ea3b5f0a365dbe37ac6cc6d657d595fa753599f27f1432"
+  },
+  {
+    "file": "selected-brand/logos/mark-white.svg",
+    "source": "public/brand/headmesh-v1/logos/mark-white.svg",
+    "sha256": "95f4b0c55760e2b613b03307bdbea0c147bd35320d228e94d3dfa54e4606c167"
+  },
+  {
+    "file": "selected-brand/logos/wordmark-black-on-gradient.svg",
+    "source": "public/brand/headmesh-v1/logos/wordmark-black-on-gradient.svg",
+    "sha256": "3b631a2f734b9ef46993a1937d75c20ce29bebb025962007fd85b7790e973a14"
+  },
+  {
+    "file": "selected-brand/logos/wordmark-black-on-white.svg",
+    "source": "public/brand/headmesh-v1/logos/wordmark-black-on-white.svg",
+    "sha256": "0bac035c1606c64c75818834b1ee7cd9f1793a2eb0d5ac08e7349f8d57c1a3c2"
+  },
+  {
+    "file": "selected-brand/logos/wordmark-black.svg",
+    "source": "public/brand/headmesh-v1/logos/wordmark-black.svg",
+    "sha256": "eaad5e598fb4895f20f56c3e23a993395a669c5ab9a31f53d70f25e8ae896f56"
+  },
+  {
+    "file": "selected-brand/logos/wordmark-gradient-on-black.svg",
+    "source": "public/brand/headmesh-v1/logos/wordmark-gradient-on-black.svg",
+    "sha256": "2a87c87fd94a8207ff69882fc1c4d3ef8d9a879ddef4b529bdb94034c40bbd0b"
+  },
+  {
+    "file": "selected-brand/logos/wordmark-gradient-on-white.svg",
+    "source": "public/brand/headmesh-v1/logos/wordmark-gradient-on-white.svg",
+    "sha256": "2df11787ef366644f007ea755fa62b6af04729b59f3b58d8b76194eb71e57930"
+  },
+  {
+    "file": "selected-brand/logos/wordmark-gradient.svg",
+    "source": "public/brand/headmesh-v1/logos/wordmark-gradient.svg",
+    "sha256": "cb9ad31a5e9a7c90f3f1c97320f251bb617e500ca0ef2d6601f96b3d3270bb12"
+  },
+  {
+    "file": "selected-brand/logos/wordmark-on-dark.svg",
+    "source": "public/brand/headmesh-v1/logos/wordmark-on-dark.svg",
+    "sha256": "877bbfd8ff6a365f35c9e0c2a85b3d7e1810d34f28869a4cef9820bdfd2f84f7"
+  },
+  {
+    "file": "selected-brand/logos/wordmark-on-light.svg",
+    "source": "public/brand/headmesh-v1/logos/wordmark-on-light.svg",
+    "sha256": "ca134e34e3eddfca377873a5cb67e6a3d36cc767af3e2ecd765e0a49838e4982"
+  },
+  {
+    "file": "selected-brand/logos/wordmark-white-on-black.svg",
+    "source": "public/brand/headmesh-v1/logos/wordmark-white-on-black.svg",
+    "sha256": "1d985886e5142edd565d95480f2f85019b8890547682816df57586ddf19615d7"
+  },
+  {
+    "file": "selected-brand/logos/wordmark-white.svg",
+    "source": "public/brand/headmesh-v1/logos/wordmark-white.svg",
+    "sha256": "a8ac9e3ca01008a7ed30d4ab6d725fab2420ac536f47c57f920baa0cfa215a20"
   },
   {
     "file": "selected-brand/social/linkedin-banner-1584x396.svg",
@@ -83,5 +288,10 @@
     "file": "site/favicon.svg",
     "source": "public/favicon.svg",
     "sha256": "52f1abd6d41c4ea3b4a2fdbd62b28ad6825b5fb35d137d0580337fb9b97f8386"
+  },
+  {
+    "file": "selected-brand/logos/manifest.json",
+    "source": "public/brand/headmesh-v1/logos/manifest.json",
+    "sha256": "96e4a297fc824e76c92395a08d5e63755a4d48dbf675030d0f0154856af24fea"
   }
 ]

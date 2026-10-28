@@ -58,6 +58,7 @@ def sync_site():
     originals = [(source, Path("selected-brand") / source.relative_to(public)) for source in sorted(public.rglob("*.svg"))]
     originals += [(MARKETING / "src/assets" / name, Path("site") / name) for name in ("logo.svg", "logo-on-light.svg")]
     originals += [(MARKETING / "public/favicon.svg", Path("site/favicon.svg"))]
+    originals += [(public / "logos/manifest.json", Path("selected-brand/logos/manifest.json"))]
     records = []
     for source, relative in originals:
         destination = EXTRAS / relative
@@ -74,8 +75,9 @@ def prepare():
     for source, relative, group in sources():
         width, height = dimensions(source)
         target = PNG / relative
+        background = ET.fromstring(source.read_text()).get("data-background", "transparent")
         entries.append({"svg": str(source.relative_to(ROOT)), "png": str(relative), "group": group,
-                        "width": width, "height": height, "svg_sha256": sha(source)})
+                        "width": width, "height": height, "background": background, "svg_sha256": sha(source)})
         jobs.append({"in": str(source.relative_to(ROOT)), "out": str(target.relative_to(ROOT)), "w": width, "h": height})
     if len({entry["png"] for entry in entries}) != len(entries):
         raise ValueError("Colliding PNG filenames")
@@ -125,10 +127,13 @@ def icon_gallery(entries):
     variants = [
         ("Rounded square", "Dark", "app-icon"),
         ("Rounded square", "Light", "app-icon-on-light"),
+        ("Rounded square", "Gradient", "app-icon-on-gradient"),
         ("Circle", "Dark", "app-icon-circle-on-dark"),
         ("Circle", "Light", "app-icon-circle-on-light"),
+        ("Circle", "Gradient", "app-icon-circle-on-gradient"),
         ("Square", "Dark", "app-icon-square-on-dark"),
         ("Square", "Light", "app-icon-square-on-light"),
+        ("Square", "Gradient", "app-icon-square-on-gradient"),
     ]
     cards = []
     for shape, theme, name in variants:
@@ -136,8 +141,23 @@ def icon_gallery(entries):
         svg = "../../../" + entry["svg"]
         cards.append(f'<article><h2>{shape} · {theme}</h2><div class="image"><img src="{name}.png" width="512" height="512" alt="Headmesh {shape.lower()} icon, {theme.lower()} theme"></div><p><a href="{name}.png" download>PNG · 512 × 512</a> · <a href="{svg}" download>SVG</a></p></article>')
     (directory / "index.html").write_text('''<!doctype html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>Headmesh icon shapes</title><style>
-    :root{color-scheme:dark}body{margin:0;background:#070b12;color:#f2f6f9;font:16px/1.5 system-ui}main{max-width:1040px;margin:auto;padding:24px}h1{font-size:32px}h2{font-size:18px}p{color:#9aa8bc}a{color:#3cefb4}.grid{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:24px}article{border:1px solid #1c2736;border-radius:12px;padding:20px}.image{background:repeating-conic-gradient(#1c2736 0% 25%,#111a26 0% 50%) 0 0/24px 24px;padding:20px}img{display:block;width:100%;height:auto;border-radius:0}article p{margin-bottom:0}@media(max-width:600px){.grid{grid-template-columns:1fr}}
-    </style></head><body><main><h1>Headmesh · icon shapes</h1><p>Rounded square, circle, and sharp square. Every shape uses the same shared-leg mark and padding, in light and dark themes.</p><p>The light theme intentionally uses deeper evergreen-to-blue; the dark theme uses mint-to-cyan. Both gradients are fully opaque. Checkerboards show transparency outside the rounded and circular backgrounds.</p><p><a href="../../index.html">All PNG assets</a></p><div class="grid">''' + ''.join(cards) + '</div></main></body></html>\n')
+    :root{color-scheme:dark}body{margin:0;background:#070b12;color:#f2f6f9;font:16px/1.5 system-ui}main{max-width:1200px;margin:auto;padding:24px}h1{font-size:32px}h2{font-size:18px}p{color:#9aa8bc}a{color:#3cefb4}.grid{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:24px}article{min-width:0;border:1px solid #1c2736;border-radius:12px;padding:20px}.image{background:repeating-conic-gradient(#1c2736 0% 25%,#111a26 0% 50%) 0 0/24px 24px;padding:20px}img{display:block;width:100%;height:auto;border-radius:0}article p{margin-bottom:0}@media(max-width:700px){.grid{grid-template-columns:1fr}}
+    </style></head><body><main><h1>Headmesh · icon shapes</h1><p>Rounded square, circle, and sharp square. Every shape uses the same shared-leg geometry and padding on dark, light, and gradient backgrounds.</p><p>The light theme intentionally uses deeper evergreen-to-blue; the dark theme uses mint-to-cyan. Both shared-leg gradients are fully opaque. Gradient backgrounds use a solid black mark. Checkerboards show transparency outside the rounded and circular backgrounds.</p><p><a href="../../index.html">All PNG assets</a> · <a href="../logos/index.html">Logo system</a></p><div class="grid">''' + ''.join(cards) + '</div></main></body></html>\n')
+
+
+def logo_gallery(entries):
+    directory = PNG / "selected-brand/logos"
+    manifest = json.loads((EXTRAS / "selected-brand/logos/manifest.json").read_text())
+    exports = {Path(entry["png"]).stem: entry for entry in entries if Path(entry["png"]).parent == Path("selected-brand/logos")}
+    cards = []
+    for asset in manifest["assets"]:
+        entry = exports[asset["name"]]
+        stage = "light" if asset["colour"] == "black" or asset["style"] == "on-light" or asset["background"] == "white" else "dark"
+        label = html.escape(asset["label"])
+        cards.append(f'<article data-layout="{asset["layout"]}" data-colour="{asset["colour"]}" data-background="{asset["background"]}"><h2>{label}</h2><div class="stage {stage}"><img src="{asset["png"]}" width="{entry["width"]}" height="{entry["height"]}" alt="{label}"></div><p><a href="{asset["png"]}" download>PNG · {entry["width"]} × {entry["height"]}</a> · <a href="../../../{entry["svg"]}" download>SVG</a></p></article>')
+    (directory / "index.html").write_text('''<!doctype html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>Headmesh logo system</title><style>
+    :root{color-scheme:dark}*{box-sizing:border-box}body{margin:0;background:#070b12;color:#f2f6f9;font:16px/1.5 system-ui}main{max-width:1280px;margin:auto;padding:24px}h1{font-size:32px}h2{font-size:16px;margin-top:0}p{color:#9aa8bc}a{color:#3cefb4}.filters{display:flex;gap:16px;flex-wrap:wrap;margin:24px 0}label{display:grid;gap:6px}select{font:inherit;padding:8px;background:#111a26;color:#f2f6f9;border:1px solid #334357;border-radius:8px}.grid{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:20px}article{min-width:0;border:1px solid #1c2736;border-radius:12px;padding:20px}article[hidden]{display:none}.stage{display:flex;align-items:center;justify-content:center;min-height:240px;padding:16px;border-radius:8px}.dark{background:repeating-conic-gradient(#0b111a 0% 25%,#111a26 0% 50%) 0 0/24px 24px}.light{background:repeating-conic-gradient(#f4f7f6 0% 25%,#e9efee 0% 50%) 0 0/24px 24px}img{display:block;width:100%;max-width:100%;height:208px;object-fit:contain}article p{margin-bottom:0}@media(max-width:640px){.grid{grid-template-columns:1fr}main{padding:16px}.filters{gap:12px}select{max-width:100%}}
+    </style></head><body><main><h1>Headmesh · logo system</h1><p>Four layouts, ten colour/background combinations, each in SVG and PNG. The D4 shared-leg geometry and outlined Bricolage wordmark are preserved.</p><p>Checkerboards indicate transparency. Gradient artwork uses deeper green/blue on white and bright mint/cyan on black. Black and white exports use true #000000 and #FFFFFF.</p><p><a href="../../index.html">All PNG assets</a> · <a href="../icons/index.html">Icon shapes</a></p><div class="filters"><label>Layout<select id="layout" aria-label="Layout"><option value="all">All layouts</option><option value="mark">Standalone mark</option><option value="wordmark">Wordmark</option><option value="horizontal">Horizontal lockup</option><option value="vertical">Vertical / stacked lockup</option></select></label><label>Logo colour<select id="colour" aria-label="Logo colour"><option value="all">All colours</option><option value="gradient">Gradient</option><option value="black">Black</option><option value="white">White</option><option value="brand">Shared-leg accent</option></select></label><label>Background<select id="background" aria-label="Background"><option value="all">All backgrounds</option><option value="transparent">Transparent</option><option value="black">Black</option><option value="white">White</option><option value="gradient">Gradient</option></select></label></div><p id="count" aria-live="polite">40 variants</p><div class="grid">''' + ''.join(cards) + '''</div></main><script>const filters=[...document.querySelectorAll('select')];for(const filter of filters)filter.addEventListener('change',()=>{let count=0;for(const card of document.querySelectorAll('article')){card.hidden=!filters.every(filter=>filter.value==='all'||card.dataset[filter.id]===filter.value);if(!card.hidden)count++}document.getElementById('count').textContent=count+(count===1?' variant':' variants')});</script></body></html>\n''')
 
 
 def gallery(entries):
@@ -152,9 +172,10 @@ def gallery(entries):
     content = f'''<!doctype html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>Headmesh PNG assets</title><style>
     :root{{color-scheme:dark}}body{{margin:0;background:#070b12;color:#f2f6f9;font:15px/1.5 system-ui}}main{{max-width:1200px;margin:auto;padding:24px}}a{{color:#3cefb4}}h1{{font-size:32px}}h2{{font:13px/1.5 monospace;overflow-wrap:anywhere}}.intro,p{{color:#9aa8bc}}select{{padding:10px;background:#111a26;color:#f2f6f9;border:1px solid #1c2736;border-radius:8px}}article{{border-bottom:1px solid #1c2736;padding:16px 0}}article[hidden]{{display:none}}.pair{{display:grid;grid-template-columns:1fr 1fr;gap:12px}}img{{width:100%;height:180px;object-fit:contain;box-sizing:border-box;padding:16px;border-radius:10px}}.dark{{background:repeating-conic-gradient(#0b111a 0% 25%,#111a26 0% 50%) 0 0/24px 24px}}.light{{background:repeating-conic-gradient(#f4f7f6 0% 25%,#e9efee 0% 50%) 0 0/24px 24px}}@media(max-width:500px){{.pair{{grid-template-columns:1fr}}}}
     </style></head><body><main><h1>Headmesh PNG assets</h1><p class="intro">{len(entries)} PNGs, one per SVG. Original proportions and transparency are preserved. SVGs without explicit dimensions use a 512 px export width. The legacy 234 size-specific PNGs are also retained in ../out/headmesh-brand/.</p><p><a href="../index.html">Brand gallery</a> · <a href="manifest.json">Source map and dimensions</a> · <a href="validation.json">Export checks</a> · <a href="contact-sheets/D4.jpg">D4 Shared Leg contact sheet</a></p><label for="group">Show assets: </label><select id="group">{options}</select>{''.join(cards)}</main><script>document.querySelector('select').addEventListener('change',event=>{{document.querySelectorAll('[data-group]').forEach(card=>card.hidden=event.target.value!=='all'&&card.dataset.group!==event.target.value)}});</script></body></html>'''
-    content = content.replace('<a href="../index.html">Brand gallery</a>', '<a href="selected-brand/icons/index.html">Icon shapes · SVG + PNG</a> · <a href="../index.html">Brand gallery</a>', 1)
+    content = content.replace('<a href="../index.html">Brand gallery</a>', '<a href="selected-brand/logos/index.html">Logo system · SVG + PNG</a> · <a href="selected-brand/icons/index.html">Icon shapes · SVG + PNG</a> · <a href="../index.html">Brand gallery</a>', 1)
     (PNG / "index.html").write_text(content)
     icon_gallery(entries)
+    logo_gallery(entries)
 
 
 def verify():
@@ -183,7 +204,7 @@ def verify():
             bounds = alpha.getbbox()
             if not bounds or not ImageChops.difference(rgba, Image.new("RGBA", rgba.size, (0, 0, 0, 0))).getbbox():
                 issues.append(f"Empty PNG: {entry['png']}")
-            if alpha.getextrema()[0] == 255 and any(token in target.stem for token in ("mark-", "wordmark-", "lockup-")):
+            if entry.get("background", "transparent") == "transparent" and alpha.getextrema()[0] == 255 and any(token in target.stem for token in ("mark-", "wordmark-", "lockup-")):
                 issues.append(f"Transparent artwork flattened: {entry['png']}")
             prior = original_by_svg.get(entry["svg"])
             if prior:

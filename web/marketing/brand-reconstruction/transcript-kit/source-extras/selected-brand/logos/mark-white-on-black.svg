@@ -1,0 +1,14 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<svg xmlns="http://www.w3.org/2000/svg" width="512" height="512" viewBox="0 0 512 512" role="img" aria-labelledby="title desc" data-background="black" data-layout="mark" data-colour="white">
+  <title id="title">Headmesh Standalone mark — White logo · black background</title>
+  <desc id="desc">Headmesh identity artwork: the shared-leg arch mark represents two private meshes joined by a temporary grant.</desc>
+  <defs></defs>
+  <rect width="512" height="512" fill="#000000"/><g transform="translate(0 0) scale(1)">
+  <g fill="#FFFFFF">
+    <path d="M88 390V122A34 34 0 0 1 156 122V390A34 34 0 0 1 88 390Z"/>
+    <path d="M356 390V122A34 34 0 0 1 424 122V390A34 34 0 0 1 356 390Z"/>
+    <path d="M88 280A101 101 0 0 1 290 280H222A33 33 0 0 0 156 280Z"/>
+    <path d="M222 280A101 101 0 0 1 424 280H356A33 33 0 0 0 290 280Z"/>
+  </g>
+  <path fill="#FFFFFF" d="M222 280H290V390A34 34 0 0 1 222 390Z"/></g>
+</svg>
