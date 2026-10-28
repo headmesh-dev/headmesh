@@ -76,7 +76,7 @@ workstation operator credentials; the application and deployment script read the
 
 | File | Purpose |
 |---|---|
-| [`.env.example`](.env.example) → `.env` | Operator tokens for npm, Hetzner and Ubuntu Pro; not automatically loaded by services |
+| [`.env.example`](.env.example) → `.env` | Operator tokens for npm, Hetzner, Ubuntu Pro and Resend setup; not automatically loaded by services |
 | [`web/marketing/.env.example`](web/marketing/.env.example) → `web/marketing/.env` | Local marketing builds and waitlist service |
 | [`deploy/env/local.env.example`](deploy/env/local.env.example) → `deploy/env/local.env` | This workstation's SSH/deploy settings |
 | `deploy/env/test/{build,waitlist,backend}.env` | Test deployment, with a separate example for each file |
@@ -88,6 +88,10 @@ Turnstile test keys and logs confirmation links instead of sending email; produc
 and Resend credentials. Keep credentials scoped to the tools or service that use them. Database credentials,
 backend signing keys and cell certificates are generated separately on the server for each environment.
 See [deployment configuration](deploy/README.md#configuration) and [marketing setup](web/marketing/README.md#one-time-setup-aaryn).
+
+For Resend setup, `RESEND_SETUP_API_KEY` is a temporary full-access operator key used to configure the sending
+domain and create its credentials. The waitlist service uses a separate sending-only `RESEND_API_KEY`, restricted
+to that domain, in `deploy/env/prod/waitlist.env`.
 
 ## Security
 
