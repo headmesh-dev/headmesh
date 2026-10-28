@@ -12,6 +12,7 @@
 #
 # Options
 #   --host DEST         SSH destination (default: $HM_DEPLOY_HOST, else aaryn@100.64.0.7, hm-prod-1 over the tailnet)
+#   --identity FILE     SSH key (default: $HM_DEPLOY_IDENTITY, else ~/.ssh/hm-prod-1 when it exists)
 #   --bootstrap         install or update the server side first: packages, Node, Postgres roles and databases,
 #                       systemd units, TLS, nginx base config (idempotent; safe to repeat)
 #   --nginx-overwrite   replace nginx files on the server that differ from the local render. Without it, drift is
@@ -46,11 +47,12 @@ log() { printf '\033[1m[deploy]\033[0m %s\n' "$*" >&2; }
 die() { printf '\033[1;31m[deploy] ERROR:\033[0m %s\n' "$*" >&2; exit 1; }
 trap 'die "failed at line ${LINENO}: ${BASH_COMMAND}"' ERR
 
-usage() { sed -n '2,36p' "${BASH_SOURCE[0]}" | sed 's/^# \{0,1\}//'; }
+# The header comment above, up to the first line of code.
+usage() { awk 'NR > 1 && /^#/ { sub(/^# ?/, ""); print; next } NR > 1 { exit }' "${BASH_SOURCE[0]}"; }
 
 # ── arguments ─────────────────────────────────────────────────────────────────────────────────────────────────────
 
-ENV_ARG="" TARGET_ARG="" HOST="${HM_DEPLOY_HOST:-aaryn@100.64.0.7}"
+ENV_ARG="" TARGET_ARG="" HOST="${HM_DEPLOY_HOST:-aaryn@100.64.0.7}" IDENTITY="${HM_DEPLOY_IDENTITY:-}"
 BOOTSTRAP=0 NGINX_OVERWRITE=0 INIT_ENV=0 SKIP_CHECKS=0 DRY_RUN=0 ROLLBACK=0 STATUS=0 KEEP=5 ALLOW_DIRTY=0 YES=0
 
 while [[ $# -gt 0 ]]; do
@@ -61,6 +63,8 @@ while [[ $# -gt 0 ]]; do
     --target=*) TARGET_ARG="${1#*=}"; shift ;;
     --host) HOST="${2:-}"; shift 2 ;;
     --host=*) HOST="${1#*=}"; shift ;;
+    --identity) IDENTITY="${2:-}"; shift 2 ;;
+    --identity=*) IDENTITY="${1#*=}"; shift ;;
     --keep) KEEP="${2:-}"; shift 2 ;;
     --keep=*) KEEP="${1#*=}"; shift ;;
     --bootstrap) BOOTSTRAP=1; shift ;;
@@ -102,7 +106,13 @@ has_env() { local e; for e in "${ENVS[@]}"; do [[ "$e" == "$1" ]] && return 0; d
 SUDO="${HM_DEPLOY_SUDO-sudo -n}"
 CTL="${HM_LIB_ROOT}/deployctl.sh"
 SSH_OPTS=(-o BatchMode=yes -o ConnectTimeout=15 -o ServerAliveInterval=15 -o ServerAliveCountMax=4)
+# hm-prod-1's tailnet and break-glass addresses present the host key saved for its public IP.
 [[ "${HOST}" == *100.64.0.7* || "${HOST}" == *10.98.0.1* ]] && SSH_OPTS+=(-o HostKeyAlias=<hm-prod-1 IPv4>)
+[[ -z "${IDENTITY}" && -f "${HOME}/.ssh/hm-prod-1" ]] && IDENTITY="${HOME}/.ssh/hm-prod-1"
+if [[ -n "${IDENTITY}" ]]; then
+  [[ -f "${IDENTITY}" ]] || die "--identity ${IDENTITY}: no such file"
+  SSH_OPTS+=(-i "${IDENTITY}" -o IdentitiesOnly=yes)
+fi
 
 # remote <args...>: run one command on the server. Arguments are quoted for the remote shell.
 remote() {

@@ -68,6 +68,7 @@ deploy/deploy.sh --status                                # releases, colours, un
 | `--env`             | `prod`, `test` or `all`                                                                                         |
 | `--target`          | `frontend` (site + waitlist), `backend` (headmesh-server) or `all`                                              |
 | `--host DEST`       | SSH destination. Default `$HM_DEPLOY_HOST`, else `aaryn@100.64.0.7` (tailnet); `aaryn@10.98.0.1` is break-glass |
+| `--identity FILE`   | SSH key. Default `$HM_DEPLOY_IDENTITY`, else `~/.ssh/hm-prod-1` when it exists                                  |
 | `--bootstrap`       | Run the server bootstrap first (idempotent)                                                                     |
 | `--nginx-overwrite` | Replace server nginx files that differ from the local render                                                    |
 | `--init-env`        | Create missing `deploy/env/<env>/*.env` from the examples, generating `WAITLIST_SECRET`                         |
