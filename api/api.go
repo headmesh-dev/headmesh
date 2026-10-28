@@ -177,10 +177,15 @@ func (l *limiter) allow(key string) bool {
 	return l.counts[key] <= l.limit
 }
 
-// Health mounts /healthz (process up) and /readyz (database reachable) on router.
-func Health(router chi.Router, st *store.Store) {
+// Health mounts /healthz (process up) and /readyz (database reachable and not recovering) on router.
+func Health(router chi.Router, st *store.Store, rec *Recovery) {
 	router.Get("/healthz", func(w http.ResponseWriter, _ *http.Request) { w.WriteHeader(http.StatusNoContent) })
 	router.Get("/readyz", func(w http.ResponseWriter, r *http.Request) {
+		if rec.Active() {
+			w.Header().Set("Retry-After", "15")
+			http.Error(w, "recovering", http.StatusServiceUnavailable)
+			return
+		}
 		ctx, cancel := context.WithTimeout(r.Context(), 2*time.Second)
 		defer cancel()
 		if err := st.Pool().Ping(ctx); err != nil {

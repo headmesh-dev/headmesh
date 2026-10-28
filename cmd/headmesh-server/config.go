@@ -21,7 +21,9 @@ type config struct {
 	PublicURL         string // HEADMESH_PUBLIC_URL, e.g. https://api.headmesh.dev
 	InstallURL        string // HEADMESH_INSTALL_URL, e.g. https://get.headmesh.dev
 	TrustForwardedFor bool   // HEADMESH_TRUST_FORWARDED_FOR=true when every request comes through Caddy
-	// HEADMESH_RECOVERY_TIMEOUT: how long startup waits for enforce-mode cells to confirm a current policy.
+	// Recovery (serve -recovery, or HEADMESH_RECOVERY=true) starts in recovery mode after a restore (plan §13.4).
+	Recovery bool
+	// HEADMESH_RECOVERY_TIMEOUT: how long recovery mode waits for enforce-mode cells to confirm a current policy.
 	RecoveryTimeout time.Duration
 }
 
@@ -44,6 +46,7 @@ func loadConfig() (config, error) {
 		PublicURL:         strings.TrimRight(env("HEADMESH_PUBLIC_URL", "https://api.headmesh.dev"), "/"),
 		InstallURL:        env("HEADMESH_INSTALL_URL", "https://get.headmesh.dev"),
 		TrustForwardedFor: os.Getenv("HEADMESH_TRUST_FORWARDED_FOR") == "true",
+		Recovery:          os.Getenv("HEADMESH_RECOVERY") == "true",
 		RecoveryTimeout:   5 * time.Minute,
 	}
 	if v := os.Getenv("HEADMESH_RECOVERY_TIMEOUT"); v != "" {

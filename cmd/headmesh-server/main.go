@@ -1,7 +1,7 @@
 // Command headmesh-server runs the Headmesh control server: the public REST API and the mutual-TLS endpoint cell
 // agents dial into.
 //
-//	headmesh-server serve                 run the API and the cell endpoint
+//	headmesh-server serve [-recovery]     run the API and the cell endpoint (-recovery after a restore)
 //	headmesh-server migrate               apply database migrations (as the schema owner)
 //	headmesh-server bootstrap ...         create a cell, an org and an admin API key
 //	headmesh-server keygen -out FILE      create the Ed25519 operation-signing key
@@ -59,7 +59,7 @@ func run(args []string) int {
 	var err error
 	switch args[0] {
 	case "serve":
-		err = serve(ctx, logger)
+		err = serve(ctx, logger, args[1:])
 	case "migrate":
 		err = migrate(ctx)
 	case "bootstrap":
@@ -82,10 +82,15 @@ func run(args []string) int {
 	return 0
 }
 
-func serve(ctx context.Context, logger *slog.Logger) error {
+func serve(ctx context.Context, logger *slog.Logger, args []string) error {
 	cfg, err := loadConfig()
 	if err != nil {
 		return err
+	}
+	fs := flag.NewFlagSet("serve", flag.ContinueOnError)
+	fs.BoolVar(&cfg.Recovery, "recovery", cfg.Recovery, "start in recovery mode: refuse writes until every enforce-mode cell is current")
+	if err := fs.Parse(args); err != nil {
+		return fmt.Errorf("parse flags: %w", err)
 	}
 	pool, err := pgxpool.New(ctx, cfg.DatabaseURL)
 	if err != nil {
@@ -116,8 +121,12 @@ func serve(ctx context.Context, logger *slog.Logger) error {
 	// Public API (plain HTTP behind Caddy).
 	router := chi.NewRouter()
 	// No RealIP middleware: it trusts spoofable headers. The API reads X-Forwarded-For only when configured to.
-	router.Use(middleware.RequestID, middleware.Recoverer, middleware.Timeout(60*time.Second))
-	api.Health(router, st)
+	recovery := &api.Recovery{}
+	if cfg.Recovery {
+		recovery.Begin()
+	}
+	router.Use(middleware.RequestID, middleware.Recoverer, middleware.Timeout(60*time.Second), recovery.Middleware)
+	api.Health(router, st, recovery)
 	api.New(router, api.Options{Service: svc, Logger: logger, TrustForwardedFor: cfg.TrustForwardedFor, Version: version}) //nolint:contextcheck // handlers use each request's context
 	apiServer := &http.Server{
 		Addr: cfg.Listen, Handler: router, ReadHeaderTimeout: 10 * time.Second, ReadTimeout: 30 * time.Second,
@@ -154,30 +163,19 @@ func serve(ctx context.Context, logger *slog.Logger) error {
 	}()
 
 	errc := make(chan error, 2)
-	// Cells first: recovery needs them connected before the public API opens.
 	go func() {
 		logger.Info("cell endpoint listening", "addr", cfg.CellListen)
 		errc <- cellServer.ListenAndServeTLS(cfg.TLSCertFile, cfg.TLSKeyFile)
 	}()
-
-	// Recovery gate (plan §13.4): audit grants that expired while nothing was running, and wait until every
-	// enforce-mode cell has applied a policy compiled now, before accepting any API request. A cell that stays
-	// down past the timeout does not hold every other tenant hostage; it gets the current policy on reconnect.
-	if n, err := svc.SweepExpiredGrants(ctx); err != nil {
-		logger.Error("recovery: expiry sweep failed", "error", err)
-	} else if n > 0 {
-		logger.Warn("recovery: grants expired while the control plane was down", "count", n)
-	}
-	gateCtx, gateCancel := context.WithTimeout(ctx, cfg.RecoveryTimeout)
-	if err := svc.AwaitCellsCurrent(gateCtx, hub, logger); err != nil {
-		logger.Error("recovery: opening the API with stale cells", "error", err)
-	}
-	gateCancel()
-	go sweepLoop(ctx, svc, logger)
-
 	go func() {
-		logger.Info("api listening", "addr", cfg.Listen)
+		logger.Info("api listening", "addr", cfg.Listen, "recovery", cfg.Recovery)
 		errc <- apiServer.ListenAndServe()
+	}()
+	go func() {
+		if cfg.Recovery {
+			recoverControlPlane(ctx, svc, hub, recovery, cfg.RecoveryTimeout, logger)
+		}
+		sweepLoop(ctx, svc, logger)
 	}()
 	select {
 	case err = <-errc:
@@ -194,18 +192,42 @@ func serve(ctx context.Context, logger *slog.Logger) error {
 	return err
 }
 
-// sweepLoop audits grant expiries every 30 seconds.
+// recoverControlPlane runs recovery mode (plan §13.4) on a control plane restored from backup: audit the grants
+// that expired while nothing was running, then wait until every enforce-mode cell has applied a policy compiled
+// now, and only then open the API to writes. Normal restarts and blue-green deploys skip this, because the cells
+// are still connected to the live instance and their precomputed timelines already enforced every expiry. A cell
+// that stays down past the timeout doesn't hold every other tenant hostage; it gets the current policy when it
+// reconnects.
+func recoverControlPlane(ctx context.Context, svc *service.Service, hub service.RecoveryHub, gate *api.Recovery, timeout time.Duration, logger *slog.Logger) {
+	defer gate.End()
+	if n, err := svc.SweepExpiredGrants(ctx); err != nil {
+		logger.Error("recovery: expiry sweep failed", "error", err)
+	} else if n > 0 {
+		logger.Warn("recovery: grants expired while the control plane was down", "count", n)
+	}
+	waitCtx, cancel := context.WithTimeout(ctx, timeout)
+	defer cancel()
+	if err := svc.AwaitCellsCurrent(waitCtx, hub, logger); err != nil {
+		logger.Error("recovery: accepting writes with stale cells", "error", err)
+		return
+	}
+	logger.Info("recovery: every enforce-mode cell is current; accepting writes")
+}
+
+// sweepLoop audits grant expiries now and then every 30 seconds.
 func sweepLoop(ctx context.Context, svc *service.Service, logger *slog.Logger) {
 	t := time.NewTicker(30 * time.Second)
 	defer t.Stop()
 	for {
+		if n, err := svc.SweepExpiredGrants(ctx); err != nil {
+			logger.Error("expiry sweep", "error", err)
+		} else if n > 0 {
+			logger.Info("expiry sweep: audited expired grants", "count", n)
+		}
 		select {
 		case <-ctx.Done():
 			return
 		case <-t.C:
-			if _, err := svc.SweepExpiredGrants(ctx); err != nil {
-				logger.Error("expiry sweep", "error", err)
-			}
 		}
 	}
 }
