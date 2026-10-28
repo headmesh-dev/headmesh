@@ -1,0 +1,15 @@
+{
+  "cell_name": "xcelsior",
+  "mode": "observe",
+  "state_dir": "/var/lib/headmesh-cellagent",
+  "headscale_socket": "/var/run/headscale/headscale.sock",
+  "headscale_http": "http://127.0.0.1:8080",
+  "server_url": "https://api.headmesh.dev",
+  "client_cert": "/etc/headmesh/cellagent.crt",
+  "client_key": "/etc/headmesh/cellagent.key",
+  "server_keys": ["<base64 Ed25519 public key of headmesh-server's op signer>"],
+  "protected_nodes": [1],
+  "invariants": [
+    { "name": "control reaches hosts over SSH", "src": ["tag:xc-control"], "dst": ["tag:xc-host"], "proto": "tcp", "port": 22 }
+  ]
+}
