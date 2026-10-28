@@ -98,7 +98,7 @@ to gain an inner one.
 
 ## Acceptance check 4 requires a tailnet address
 
-`prod-hetzner.mesh.xcelsior.ca` also has a public DNS record (<prod-hetzner IPv4>), so
+`prod-hetzner.mesh.xcelsior.ca` also has a public DNS record (its public IPv4), so
 `getent` succeeding proves nothing about MagicDNS. Check 4 passes only for an
 address in 100.64.0.0/10 or fd7a:115c:a1e0::/48.
 

@@ -19,3 +19,4 @@ and spike notes are in [`sandbox/docs/adr/`](../../sandbox/docs/adr/).
 | [0012](0012-shared-checkout-on-main.md) | Parallel tracks share one checkout on `main` | accepted 2026-10-27 |
 | [0013](0013-nginx-and-systemd-on-hm-prod-1.md) | nginx + systemd on hm-prod-1; headmesh.dev self-hosted there | accepted 2026-10-28 |
 | [0014](0014-core-spike-outcomes.md) | Spikes T-4, T-5, T-12, T-13, T-14: what the core and plugins found | accepted 2026-10-28 |
+| [0015](0015-licensing.md) | Apache-2.0, with AGPL-3.0 for the server and cell agent | accepted 2026-10-28 |

@@ -67,7 +67,7 @@ deploy/deploy.sh --status                                # releases, colours, un
 | ------------------- | --------------------------------------------------------------------------------------------------------------- |
 | `--env`             | `prod`, `test` or `all`                                                                                         |
 | `--target`          | `frontend` (site + waitlist), `backend` (headmesh-server) or `all`                                              |
-| `--host DEST`       | SSH destination. Default `$HM_DEPLOY_HOST`, else `aaryn@100.64.0.7` (tailnet); `aaryn@10.98.0.1` is break-glass |
+| `--host DEST`       | SSH destination. Default `HM_DEPLOY_HOST` from `deploy/env/local.env` (hm-prod-1 over the tailnet)              |
 | `--identity FILE`   | SSH key. Default `$HM_DEPLOY_IDENTITY`, else `~/.ssh/hm-prod-1` when it exists                                  |
 | `--bootstrap`       | Run the server bootstrap first (idempotent)                                                                     |
 | `--nginx-overwrite` | Replace server nginx files that differ from the local render                                                    |
@@ -107,7 +107,7 @@ only, used for migrations), and `secrets.env` with the operation-signing key and
 
 ## DNS and TLS
 
-Point these Cloudflare records at `<hm-prod-1 IPv4>` (and the AAAA at the server's IPv6). They can be proxied (orange
+Point these Cloudflare records at hm-prod-1's public IPv4 (and the AAAA at its IPv6). They can be proxied (orange
 cloud): nginx trusts `CF-Connecting-IP` only from Cloudflare's published ranges, refreshed on every deploy.
 
 ```

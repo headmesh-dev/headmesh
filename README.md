@@ -17,7 +17,8 @@ networking or cryptography — and adds what Headscale leaves out:
 Xcelsior Compute is the first production user (GPU owners and renters connected without exposing anyone's home
 network).
 
-> Status: pre-release. The license is not chosen yet (see `docs/plan.md` §19); until it is, all rights reserved.
+> Status: pre-release. Apache-2.0 for the CLI, sandbox, plugins and web; AGPL-3.0 for the server and cell agent.
+> See [LICENSING.md](LICENSING.md).
 
 ## Repository layout
 

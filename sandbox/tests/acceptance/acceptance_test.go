@@ -84,7 +84,7 @@ func TestTailnetAddress(t *testing.T) {
 	cases := map[string]bool{
 		"100.64.0.1      prod-hetzner.mesh.xcelsior.ca\n": true,
 		"fd7a:115c:a1e0::1 x\n":                           true,
-		"<prod-hetzner IPv4>    prod-hetzner.mesh.xcelsior.ca\n": false,
+		"203.0.113.10    prod-hetzner.mesh.xcelsior.ca\n": false,
 		"": false,
 	}
 	for in, want := range cases {

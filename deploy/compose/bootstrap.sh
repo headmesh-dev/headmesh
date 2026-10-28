@@ -14,8 +14,8 @@
 #   restore    recovery-VM restore (plan §13.4); not implemented yet.
 #
 # Usage from the ASUS (first run as root; after lock-root, as the admin with sudo):
-#   ssh -i ~/.ssh/hm-prod-1 root@<hm-prod-1 IPv4> 'bash -s -- init' < deploy/compose/bootstrap.sh
-#   ssh -i ~/.ssh/hm-prod-1 aaryn@<hm-prod-1 IPv4> 'sudo bash -s -- init' < deploy/compose/bootstrap.sh
+#   ssh -i ~/.ssh/hm-prod-1 root@<server IPv4> 'bash -s -- init' < deploy/compose/bootstrap.sh
+#   ssh -i ~/.ssh/hm-prod-1 aaryn@<server IPv4> 'sudo bash -s -- init' < deploy/compose/bootstrap.sh
 #
 # Environment:
 #   HM_ADMIN_USER      admin login (default: aaryn)

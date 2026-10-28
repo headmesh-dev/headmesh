@@ -25,6 +25,9 @@ test-results/
 *.key
 !proto/**/*.key
 deploy/env/*/*.env
+deploy/env/local.env
+# Internal ops notes: live infrastructure, addresses and open security findings (never published)
+docs/internal/
 deploy/secrets/*.dec.*
 deploy/secrets/*.plain.*
 age.key

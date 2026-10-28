@@ -3,7 +3,7 @@
   "version": "0.0.0",
   "private": true,
   "description": "headmesh.dev: static marketing site and docs (Astro + Starlight), plus the waitlist service (Node + SQLite)",
-  "license": "UNLICENSED",
+  "license": "Apache-2.0",
   "type": "module",
   "engines": {
     "node": ">=24.16"

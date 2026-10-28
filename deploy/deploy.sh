@@ -11,7 +11,8 @@
 #   all        both; the backend goes first
 #
 # Options
-#   --host DEST         SSH destination (default: $HM_DEPLOY_HOST, else aaryn@100.64.0.7, hm-prod-1 over the tailnet)
+#   --host DEST         SSH destination (default: $HM_DEPLOY_HOST from deploy/env/local.env: hm-prod-1 over the
+#                       tailnet; $HM_DEPLOY_BREAKGLASS_HOST is the break-glass WireGuard address)
 #   --identity FILE     SSH key (default: $HM_DEPLOY_IDENTITY, else ~/.ssh/hm-prod-1 when it exists)
 #   --bootstrap         install or update the server side first: packages, Node, Postgres roles and databases,
 #                       systemd units, TLS, nginx base config (idempotent; safe to repeat)
@@ -26,6 +27,9 @@
 #   --allow-dirty       deploy uncommitted changes (refused for prod)
 #   --yes               don't ask for confirmation before touching prod
 #   -h, --help          this text
+#
+# Local settings (deploy/env/local.env, git-ignored; see local.env.example): HM_DEPLOY_HOST, HM_DEPLOY_HOST_KEY_ALIAS,
+# HM_DEPLOY_BREAKGLASS_HOST and HM_DEPLOY_IDENTITY. The environment overrides the file.
 #
 # Configuration (always uploaded, always replaces the server's copy; never committed):
 #   deploy/env/<env>/build.env      build-time settings for the site (PUBLIC_* keys, HEADMESH_PRODUCTION)
@@ -42,6 +46,12 @@ set -Eeuo pipefail
 ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 # shellcheck source=lib/environments.sh
 source "${ROOT}/deploy/lib/environments.sh"
+# The server's addresses stay out of the repository: they come from this git-ignored file or the environment.
+if [[ -f "${ROOT}/deploy/env/local.env" ]]; then
+  while IFS='=' read -r key value; do
+    [[ "${key}" =~ ^HM_DEPLOY_[A-Z_]+$ && -z "${!key:-}" ]] && export "${key}=${value}"
+  done < <(grep -E '^HM_DEPLOY_[A-Z_]+=' "${ROOT}/deploy/env/local.env")
+fi
 
 log() { printf '\033[1m[deploy]\033[0m %s\n' "$*" >&2; }
 die() { printf '\033[1;31m[deploy] ERROR:\033[0m %s\n' "$*" >&2; exit 1; }
@@ -52,7 +62,7 @@ usage() { awk 'NR > 1 && /^#/ { sub(/^# ?/, ""); print; next } NR > 1 { exit }' 
 
 # ── arguments ─────────────────────────────────────────────────────────────────────────────────────────────────────
 
-ENV_ARG="" TARGET_ARG="" HOST="${HM_DEPLOY_HOST:-aaryn@100.64.0.7}" IDENTITY="${HM_DEPLOY_IDENTITY:-}"
+ENV_ARG="" TARGET_ARG="" HOST="${HM_DEPLOY_HOST:-}" IDENTITY="${HM_DEPLOY_IDENTITY:-}"
 BOOTSTRAP=0 NGINX_OVERWRITE=0 INIT_ENV=0 SKIP_CHECKS=0 DRY_RUN=0 ROLLBACK=0 STATUS=0 KEEP=5 ALLOW_DIRTY=0 YES=0
 
 while [[ $# -gt 0 ]]; do
@@ -96,7 +106,7 @@ case "${TARGET_ARG}" in
 esac
 [[ "${KEEP}" =~ ^[0-9]+$ && "${KEEP}" -ge 2 ]] || die "--keep must be a number ≥ 2"
 (( ROLLBACK + STATUS + DRY_RUN <= 1 )) || die "--rollback, --status and --dry-run don't combine"
-[[ -n "${HOST}" ]] || die "--host is empty"
+[[ -n "${HOST}" || -n "${HM_DEPLOY_REMOTE:-}" ]] || die "no server: set HM_DEPLOY_HOST in deploy/env/local.env (see local.env.example) or pass --host"
 
 has_target() { local t; for t in "${TARGETS[@]}"; do [[ "$t" == "$1" ]] && return 0; done; return 1; }
 has_env() { local e; for e in "${ENVS[@]}"; do [[ "$e" == "$1" ]] && return 0; done; return 1; }
@@ -106,8 +116,8 @@ has_env() { local e; for e in "${ENVS[@]}"; do [[ "$e" == "$1" ]] && return 0; d
 SUDO="${HM_DEPLOY_SUDO-sudo -n}"
 CTL="${HM_LIB_ROOT}/deployctl.sh"
 SSH_OPTS=(-o BatchMode=yes -o ConnectTimeout=15 -o ServerAliveInterval=15 -o ServerAliveCountMax=4)
-# hm-prod-1's tailnet and break-glass addresses present the host key saved for its public IP.
-[[ "${HOST}" == *100.64.0.7* || "${HOST}" == *10.98.0.1* ]] && SSH_OPTS+=(-o HostKeyAlias=<hm-prod-1 IPv4>)
+# The tailnet and break-glass addresses present the host key that was saved under the server's public address.
+[[ -n "${HM_DEPLOY_HOST_KEY_ALIAS:-}" ]] && SSH_OPTS+=(-o "HostKeyAlias=${HM_DEPLOY_HOST_KEY_ALIAS}")
 [[ -z "${IDENTITY}" && -f "${HOME}/.ssh/hm-prod-1" ]] && IDENTITY="${HOME}/.ssh/hm-prod-1"
 if [[ -n "${IDENTITY}" ]]; then
   [[ -f "${IDENTITY}" ]] || die "--identity ${IDENTITY}: no such file"
@@ -356,7 +366,7 @@ preflight() {
     fi
   fi
   log "server: ${HM_DEPLOY_REMOTE:-${HOST}}"
-  remote true || die "can't reach ${HOST} (tailnet down? try --host aaryn@10.98.0.1 for break-glass)"
+  remote true || die "can't reach ${HOST} (tailnet down? try --host ${HM_DEPLOY_BREAKGLASS_HOST:-<break-glass address>})"
   # shellcheck disable=SC2086
   remote ${SUDO} true || die "passwordless sudo is required on ${HOST}"
 }
