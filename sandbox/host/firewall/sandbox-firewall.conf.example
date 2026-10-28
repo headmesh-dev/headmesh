@@ -20,6 +20,9 @@ YOLO_ALLOW_LAN=0
 
 # UDP ports Tailscale peers on the LAN listen on (direct WireGuard paths).
 TS_UDP_PORTS=41641-41650
+# Host ports probe.sh expects the bridge NOT to reach (on top of the bridge gateway, host addresses and docker0).
+# List the services this host opens to Docker bridges, for example SSH, databases or media servers.
+HOST_PROBE_PORTS="22 80 443"
 
 # Extra resolvers the bridge may query on port 53. Empty by default: Docker
 # 29's embedded DNS (127.0.0.11) forwards from the host namespace through
