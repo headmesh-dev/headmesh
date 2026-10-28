@@ -24,7 +24,7 @@ export interface Sender {
 
 export const SENDER: Sender = {
   legalName: "Xcelsior Compute Inc.",
-  postalAddress: "",
+  postalAddress: "240 St George St, London, ON N6A 3A7, Canada",
   email: CONTACT_EMAIL,
   website: SITE_URL,
 };
