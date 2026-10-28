@@ -1,6 +1,6 @@
 # Toolchain pins for every contributor and CI job. `mise install` sets up everything.
 [tools]
-go = "1.26.8"
+go = "1.26.10"
 node = "24.16.0"
 pnpm = "10"
 "go:github.com/bufbuild/buf/cmd/buf" = "1.75.0"

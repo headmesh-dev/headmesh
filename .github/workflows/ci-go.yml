@@ -1,0 +1,132 @@
+name: ci-go
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+    paths:
+      - "**.go"
+      - go.mod
+      - go.sum
+      - proto/**
+      - db/**
+      - buf*.yaml
+      - sqlc.yaml
+      - .golangci.yml
+      - .github/workflows/ci-go.yml
+
+permissions: {}
+
+concurrency:
+  group: ci-go-${{ github.ref }}
+  cancel-in-progress: true
+
+env:
+  GOFLAGS: -mod=readonly
+
+jobs:
+  generated:
+    name: Generated code is current
+    runs-on: ubuntu-26.04
+    permissions:
+      contents: read
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - uses: actions/setup-go@b7ad1dad31e06c5925ef5d2fc7ad053ef454303e # v7.0.0
+        with:
+          go-version-file: go.mod
+      - uses: bufbuild/buf-action@85aebf73123b5c15fd5528aaecbf9129cddf7fa7 # v1.6.0
+        with:
+          setup_only: true
+      - name: Install generators (pinned in mise.toml)
+        run: |
+          go install google.golang.org/protobuf/cmd/protoc-gen-go@v1.36.12
+          go install google.golang.org/grpc/cmd/protoc-gen-go-grpc@v1.6.2
+          go install connectrpc.com/connect/v2/cmd/protoc-gen-connect-go@v2.0.2
+          go install github.com/sqlc-dev/sqlc/cmd/sqlc@v1.31.1
+      - name: Lint protobuf
+        run: buf lint
+      - name: Regenerate and diff
+        run: |
+          buf generate
+          buf generate --template buf.gen.headscale.yaml
+          sqlc generate
+          git diff --exit-code -- gen internal/store/dbq
+
+  lint:
+    name: Lint
+    runs-on: ubuntu-26.04
+    permissions:
+      contents: read
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - uses: actions/setup-go@b7ad1dad31e06c5925ef5d2fc7ad053ef454303e # v7.0.0
+        with:
+          go-version-file: go.mod
+      - uses: golangci/golangci-lint-action@ba0d7d2ec06a0ea1cb5fa41b2e4a3ab91d21278a # v9.3.0
+        with:
+          version: v2.15.0
+          args: --build-tags integration,e2e
+      - name: govulncheck
+        run: go run golang.org/x/vuln/cmd/govulncheck@v1.9.0 ./...
+
+  test:
+    name: Unit and property tests
+    runs-on: ubuntu-26.04
+    permissions:
+      contents: read
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - uses: actions/setup-go@b7ad1dad31e06c5925ef5d2fc7ad053ef454303e # v7.0.0
+        with:
+          go-version-file: go.mod
+      - name: Test (race)
+        run: CGO_ENABLED=1 go test -race -count=1 ./...
+      - name: Deep property check of the policy compiler
+        # -rapid.checks is only defined in packages that use rapid, so it runs on that package alone.
+        run: go test -count=1 ./core/policy -rapid.checks=5000
+      - name: Fuzz the port parser (short)
+        run: go test ./core/policy -run '^$' -fuzz FuzzParsePort -fuzztime 30s
+
+  integration:
+    name: Integration (Postgres 18)
+    runs-on: ubuntu-26.04
+    permissions:
+      contents: read
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - uses: actions/setup-go@b7ad1dad31e06c5925ef5d2fc7ad053ef454303e # v7.0.0
+        with:
+          go-version-file: go.mod
+      - name: Test
+        run: CGO_ENABLED=1 go test -race -tags integration -count=1 ./internal/store/ ./api/
+
+  e2e:
+    name: Isolation on real Headscale + Tailscale
+    runs-on: ubuntu-26.04
+    permissions:
+      contents: read
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - uses: actions/setup-go@b7ad1dad31e06c5925ef5d2fc7ad053ef454303e # v7.0.0
+        with:
+          go-version-file: go.mod
+      - name: Check TUN device
+        run: ls -l /dev/net/tun
+      - name: Test
+        run: go test -tags e2e -count=1 -v ./test/e2e/

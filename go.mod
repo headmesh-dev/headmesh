@@ -2,6 +2,9 @@ module github.com/headmesh-dev/headmesh
 
 go 1.26.0
 
+// Go 1.26.10 fixes 12 standard-library vulnerabilities reachable from this module (govulncheck, 2026-10-28).
+toolchain go1.26.10
+
 require (
 	charm.land/fang/v2 v2.0.1
 	connectrpc.com/connect/v2 v2.0.2
