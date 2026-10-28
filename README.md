@@ -69,6 +69,26 @@ mise run lint
 
 Integration tests start Postgres, Headscale and Tailscale clients with Docker: `mise run test:integration`.
 
+### Environment files
+
+Each real environment file is git-ignored and has a committed example beside it. The root `.env` holds
+workstation operator credentials; the application and deployment script read their own files.
+
+| File | Purpose |
+|---|---|
+| [`.env.example`](.env.example) → `.env` | Operator tokens for npm, Hetzner and Ubuntu Pro; not automatically loaded by services |
+| [`web/marketing/.env.example`](web/marketing/.env.example) → `web/marketing/.env` | Local marketing builds and waitlist service |
+| [`deploy/env/local.env.example`](deploy/env/local.env.example) → `deploy/env/local.env` | This workstation's SSH/deploy settings |
+| `deploy/env/test/{build,waitlist,backend}.env` | Test deployment, with a separate example for each file |
+| `deploy/env/prod/{build,waitlist,backend}.env` | Production deployment, with a separate example for each file |
+| [`sandbox/compose/.env.example`](sandbox/compose/.env.example) → `sandbox/compose/.env` | Local sandbox Compose configuration |
+
+The test deployment targets `test.headmesh.dev`, and production targets `headmesh.dev`. Test uses
+Turnstile test keys and logs confirmation links instead of sending email; production needs real Turnstile
+and Resend credentials. Keep credentials scoped to the tools or service that use them. Database credentials,
+backend signing keys and cell certificates are generated separately on the server for each environment.
+See [deployment configuration](deploy/README.md#configuration) and [marketing setup](web/marketing/README.md#one-time-setup-aaryn).
+
 ## Security
 
 See [SECURITY.md](SECURITY.md). Please report vulnerabilities privately.
