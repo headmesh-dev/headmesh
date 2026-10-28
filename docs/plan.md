@@ -892,6 +892,8 @@ volumes: { hm-cache-mise: {}, hm-cache-uv: {}, hm-cache-npm: {}, hm-cache-pnpm: 
 
 ## 10. Track E — CLI (`headmesh`)
 
+**Status 2026-10-28:** `join`, `invite`, `devices` and `grant` are built. Releases: a `v*` tag runs `.github/workflows/release.yml` (GoReleaser 2.19, keyless cosign signature on the checksums, syft SBOMs, build-provenance attestations, deb/rpm). Homebrew and npm publishing wait for the tap repository and npm trusted publishing.
+
 - **Commands:**
   - Account: `login` (device flow), `logout`, `whoami`.
   - Network: `join <token|url> [--name] [--isolated] [--instance <name>] [--accept-dns]`, `leave`, `status [--json]`.
@@ -965,6 +967,8 @@ volumes: { hm-cache-mise: {}, hm-cache-uv: {}, hm-cache-npm: {}, hm-cache-pnpm: 
 ## 12. Track G — Web
 
 ### 12.1 `web/marketing` (headmesh.dev, deployed independently)
+
+**SEO and agents (2026-10-28):** `/llms.txt`, `/llms-full.txt` and a Markdown copy of every docs page (linked with `rel="alternate"`), schema.org JSON-LD (Organization, WebSite, SoftwareApplication, SoftwareSourceCode), a `robots.txt` that names the AI crawlers it welcomes (the test site answers `Disallow: /`), and self-hosted fonts through the Astro Fonts API with metric-matched fallbacks (CLS 0). `AGENTS.md` and `CLAUDE.md` brief coding agents.
 
 **Changed 2026-10-28 (ADR 0013):** headmesh.dev is served by nginx on hm-prod-1, not Cloudflare Pages. The waitlist is a Node 24 service on SQLite (same validation, Turnstile, tokens and email), deployed with `deploy/deploy.sh --target frontend`. Cloudflare stays the DNS, proxy, Turnstile and Web Analytics provider. The bullets below describe the original Pages design where they differ.
 - **Stack:** Astro 7.4 static output, Tailwind 4.3, Starlight 0.42 at `/docs` (adds the API reference via `starlight-openapi` from M2).
@@ -1340,7 +1344,7 @@ volumes: { hm-cache-mise: {}, hm-cache-uv: {}, hm-cache-npm: {}, hm-cache-pnpm: 
    - the Headscale version pin (v0.29.6 tag vs the `main`/"0.30" build).
 2. **Accounts and settings** in §5.5. I can't create accounts or enter credentials.
 3. **License: decided 2026-10-28** (ADR 0015, `LICENSING.md`): Apache-2.0 for the CLI, SDKs, plugins, sandbox and web; AGPL-3.0-only for the server and cell agent. Still open: a CLA or DCO before the first external contribution.
-4. **Repo visibility:** private repos on a Free org can't enforce rulesets. Either go public early (after the license decision) or rely on hooks until then.
+4. **Repo visibility: public since 2026-10-28** (`headmesh-dev/headmesh`, published from a history with internal operations details removed; the full history stays in the private `headmesh-archive`). Branch rulesets on `main` are now available and still to be turned on.
 5. **Mailbox for sending as aaryn.biro@headmesh.dev** (Zoho free vs Fastmail).
 6. **Second DERP location** before public launch (€5.99/month), or relying on Tailscale's public relays until then.
 7. **Tokens:** create the Hetzner "Headmesh" project API token (§5.5).

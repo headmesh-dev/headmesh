@@ -20,6 +20,26 @@ network).
 > Status: pre-release. Apache-2.0 for the CLI, sandbox, plugins and web; AGPL-3.0 for the server and cell agent.
 > See [LICENSING.md](LICENSING.md).
 
+## Use Headmesh from AI agents
+
+The repository is also a plugin marketplace for Claude Code and Codex, with a `headmesh` plugin (connects an agent to
+a Headmesh sandbox on your own hardware) and an `xcelsior` plugin (rent GPUs on Xcelsior Compute). Details are in
+[plugins/README.md](plugins/README.md).
+
+```bash
+claude plugin marketplace add headmesh-dev/headmesh --sparse .claude-plugin --sparse plugins
+claude plugin install headmesh@headmesh
+```
+
+```bash
+codex plugin marketplace add headmesh-dev/headmesh --sparse .agents/plugins --sparse plugins
+codex plugin add headmesh@headmesh
+```
+
+For agents reading about Headmesh: [headmesh.dev/llms.txt](https://headmesh.dev/llms.txt) indexes the docs, and every
+docs page has a Markdown copy (for example [headmesh.dev/docs/quickstart.md](https://headmesh.dev/docs/quickstart.md)).
+Agents working on this code should read [AGENTS.md](AGENTS.md).
+
 ## Repository layout
 
 | Path | What lives there |
