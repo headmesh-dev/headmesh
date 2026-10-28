@@ -70,6 +70,17 @@ func (v *verifier) fail(format string, args ...any) {
 }
 
 func (v *verifier) checkTagOwners() {
+	// Headscale refuses keys and nodes whose tags the live policy does not declare.
+	for _, d := range v.s.Devices {
+		if d.State == DeviceRemoved {
+			continue
+		}
+		for _, t := range DeviceTags(d) {
+			if _, ok := v.doc.TagOwners[t]; !ok {
+				v.fail("tag %q of live device %s is not declared in tagOwners", t, d.Short)
+			}
+		}
+	}
 	for t := range v.doc.TagOwners {
 		if !strings.HasPrefix(t, tagPrefix) {
 			v.fail("tagOwners declares foreign tag %q", t)

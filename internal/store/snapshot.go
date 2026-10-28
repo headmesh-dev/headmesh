@@ -79,6 +79,7 @@ func LoadSnapshot(ctx context.Context, q *dbq.Queries, cell dbq.Cell, now time.T
 		}
 		s.Devices = append(s.Devices, policy.Device{
 			Short: d.ShortID, Org: orgShort[d.OrgID], Roles: d.Roles, User: deref(d.HeadscaleUser), State: state,
+			Registered: d.HeadscaleNodeID != nil,
 		})
 	}
 	rules, err := q.ListRulesInCell(ctx, cell.ID)

@@ -28,12 +28,12 @@ func xcelsiorSnapshot() Snapshot {
 			{Short: renter, Template: TemplateTeam, Parent: platform},
 		},
 		Devices: []Device{
-			{Short: hetzner, Org: platform, Roles: []string{"control", "gateway"}, State: DeviceActive},
-			{Short: sandbox, Org: platform, Roles: []string{"sandbox"}, State: DeviceActive},
-			{Short: mac, Org: platform, User: "xcelsior", State: DeviceActive},
-			{Short: gpu1, Org: owner1, Roles: []string{"gpu-host"}, State: DeviceActive},
-			{Short: gpu2, Org: owner2, Roles: []string{"gpu-host"}, State: DeviceActive},
-			{Short: renterBox, Org: renter, State: DeviceActive},
+			{Short: hetzner, Org: platform, Roles: []string{"control", "gateway"}, State: DeviceActive, Registered: true},
+			{Short: sandbox, Org: platform, Roles: []string{"sandbox"}, State: DeviceActive, Registered: true},
+			{Short: mac, Org: platform, User: "xcelsior", State: DeviceActive, Registered: true},
+			{Short: gpu1, Org: owner1, Roles: []string{"gpu-host"}, State: DeviceActive, Registered: true},
+			{Short: gpu2, Org: owner2, Roles: []string{"gpu-host"}, State: DeviceActive, Registered: true},
+			{Short: renterBox, Org: renter, State: DeviceActive, Registered: true},
 		},
 		Rules: []Rule{
 			// Aaryn's personal devices reach everything the platform owns.
@@ -336,5 +336,32 @@ func TestTimeline(t *testing.T) {
 	}
 	if one, _ := Timeline(s, t0, 24*time.Hour, 1, Options{}); len(one) != 1 {
 		t.Fatal("max revisions must be honoured")
+	}
+}
+
+// TestCanariesSkipOrgsWithoutNodes: Headscale fails policy tests whose principals resolve to no addresses, so an
+// org whose devices have not registered yet must not appear in any test.
+func TestCanariesSkipOrgsWithoutNodes(t *testing.T) {
+	a, b := sid('o', 1), sid('o', 2)
+	s := Snapshot{
+		Cell: "c",
+		Orgs: []Org{{Short: a, Template: TemplateTeam}, {Short: b, Template: TemplateTeam}},
+		Devices: []Device{
+			{Short: sid('d', 1), Org: a, State: DeviceActive, Registered: true},
+			{Short: sid('d', 2), Org: a, State: DeviceActive, Registered: true},
+			{Short: sid('d', 3), Org: b, State: DeviceActive},
+		},
+	}
+	c, err := Compile(s, t0, Options{})
+	if err != nil {
+		t.Fatal(err)
+	}
+	for _, tc := range c.Document.Tests {
+		if strings.Contains(tc.Src+strings.Join(tc.Deny, ",")+strings.Join(tc.Accept, ","), OrgTag(b)) {
+			t.Fatalf("org %s has no registered node but appears in a test: %+v", b, tc)
+		}
+	}
+	if _, ok := c.Document.TagOwners[DeviceTag(sid('d', 3))]; !ok {
+		t.Fatal("an unregistered device's tags must still be declared so its pre-auth key is accepted")
 	}
 }

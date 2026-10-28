@@ -59,6 +59,9 @@ type Device struct {
 	Roles []string
 	User  string // non-empty for user-owned nodes in adopted cells
 	State DeviceState
+	// Registered is true once the device has a Headscale node. Only registered devices resolve to addresses, and
+	// Headscale rejects policy tests whose principals resolve to none, so canaries consider only these.
+	Registered bool
 }
 
 // SelectorKind picks which devices of an org a rule side refers to.

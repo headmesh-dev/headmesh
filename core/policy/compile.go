@@ -60,12 +60,13 @@ func Compile(s Snapshot, at time.Time, opt Options) (*Compiled, error) {
 // tags that exist and never scans the device list per selector.
 type liveIndex struct {
 	tagged map[string]int             // org -> number of active tagged devices
+	nodes  map[string]int             // org -> number of active tagged devices with a Headscale node
 	roles  map[string]map[string]bool // org -> role -> some active tagged device has it
 	users  map[string][]string        // org -> Headscale users with an active personal node (org's order)
 }
 
 func newLiveIndex(s Snapshot) *liveIndex {
-	li := &liveIndex{tagged: map[string]int{}, roles: map[string]map[string]bool{}, users: map[string][]string{}}
+	li := &liveIndex{tagged: map[string]int{}, nodes: map[string]int{}, roles: map[string]map[string]bool{}, users: map[string][]string{}}
 	liveUser := map[string]bool{}
 	for _, d := range s.Devices {
 		if d.State != DeviceActive {
@@ -76,6 +77,9 @@ func newLiveIndex(s Snapshot) *liveIndex {
 			continue
 		}
 		li.tagged[d.Org]++
+		if d.Registered {
+			li.nodes[d.Org]++
+		}
 		if li.roles[d.Org] == nil {
 			li.roles[d.Org] = map[string]bool{}
 		}
@@ -272,9 +276,11 @@ func (b *builder) addTests() {
 		port = 22
 	}
 	related := b.relatedOrgs()
+	// Only orgs whose org tag resolves to at least one registered node: Headscale fails a test whose source or
+	// destination resolves to no addresses, which would block every policy change until a node registers.
 	var live []string
 	for _, o := range b.s.Orgs {
-		if b.live.tagged[o.Short] > 0 {
+		if b.live.nodes[o.Short] > 0 {
 			live = append(live, o.Short)
 		}
 	}
@@ -297,7 +303,7 @@ func (b *builder) addTests() {
 				picked++
 			}
 		}
-		if b.ix.orgs[org].Template == TemplateTeam && b.live.tagged[org] >= 2 {
+		if b.ix.orgs[org].Template == TemplateTeam && b.live.nodes[org] >= 2 {
 			t.Accept = []string{fmt.Sprintf("%s:%d", OrgTag(org), port)}
 		}
 		if len(t.Deny) > 0 || len(t.Accept) > 0 {

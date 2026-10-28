@@ -46,9 +46,10 @@ func genSnapshot(t *rapid.T) Snapshot {
 	for _, o := range s.Orgs {
 		for range rapid.IntRange(0, 4).Draw(t, "devices") {
 			d := Device{
-				Short: sid('d', dev),
-				Org:   o.Short,
-				State: rapid.SampledFrom([]DeviceState{DeviceActive, DeviceActive, DeviceActive, DeviceQuarantined, DeviceRemoved}).Draw(t, "state"),
+				Short:      sid('d', dev),
+				Org:        o.Short,
+				State:      rapid.SampledFrom([]DeviceState{DeviceActive, DeviceActive, DeviceActive, DeviceQuarantined, DeviceRemoved}).Draw(t, "state"),
+				Registered: rapid.IntRange(0, 3).Draw(t, "registered") > 0,
 			}
 			dev++
 			if len(o.Users) > 0 && rapid.IntRange(0, 2).Draw(t, "userOwned") == 0 {
