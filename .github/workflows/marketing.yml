@@ -1,18 +1,20 @@
 name: marketing
 
-# headmesh.dev (web/marketing, plan §12.1): lint, type-check, unit and Function tests, build, Playwright + axe
-# smoke tests and Lighthouse budgets on every change; Cloudflare Pages preview deploys for pull requests from
-# this repository and production deploys from main. Deploys never touch the product.
+# headmesh.dev (web/marketing, plan §12.1): lint, type-check, the waitlist service's tests, build, Playwright + axe
+# smoke tests and Lighthouse budgets on every change. Deploys run from a workstation with deploy/deploy.sh
+# (--target frontend), never from CI, and never touch the product (ADR 0013).
 
 on:
   pull_request:
     paths:
       - web/marketing/**
+      - pnpm-lock.yaml
       - .github/workflows/marketing.yml
   push:
     branches: [main]
     paths:
       - web/marketing/**
+      - pnpm-lock.yaml
       - .github/workflows/marketing.yml
   workflow_dispatch:
 
@@ -20,13 +22,11 @@ permissions: {}
 
 concurrency:
   group: marketing-${{ github.ref }}
-  # Never cancel a production deploy halfway through; superseded PR runs can go.
-  cancel-in-progress: ${{ github.event_name == 'pull_request' }}
+  cancel-in-progress: true
 
 env:
   NODE_VERSION: 24.16.0
   PNPM_VERSION: 10.34.9
-  PAGES_PROJECT: headmesh-marketing
 
 defaults:
   run:
@@ -52,20 +52,13 @@ jobs:
         with:
           node-version: ${{ env.NODE_VERSION }}
 
-      - name: Install dependencies
-        # web/marketing keeps its own lockfile until the root pnpm workspace lists it. After that the root
-        # pnpm-lock.yaml covers it and web/marketing/pnpm-lock.yaml is deleted.
-        run: |
-          if [ -f pnpm-lock.yaml ]; then
-            pnpm install --frozen-lockfile --ignore-workspace
-          else
-            pnpm --dir ../.. install --frozen-lockfile --filter @headmesh/marketing...
-          fi
+      - name: Install dependencies (root workspace lockfile)
+        run: pnpm --dir ../.. install --frozen-lockfile --filter @headmesh/marketing...
 
       - name: Lint and type-check
         run: pnpm run lint
 
-      - name: Unit and Function tests
+      - name: Waitlist service and CSP tests
         run: pnpm test
 
       - name: Build
@@ -99,124 +92,5 @@ jobs:
             web/marketing/.lighthouseci/
           retention-days: 14
           if-no-files-found: ignore
-
-  deploy-preview:
-    name: Preview deploy
-    needs: check
-    # Deploys stay off until the one-time setup in web/marketing/README.md is done and the repository variable
-    # MARKETING_DEPLOY is set to "enabled". Pull requests from forks get no secrets, so only branches of this
-    # repository get previews.
-    if: >-
-      ${{ vars.MARKETING_DEPLOY == 'enabled' && github.event_name == 'pull_request'
-      && github.event.pull_request.head.repo.full_name == github.repository }}
-    runs-on: ubuntu-26.04
-    timeout-minutes: 15
-    permissions:
-      contents: read
-    environment:
-      name: marketing-preview
-      url: ${{ steps.deploy.outputs.url }}
-    steps:
-      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
-        with:
-          persist-credentials: false
-
-      - uses: pnpm/action-setup@ea17c68df8912ef543352723c149a84f56e3d413 # v6.1.0
-        with:
-          version: ${{ env.PNPM_VERSION }}
-
-      - uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7.1.0
-        with:
-          node-version: ${{ env.NODE_VERSION }}
-
-      - name: Install dependencies
-        run: |
-          if [ -f pnpm-lock.yaml ]; then
-            pnpm install --frozen-lockfile --ignore-workspace
-          else
-            pnpm --dir ../.. install --frozen-lockfile --filter @headmesh/marketing...
-          fi
-
-      # Previews keep Turnstile's test site key (the build default) and log email links instead of sending them
-      # (wrangler.toml [env.preview]), so a public preview URL can't be used to send mail.
-      - name: Build
-        run: pnpm build
-
-      - name: Apply D1 migrations (preview database)
-        env:
-          CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
-          CLOUDFLARE_ACCOUNT_ID: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
-        run: pnpm exec wrangler d1 migrations apply DB --remote --env preview
-
-      - name: Deploy to Cloudflare Pages
-        id: deploy
-        env:
-          CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
-          CLOUDFLARE_ACCOUNT_ID: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
-          BRANCH: ${{ github.head_ref }}
-          COMMIT: ${{ github.event.pull_request.head.sha }}
-          WRANGLER_OUTPUT_FILE_PATH: ${{ runner.temp }}/wrangler-output.ndjson
-        run: |
-          pnpm exec wrangler pages deploy dist \
-            --project-name "$PAGES_PROJECT" --branch "$BRANCH" --commit-hash "$COMMIT"
-          url="$(jq -r 'select(.type == "pages-deploy-detailed") | .alias // .url' "$WRANGLER_OUTPUT_FILE_PATH" | tail -n 1)"
-          echo "url=$url" >> "$GITHUB_OUTPUT"
-          echo "Preview: $url" >> "$GITHUB_STEP_SUMMARY"
-
-  deploy-production:
-    name: Production deploy
-    needs: check
-    if: >-
-      ${{ vars.MARKETING_DEPLOY == 'enabled' && github.ref == 'refs/heads/main'
-      && (github.event_name == 'push' || github.event_name == 'workflow_dispatch') }}
-    runs-on: ubuntu-26.04
-    timeout-minutes: 15
-    permissions:
-      contents: read
-    environment:
-      name: marketing-production
-      url: https://headmesh.dev
-    steps:
-      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
-        with:
-          persist-credentials: false
-
-      - uses: pnpm/action-setup@ea17c68df8912ef543352723c149a84f56e3d413 # v6.1.0
-        with:
-          version: ${{ env.PNPM_VERSION }}
-
-      - uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7.1.0
-        with:
-          node-version: ${{ env.NODE_VERSION }}
-
-      - name: Install dependencies
-        run: |
-          if [ -f pnpm-lock.yaml ]; then
-            pnpm install --frozen-lockfile --ignore-workspace
-          else
-            pnpm --dir ../.. install --frozen-lockfile --filter @headmesh/marketing...
-          fi
-
-      - name: Build (production preflight)
-        env:
-          # astro.config.mjs refuses to build without the real Turnstile key and CASL sender address.
-          HEADMESH_PRODUCTION: "1"
-          PUBLIC_TURNSTILE_SITE_KEY: ${{ vars.TURNSTILE_SITE_KEY }}
-          PUBLIC_CF_ANALYTICS_TOKEN: ${{ vars.CF_WEB_ANALYTICS_TOKEN }}
-        run: pnpm build
-
-      - name: Apply D1 migrations (production database)
-        env:
-          CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
-          CLOUDFLARE_ACCOUNT_ID: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
-        run: pnpm exec wrangler d1 migrations apply DB --remote
-
-      - name: Deploy to Cloudflare Pages
-        env:
-          CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
-          CLOUDFLARE_ACCOUNT_ID: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
-          COMMIT: ${{ github.sha }}
-        run: |
-          pnpm exec wrangler pages deploy dist \
-            --project-name "$PAGES_PROJECT" --branch main --commit-hash "$COMMIT"
-          echo "Deployed $COMMIT to https://headmesh.dev" >> "$GITHUB_STEP_SUMMARY"
+          # .lighthouseci/ is a dot-directory, which upload-artifact skips unless told otherwise.
+          include-hidden-files: true
