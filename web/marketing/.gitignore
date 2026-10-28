@@ -5,3 +5,10 @@ blob-report/
 # Local settings for `pnpm serve` (the waitlist service); see .env.example
 .env
 .waitlist.db*
+
+# Local download bundles and extracted comparison copies. The canonical kit/source is committed under
+# brand-reconstruction/transcript-kit/ and public/brand/headmesh-v1/.
+headmesh-brand-*.zip
+headmesh-brand-*.zip.sha256
+headmesh-brand-all-13-reconstructed/
+headmesh-brand-kit-d4-rebuilt/

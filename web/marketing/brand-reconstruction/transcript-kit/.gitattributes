@@ -1,0 +1,3 @@
+# Keep supplied evidence and upstream license bytes intact, including original line endings and whitespace.
+sources/** -text -whitespace
+fonts/LICENSE-* -text -whitespace

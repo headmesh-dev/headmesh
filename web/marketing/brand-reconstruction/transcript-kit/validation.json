@@ -1,0 +1,417 @@
+{
+  "passed": true,
+  "issues": [],
+  "exports": {
+    "ico": 13,
+    "png": 234,
+    "svg": 338
+  },
+  "files": 585,
+  "bbox_checks": {
+    "A1": {
+      "actual": [
+        109,
+        81,
+        403,
+        431
+      ],
+      "recorded": [
+        109,
+        81,
+        403,
+        431
+      ],
+      "matches": true
+    },
+    "A2": {
+      "actual": [
+        82,
+        70,
+        430,
+        442
+      ],
+      "recorded": [
+        82,
+        70,
+        430,
+        442
+      ],
+      "matches": true
+    },
+    "A3": {
+      "actual": [
+        100,
+        96,
+        412,
+        416
+      ],
+      "recorded": [
+        100,
+        96,
+        412,
+        416
+      ],
+      "matches": true
+    },
+    "B1": {
+      "actual": [
+        90,
+        54,
+        455,
+        450
+      ],
+      "recorded": [
+        90,
+        54,
+        455,
+        450
+      ],
+      "matches": true
+    },
+    "B2": {
+      "actual": [
+        82,
+        72,
+        428,
+        458
+      ],
+      "recorded": [
+        82,
+        72,
+        428,
+        458
+      ],
+      "matches": true
+    },
+    "B3": {
+      "actual": [
+        62,
+        55,
+        465,
+        454
+      ],
+      "recorded": [
+        62,
+        55,
+        465,
+        454
+      ],
+      "matches": true
+    },
+    "C1": {
+      "actual": [
+        87,
+        87,
+        425,
+        425
+      ],
+      "recorded": [
+        87,
+        87,
+        425,
+        425
+      ],
+      "matches": true
+    },
+    "C2": {
+      "actual": [
+        76,
+        76,
+        436,
+        436
+      ],
+      "recorded": [
+        76,
+        76,
+        436,
+        436
+      ],
+      "matches": true
+    },
+    "C3": {
+      "actual": [
+        75,
+        75,
+        437,
+        437
+      ],
+      "recorded": [
+        75,
+        75,
+        437,
+        437
+      ],
+      "matches": true
+    },
+    "D1": {
+      "actual": [
+        88,
+        88,
+        424,
+        424
+      ],
+      "recorded": [
+        88,
+        88,
+        424,
+        424
+      ],
+      "matches": true
+    },
+    "D2": {
+      "actual": [
+        78,
+        76,
+        434,
+        434
+      ],
+      "recorded": [
+        78,
+        76,
+        434,
+        434
+      ],
+      "matches": true
+    },
+    "D3": {
+      "actual": [
+        88,
+        88,
+        424,
+        424
+      ],
+      "recorded": [
+        88,
+        88,
+        424,
+        424
+      ],
+      "matches": true
+    },
+    "D4": {
+      "actual": [
+        88,
+        88,
+        424,
+        424
+      ],
+      "recorded": [
+        88,
+        88,
+        424,
+        424
+      ],
+      "matches": true
+    }
+  },
+  "horizontal_placement_checks": {
+    "A1": {
+      "actual": [
+        52,
+        61,
+        203,
+        241
+      ],
+      "expected": [
+        52,
+        61,
+        203,
+        241
+      ],
+      "matches": true
+    },
+    "A2": {
+      "actual": [
+        43,
+        61,
+        212,
+        241
+      ],
+      "expected": [
+        43,
+        61,
+        212,
+        241
+      ],
+      "matches": true
+    },
+    "A3": {
+      "actual": [
+        39,
+        61,
+        215,
+        241
+      ],
+      "expected": [
+        39,
+        61,
+        215,
+        241
+      ],
+      "matches": true
+    },
+    "B1": {
+      "actual": [
+        43,
+        59,
+        203,
+        231
+      ],
+      "expected": [
+        43,
+        58,
+        203,
+        232
+      ],
+      "matches": true
+    },
+    "B2": {
+      "actual": [
+        45,
+        59,
+        201,
+        231
+      ],
+      "expected": [
+        45,
+        58,
+        201,
+        232
+      ],
+      "matches": true
+    },
+    "B3": {
+      "actual": [
+        36,
+        59,
+        210,
+        231
+      ],
+      "expected": [
+        36,
+        59,
+        210,
+        231
+      ],
+      "matches": true
+    },
+    "C1": {
+      "actual": [
+        33,
+        55,
+        193,
+        214
+      ],
+      "expected": [
+        33,
+        54,
+        194,
+        215
+      ],
+      "matches": true
+    },
+    "C2": {
+      "actual": [
+        33,
+        54,
+        194,
+        215
+      ],
+      "expected": [
+        33,
+        54,
+        194,
+        215
+      ],
+      "matches": true
+    },
+    "C3": {
+      "actual": [
+        33,
+        54,
+        194,
+        215
+      ],
+      "expected": [
+        33,
+        54,
+        194,
+        215
+      ],
+      "matches": true
+    },
+    "D1": {
+      "actual": [
+        38,
+        62,
+        223,
+        247
+      ],
+      "expected": [
+        38,
+        62,
+        223,
+        247
+      ],
+      "matches": true
+    },
+    "D2": {
+      "actual": [
+        39,
+        62,
+        222,
+        247
+      ],
+      "expected": [
+        39,
+        62,
+        222,
+        247
+      ],
+      "matches": true
+    },
+    "D3": {
+      "actual": [
+        38,
+        62,
+        223,
+        247
+      ],
+      "expected": [
+        38,
+        62,
+        223,
+        247
+      ],
+      "matches": true
+    },
+    "D4": {
+      "actual": [
+        38,
+        62,
+        223,
+        247
+      ],
+      "expected": [
+        38,
+        62,
+        223,
+        247
+      ],
+      "matches": true
+    }
+  },
+  "recovered_function_ast_matches": {
+    "mark_A1": true,
+    "mark_D4": true,
+    "constellation": true
+  },
+  "wordmark_bounds": [
+    3.6,
+    -70.0,
+    449.00000000000006,
+    1.4000000000000001
+  ],
+  "reference_hashes_checked": 19,
+  "scope": "Structural integrity, recorded bounding boxes, code identity, type metrics and reference bytes. These do not establish pixel equality for omitted original source."
+}

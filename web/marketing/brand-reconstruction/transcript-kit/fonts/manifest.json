@@ -1,0 +1,99 @@
+[
+  {
+    "file": "Geist-400.ttf",
+    "source": "@fontsource-variable/geist@5.3.0/geist-latin-wght-normal.woff2",
+    "axes": {
+      "wght": 400
+    },
+    "sha256": "da47cc195002fa4addb0a7bcf196d0774c770e2e2ecc029700b5d378d2b75e50"
+  },
+  {
+    "file": "Geist-600.ttf",
+    "source": "@fontsource-variable/geist@5.3.0/geist-latin-wght-normal.woff2",
+    "axes": {
+      "wght": 600
+    },
+    "sha256": "a492b6dad501d7f35b6057eb84618bc1ec5155fbb81b9730e52d445ace78c401"
+  },
+  {
+    "file": "Geist-700.ttf",
+    "source": "@fontsource-variable/geist@5.3.0/geist-latin-wght-normal.woff2",
+    "axes": {
+      "wght": 700
+    },
+    "sha256": "451aaef92028c995858fd63ea91e2d9deed5e2f4ab4d999c6ccb6c292c0e8c05"
+  },
+  {
+    "file": "GeistMono-500.ttf",
+    "source": "@fontsource-variable/geist-mono@5.3.0/geist-mono-latin-wght-normal.woff2",
+    "axes": {
+      "wght": 500
+    },
+    "sha256": "f7ed18704ad860ec11f52518a56c25e8b3321b591cf9657e753aa01b1b649dca"
+  },
+  {
+    "file": "BricolageGrotesque-700.ttf",
+    "source": "@fontsource-variable/bricolage-grotesque@5.3.0/bricolage-grotesque-latin-standard-normal.woff2",
+    "axes": {
+      "wght": 700,
+      "opsz": 96,
+      "wdth": 100
+    },
+    "sha256": "6f598b291dd22286e2aceb98fc9df4e771e546267a9ed604c262f24bff4e915a"
+  },
+  {
+    "file": "BricolageGrotesque-800.ttf",
+    "source": "@fontsource-variable/bricolage-grotesque@5.3.0/bricolage-grotesque-latin-standard-normal.woff2",
+    "axes": {
+      "wght": 800,
+      "opsz": 96,
+      "wdth": 100
+    },
+    "sha256": "27fdb6707a9d29f15c7037395b6f8d6a26d2bf40702dee325db1eec04e40f414"
+  },
+  {
+    "file": "Sora-600.ttf",
+    "source": "https://raw.githubusercontent.com/google/fonts/9862abc066c9b83bf84c3e8ed1fc2d8d48f9bbf0/ofl/sora/Sora%5Bwght%5D.ttf",
+    "axes": {
+      "wght": 600,
+      "wdth": 100
+    },
+    "sha256": "2c13cfb3a0139ababda62558253bbbcc51e814281fde5ad5b9b68aca18cdebf7"
+  },
+  {
+    "file": "Sora-700.ttf",
+    "source": "https://raw.githubusercontent.com/google/fonts/9862abc066c9b83bf84c3e8ed1fc2d8d48f9bbf0/ofl/sora/Sora%5Bwght%5D.ttf",
+    "axes": {
+      "wght": 700,
+      "wdth": 100
+    },
+    "sha256": "5ae9303b1f5a3934bd1abb9d636388638897ba1ef2068bef9e9e9d1f78d5e215"
+  },
+  {
+    "file": "SpaceGrotesk-600.ttf",
+    "source": "https://raw.githubusercontent.com/google/fonts/9862abc066c9b83bf84c3e8ed1fc2d8d48f9bbf0/ofl/spacegrotesk/SpaceGrotesk%5Bwght%5D.ttf",
+    "axes": {
+      "wght": 600,
+      "wdth": 100
+    },
+    "sha256": "982c699fab791a4d94ef1822a4e2675102f681c55dec9945b19c5098b39a6bab"
+  },
+  {
+    "file": "SpaceGrotesk-700.ttf",
+    "source": "https://raw.githubusercontent.com/google/fonts/9862abc066c9b83bf84c3e8ed1fc2d8d48f9bbf0/ofl/spacegrotesk/SpaceGrotesk%5Bwght%5D.ttf",
+    "axes": {
+      "wght": 700,
+      "wdth": 100
+    },
+    "sha256": "5fd2b9822caffb0a9b7598661d4d47d2fe39d178b0b96ae55e536b8db0b44f04"
+  },
+  {
+    "file": "InstrumentSans-700.ttf",
+    "source": "https://raw.githubusercontent.com/google/fonts/9862abc066c9b83bf84c3e8ed1fc2d8d48f9bbf0/ofl/instrumentsans/InstrumentSans%5Bwdth%2Cwght%5D.ttf",
+    "axes": {
+      "wght": 700,
+      "wdth": 100
+    },
+    "sha256": "fe48d3bcd1933f1217996c5e3039b57eb4431eb3e7c595d2886e81a527a62916"
+  }
+]

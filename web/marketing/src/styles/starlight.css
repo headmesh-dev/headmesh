@@ -1,21 +1,130 @@
-/*
- * Starlight theme: same fonts and accent as the marketing pages. Starlight's own theme variables live in cascade
- * layers, so these unlayered rules win; each theme gets its own selector so neither leaks into the other.
- */
+@import "./brand.css";
+
+/* Map Starlight's UI to the same semantic tokens used by every marketing page. */
 :root {
-  --sl-font: "Inter Variable", ui-sans-serif, system-ui, -apple-system, "Segoe UI", sans-serif;
-  --sl-font-mono: "JetBrains Mono Variable", ui-monospace, SFMono-Regular, Menlo, monospace;
+  --sl-font: var(--hm-font-body);
+  --sl-font-mono: var(--hm-font-mono);
+  --sl-color-white: var(--hm-fg);
+  --sl-color-black: var(--hm-bg);
+  --sl-color-gray-1: var(--hm-fg);
+  --sl-color-gray-2: var(--hm-muted);
+  --sl-color-gray-3: var(--hm-muted);
+  --sl-color-gray-4: var(--hm-line);
+  --sl-color-gray-5: var(--hm-line);
+  --sl-color-gray-6: var(--hm-surface);
+  --sl-color-gray-7: var(--hm-bg);
+  --sl-color-accent-low: var(--hm-accent-soft);
+  --sl-color-accent: var(--hm-accent);
+  --sl-color-accent-high: var(--hm-accent);
+  --sl-color-text: var(--hm-fg);
+  --sl-color-text-accent: var(--hm-accent);
+  --sl-color-text-invert: var(--hm-on-accent);
+  --sl-color-bg: var(--hm-bg);
+  --sl-color-bg-nav: var(--hm-bg);
+  --sl-color-bg-sidebar: var(--hm-surface);
+  --sl-color-bg-inline-code: var(--hm-surface);
+  --sl-color-bg-accent: var(--hm-accent);
+  --sl-color-hairline-light: var(--hm-line);
+  --sl-color-hairline: var(--hm-line);
+  --sl-color-hairline-shade: var(--hm-line);
+  --sl-color-backdrop-overlay: color-mix(in srgb, var(--hm-bg) 75%, transparent);
+  --sl-nav-height: 4rem;
+  --sl-menu-button-size: 2.25rem;
+  --sl-shadow-sm: none;
+  --sl-shadow-md: none;
 }
 
-:root:not([data-theme="light"]) {
-  --sl-color-accent-low: #0f2a28;
-  --sl-color-accent: #1aa594;
-  --sl-color-accent-high: #a6f0e4;
-  --sl-color-black: #0a0e13;
+:is(h1, h2, h3, h4, h5, h6) {
+  font-weight: 700;
 }
 
-:root[data-theme="light"] {
-  --sl-color-accent-low: #cdeee8;
-  --sl-color-accent: #0d7068;
-  --sl-color-accent-high: #063f3a;
+.sl-link-card .title,
+.pagination-links .link-title {
+  font-family: var(--hm-font-display);
+  font-variation-settings: "opsz" 96;
+  font-weight: 650;
+  letter-spacing: -0.025em;
+}
+
+.sl-link-card,
+.pagination-links a {
+  border-color: var(--hm-line);
+  border-radius: 0.75rem;
+  background-color: var(--hm-raised);
+  box-shadow: none;
+}
+
+.sl-link-card:hover,
+.pagination-links a:hover {
+  border-color: var(--hm-accent);
+  background-color: var(--hm-accent-soft);
+}
+
+.sidebar-content a {
+  border-radius: 0.5rem;
+}
+
+.sidebar-content a[aria-current="page"] {
+  color: var(--hm-accent);
+  background-color: var(--hm-accent-soft);
+}
+
+.sidebar-pane {
+  background-color: var(--hm-surface);
+}
+
+.sl-menu-button {
+  border: 1px solid var(--hm-line);
+  border-radius: 0.5rem;
+  background-color: var(--hm-bg);
+  color: var(--hm-muted);
+  box-shadow: none;
+}
+
+.sl-menu-button:hover,
+.sl-menu-button:has(~ :popover-open) {
+  border-color: var(--hm-muted);
+  background-color: var(--hm-surface);
+  color: var(--hm-fg);
+}
+
+starlight-theme-select select {
+  border: 1px solid var(--hm-line);
+  border-radius: 0.5rem;
+}
+
+.sl-markdown-content a {
+  text-underline-offset: 3px;
+}
+
+.sl-markdown-content a:hover {
+  color: var(--hm-accent-strong);
+}
+
+.sl-markdown-content :not(pre) > code {
+  border: 1px solid var(--hm-line);
+  border-radius: 0.375rem;
+}
+
+.starlight-aside {
+  border-radius: 0.75rem;
+}
+
+.starlight-aside--note {
+  --sl-color-asides-text-accent: var(--hm-accent-strong);
+  --sl-color-asides-border: var(--hm-accent-strong);
+  background-color: color-mix(in srgb, var(--hm-accent-strong) 8%, var(--hm-raised));
+}
+
+.starlight-aside--tip {
+  --sl-color-asides-text-accent: var(--hm-accent);
+  --sl-color-asides-border: var(--hm-accent);
+  background-color: var(--hm-accent-soft);
+}
+
+@supports (backdrop-filter: blur(12px)) {
+  header.header {
+    background-color: color-mix(in srgb, var(--hm-bg) 85%, transparent);
+    backdrop-filter: blur(12px);
+  }
 }

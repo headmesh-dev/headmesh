@@ -1,0 +1,1 @@
+cd /tmp && for p in @fontsource-variable/bricolage-grotesque @fontsource/bricolage-grotesque @fontsource-variable/geist @fontsource/geist @fontsource-variable/geist-mono @fontsource/geist-mono @fontsource/geist-sans; do echo "$p $(npm view $p version 2>/dev/null || echo MISSING)"; done

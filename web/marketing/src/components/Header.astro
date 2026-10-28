@@ -1,16 +1,18 @@
 ---
 import { REPO_URL } from "../../shared/site";
+import GitHubIcon from "./GitHubIcon.astro";
 import Logo from "./Logo.astro";
 import ThemeToggle from "./ThemeToggle.astro";
+import Wordmark from "./Wordmark.astro";
 
 const path = Astro.url.pathname;
 ---
 
-<header class="sticky top-0 z-40 border-b border-line/70 bg-bg/85 backdrop-blur supports-[backdrop-filter]:bg-bg/70">
+<header class="sticky top-0 z-40 border-b border-line/70 bg-bg/80 backdrop-blur-md supports-[backdrop-filter]:bg-bg/65">
   <div class="container-page flex h-16 items-center justify-between gap-4">
-    <a href="/" class="flex items-center gap-2.5 font-semibold tracking-tight" aria-label="Headmesh home">
-      <Logo class="size-7 text-accent" />
-      <span class="text-[1.05rem]">Headmesh</span>
+    <a href="/" class="group flex items-center gap-2.5 text-fg" aria-label="Headmesh home">
+      <Logo class="size-8 transition-transform duration-300 group-hover:-translate-y-px" />
+      <Wordmark class="h-[19px] w-auto" />
     </a>
     <nav aria-label="Main" class="flex items-center gap-1 sm:gap-2">
       <a
@@ -22,13 +24,14 @@ const path = Astro.url.pathname;
       </a>
       <a
         href={REPO_URL}
-        class="hidden rounded-md px-2.5 py-2 text-sm font-medium text-muted transition-colors hover:text-fg sm:inline-block"
+        class="hidden items-center gap-1.5 rounded-md px-2.5 py-2 text-sm font-medium text-muted transition-colors hover:text-fg sm:inline-flex"
       >
+        <GitHubIcon class="size-4" />
         GitHub
       </a>
       <a
         href="/waitlist/"
-        class="btn btn-primary ml-1 px-3.5 py-2 text-sm whitespace-nowrap"
+        class="btn btn-primary ml-1 min-h-9 px-3.5 py-2 text-sm whitespace-nowrap"
         aria-current={path.startsWith("/waitlist") ? "page" : undefined}
       >
         <span class="sm:hidden">Waitlist</span>

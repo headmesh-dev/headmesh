@@ -1,0 +1,1 @@
+node --version; pnpm --version 2>&1 | head -1; corepack --version 2>&1|head -1; npm --version; cat /home/claude/repo_src/headmesh-main/mise.toml; cat /home/claude/repo_src/headmesh-main/web/marketing/astro.config.mjs | head -80

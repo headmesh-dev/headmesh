@@ -3,23 +3,26 @@ interface Props {
   class?: string;
 }
 const { class: className } = Astro.props;
+const gradientId = `hm-leg-${Math.random().toString(36).slice(2, 9)}`;
 ---
 
 <svg
   class={className}
-  viewBox="0 0 32 32"
-  fill="none"
+  viewBox="76 76 360 360"
   aria-hidden="true"
   focusable="false"
 >
-  <g stroke="currentColor" stroke-width="2.25" stroke-linecap="round" stroke-linejoin="round">
-    <path d="M7 8h18L16 25z"></path>
-    <path d="M7 8l9 7 9-7M16 15v10"></path>
-  </g>
+  <defs>
+    <linearGradient id={gradientId} gradientUnits="userSpaceOnUse" x1="222" y1="280" x2="290" y2="424">
+      <stop offset="0" class="hm-stop-a"></stop>
+      <stop offset="1" class="hm-stop-b"></stop>
+    </linearGradient>
+  </defs>
   <g fill="currentColor">
-    <circle cx="7" cy="8" r="3.25"></circle>
-    <circle cx="25" cy="8" r="3.25"></circle>
-    <circle cx="16" cy="25" r="3.25"></circle>
-    <circle cx="16" cy="15" r="2.5"></circle>
+    <path d="M88 390V122a34 34 0 0 1 68 0v268a34 34 0 0 1-68 0Z"></path>
+    <path d="M356 390V122a34 34 0 0 1 68 0v268a34 34 0 0 1-68 0Z"></path>
+    <path d="M88 280a101 101 0 0 1 202 0h-68a33 33 0 0 0-66 0Z"></path>
+    <path d="M222 280a101 101 0 0 1 202 0h-68a33 33 0 0 0-66 0Z"></path>
   </g>
+  <path fill={`url(#${gradientId})`} d="M222 280h68v110a34 34 0 0 1-68 0Z"></path>
 </svg>

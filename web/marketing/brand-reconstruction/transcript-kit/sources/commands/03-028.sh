@@ -1,0 +1,1 @@
+cd /home/claude/headmesh/web/marketing/node_modules && grep -h "font-family" @fontsource-variable/bricolage-grotesque/opsz.css @fontsource-variable/geist/index.css @fontsource-variable/geist-mono/index.css | sort -u; grep -c "@font-face" @fontsource-variable/bricolage-grotesque/opsz.css; ls -la @fontsource-variable/bricolage-grotesque/files | grep opsz | head

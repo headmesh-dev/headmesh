@@ -1,12 +1,14 @@
 @import "tailwindcss";
+@import "./brand.css";
 
 /* `dark:` follows the resolved theme on <html data-theme>, which the inline theme script sets before paint. */
 @custom-variant dark (&:where([data-theme="dark"], [data-theme="dark"] *));
 
 /* Semantic colour tokens. Values live in plain custom properties so one block per theme swaps everything. */
 @theme inline {
-  --font-sans: "Inter Variable", ui-sans-serif, system-ui, -apple-system, "Segoe UI", sans-serif;
-  --font-mono: "JetBrains Mono Variable", ui-monospace, SFMono-Regular, Menlo, monospace;
+  --font-sans: var(--hm-font-body);
+  --font-display: var(--hm-font-display);
+  --font-mono: var(--hm-font-mono);
 
   --color-bg: var(--hm-bg);
   --color-surface: var(--hm-surface);
@@ -21,73 +23,9 @@
   --color-danger: var(--hm-danger);
 }
 
-:root {
-  color-scheme: light;
-  --hm-bg: #ffffff;
-  --hm-surface: #f5f7f9;
-  --hm-raised: #ffffff;
-  --hm-line: #dde3e9;
-  --hm-fg: #0d1520;
-  --hm-muted: #4a5664;
-  --hm-accent: #0d7068;
-  --hm-accent-strong: #095a53;
-  --hm-on-accent: #ffffff;
-  --hm-accent-soft: #e3f4f1;
-  --hm-danger: #b42318;
-}
-
-:root[data-theme="dark"] {
-  color-scheme: dark;
-  --hm-bg: #0a0e13;
-  --hm-surface: #10161d;
-  --hm-raised: #151c25;
-  --hm-line: #232d38;
-  --hm-fg: #e8eef4;
-  --hm-muted: #9aa8b6;
-  --hm-accent: #3fd8c2;
-  --hm-accent-strong: #6ee6d4;
-  --hm-on-accent: #04211d;
-  --hm-accent-soft: #0f2a28;
-  --hm-danger: #ff8a80;
-}
-
-/* Without JavaScript the theme attribute is never set, so fall back to the system preference. */
-@media (prefers-color-scheme: dark) {
-  :root:not([data-theme]) {
-    color-scheme: dark;
-    --hm-bg: #0a0e13;
-    --hm-surface: #10161d;
-    --hm-raised: #151c25;
-    --hm-line: #232d38;
-    --hm-fg: #e8eef4;
-    --hm-muted: #9aa8b6;
-    --hm-accent: #3fd8c2;
-    --hm-accent-strong: #6ee6d4;
-    --hm-on-accent: #04211d;
-    --hm-accent-soft: #0f2a28;
-    --hm-danger: #ff8a80;
-  }
-}
-
 @layer base {
   html {
-    background-color: var(--hm-bg);
-    color: var(--hm-fg);
-    font-family: var(--font-sans);
-    -webkit-font-smoothing: antialiased;
-    text-rendering: optimizeLegibility;
     scroll-padding-top: 5rem;
-  }
-
-  ::selection {
-    background-color: var(--hm-accent);
-    color: var(--hm-on-accent);
-  }
-
-  :focus-visible {
-    outline: 2px solid var(--hm-accent);
-    outline-offset: 3px;
-    border-radius: 4px;
   }
 }
 
@@ -189,5 +127,9 @@
     color: var(--hm-accent);
     text-decoration: underline;
     text-underline-offset: 3px;
+  }
+
+  .prose-page a:hover {
+    color: var(--hm-accent-strong);
   }
 }

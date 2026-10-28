@@ -1,0 +1,1 @@
+for f in src/pages/index.astro src/components/MeshDiagram.astro src/components/Icon.astro src/og/render.ts src/pages/apple-touch-icon.png.ts src/pages/og/\[slug\].png.ts src/content/i18n/en.json shared/site.ts; do echo "=================== $f"; cat "$f"; done

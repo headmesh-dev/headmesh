@@ -1,0 +1,57 @@
+---
+import Logo from "./Logo.astro";
+import Wordmark from "./Wordmark.astro";
+---
+
+<div class="docs-brand-group">
+  <a href="/" class="docs-brand" aria-label="Headmesh home">
+    <span class="docs-brand-mark"><Logo /></span>
+    <span class="docs-brand-wordmark"><Wordmark /></span>
+  </a>
+  <span class="docs-brand-label">Docs</span>
+</div>
+
+<style>
+  .docs-brand-group,
+  .docs-brand {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.625rem;
+    min-width: 0;
+  }
+
+  .docs-brand {
+    color: var(--hm-fg);
+    text-decoration: none;
+    white-space: nowrap;
+  }
+
+  .docs-brand-mark {
+    display: flex;
+    width: 2rem;
+    height: 2rem;
+    flex-shrink: 0;
+  }
+
+  .docs-brand-wordmark {
+    display: flex;
+    height: 19px;
+  }
+
+  .docs-brand-mark :global(svg),
+  .docs-brand-wordmark :global(svg) {
+    display: block;
+    width: auto;
+    height: 100%;
+  }
+
+  .docs-brand-label {
+    margin-inline-start: 0.125rem;
+    border-inline-start: 1px solid var(--hm-line);
+    padding-inline-start: 0.75rem;
+    color: var(--hm-muted);
+    font-family: var(--hm-font-mono);
+    font-size: 0.75rem;
+    line-height: 1.5;
+  }
+</style>

@@ -1,0 +1,1 @@
+cd /home/claude/headmesh && grep -n -i "get.headmesh.dev\|curl -fsSL\|headmesh join\|headmesh invite\|install.sh\|one-liner" docs/plan.md | head -30; echo; sed -n 1035,1066p docs/plan.md; echo; cat web/marketing/tests/e2e/smoke.spec.ts | head -120

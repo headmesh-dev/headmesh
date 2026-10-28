@@ -1,0 +1,1926 @@
+{
+  "format": 1,
+  "variants": [
+    {
+      "key": "A1",
+      "family": "Fullmesh",
+      "label": "Solid",
+      "directory": "out/headmesh-brand/A-fullmesh/A1-solid",
+      "svg_count": 26,
+      "png_count": 18,
+      "recorded_bbox": [
+        109,
+        81,
+        403,
+        431
+      ],
+      "geometry_evidence": "recovered function",
+      "wordmark": [
+        "headmesh",
+        "Geist-600.ttf",
+        -0.035,
+        4
+      ]
+    },
+    {
+      "key": "A2",
+      "family": "Fullmesh",
+      "label": "Schematic",
+      "directory": "out/headmesh-brand/A-fullmesh/A2-schematic",
+      "svg_count": 26,
+      "png_count": 18,
+      "recorded_bbox": [
+        82,
+        70,
+        430,
+        442
+      ],
+      "geometry_evidence": "reconstructed base with recorded edits and bounding box",
+      "wordmark": [
+        "headmesh",
+        "Geist-600.ttf",
+        -0.035,
+        4
+      ]
+    },
+    {
+      "key": "A3",
+      "family": "Fullmesh",
+      "label": "Pillars",
+      "directory": "out/headmesh-brand/A-fullmesh/A3-pillars",
+      "svg_count": 26,
+      "png_count": 18,
+      "recorded_bbox": [
+        100,
+        96,
+        412,
+        416
+      ],
+      "geometry_evidence": "reconstructed base with recorded edits and bounding box",
+      "wordmark": [
+        "headmesh",
+        "Geist-600.ttf",
+        -0.035,
+        4
+      ]
+    },
+    {
+      "key": "B1",
+      "family": "Head node",
+      "label": "Glyph",
+      "directory": "out/headmesh-brand/B-head-node/B1-glyph",
+      "svg_count": 26,
+      "png_count": 18,
+      "recorded_bbox": [
+        90,
+        54,
+        455,
+        450
+      ],
+      "geometry_evidence": "reconstructed base with recorded edits and bounding box",
+      "wordmark": [
+        "Headmesh",
+        "Geist-700.ttf",
+        -0.03,
+        4
+      ]
+    },
+    {
+      "key": "B2",
+      "family": "Head node",
+      "label": "Node h",
+      "directory": "out/headmesh-brand/B-head-node/B2-node-h",
+      "svg_count": 26,
+      "png_count": 18,
+      "recorded_bbox": [
+        82,
+        72,
+        428,
+        458
+      ],
+      "geometry_evidence": "reconstructed base with recorded edits and bounding box",
+      "wordmark": [
+        "Headmesh",
+        "Geist-700.ttf",
+        -0.03,
+        4
+      ]
+    },
+    {
+      "key": "B3",
+      "family": "Head node",
+      "label": "Badge",
+      "directory": "out/headmesh-brand/B-head-node/B3-badge",
+      "svg_count": 26,
+      "png_count": 18,
+      "recorded_bbox": [
+        62,
+        55,
+        465,
+        454
+      ],
+      "geometry_evidence": "reconstructed base with recorded edits and bounding box",
+      "wordmark": [
+        "Headmesh",
+        "Geist-700.ttf",
+        -0.03,
+        4
+      ]
+    },
+    {
+      "key": "C1",
+      "family": "Weave",
+      "label": "Weave",
+      "directory": "out/headmesh-brand/C-weave/C1-weave",
+      "svg_count": 26,
+      "png_count": 18,
+      "recorded_bbox": [
+        87,
+        87,
+        425,
+        425
+      ],
+      "geometry_evidence": "reconstructed base with recorded edits and bounding box",
+      "wordmark": [
+        "HEADMESH",
+        "SpaceGrotesk-700.ttf",
+        0.04,
+        null
+      ]
+    },
+    {
+      "key": "C2",
+      "family": "Weave",
+      "label": "Net",
+      "directory": "out/headmesh-brand/C-weave/C2-net",
+      "svg_count": 26,
+      "png_count": 18,
+      "recorded_bbox": [
+        76,
+        76,
+        436,
+        436
+      ],
+      "geometry_evidence": "reconstructed base with recorded edits and bounding box",
+      "wordmark": [
+        "HEADMESH",
+        "SpaceGrotesk-700.ttf",
+        0.04,
+        null
+      ]
+    },
+    {
+      "key": "C3",
+      "family": "Weave",
+      "label": "Ribbon",
+      "directory": "out/headmesh-brand/C-weave/C3-ribbon",
+      "svg_count": 26,
+      "png_count": 18,
+      "recorded_bbox": [
+        75,
+        75,
+        437,
+        437
+      ],
+      "geometry_evidence": "reconstructed base with recorded edits and bounding box",
+      "wordmark": [
+        "HEADMESH",
+        "SpaceGrotesk-700.ttf",
+        0.04,
+        null
+      ]
+    },
+    {
+      "key": "D1",
+      "family": "Arch",
+      "label": "Monogram",
+      "directory": "out/headmesh-brand/D-arch/D1-monogram",
+      "svg_count": 26,
+      "png_count": 18,
+      "recorded_bbox": [
+        88,
+        88,
+        424,
+        424
+      ],
+      "geometry_evidence": "reconstructed base with recorded edits and bounding box",
+      "wordmark": [
+        "headmesh",
+        "BricolageGrotesque-800.ttf",
+        -0.025,
+        null
+      ]
+    },
+    {
+      "key": "D2",
+      "family": "Arch",
+      "label": "Two heads",
+      "directory": "out/headmesh-brand/D-arch/D2-two-heads",
+      "svg_count": 26,
+      "png_count": 18,
+      "recorded_bbox": [
+        78,
+        76,
+        434,
+        434
+      ],
+      "geometry_evidence": "reconstructed base with recorded edits and bounding box",
+      "wordmark": [
+        "headmesh",
+        "BricolageGrotesque-800.ttf",
+        -0.025,
+        null
+      ]
+    },
+    {
+      "key": "D3",
+      "family": "Arch",
+      "label": "Tunnel",
+      "directory": "out/headmesh-brand/D-arch/D3-tunnel",
+      "svg_count": 26,
+      "png_count": 18,
+      "recorded_bbox": [
+        88,
+        88,
+        424,
+        424
+      ],
+      "geometry_evidence": "reconstructed base with recorded edits and bounding box",
+      "wordmark": [
+        "headmesh",
+        "BricolageGrotesque-800.ttf",
+        -0.025,
+        null
+      ]
+    },
+    {
+      "key": "D4",
+      "family": "Arch",
+      "label": "Shared leg",
+      "directory": "out/headmesh-brand/D-arch/D4-shared-leg",
+      "svg_count": 26,
+      "png_count": 18,
+      "recorded_bbox": [
+        88,
+        88,
+        424,
+        424
+      ],
+      "geometry_evidence": "recovered function",
+      "wordmark": [
+        "headmesh",
+        "BricolageGrotesque-800.ttf",
+        -0.025,
+        null
+      ]
+    }
+  ],
+  "expected_exports": {
+    "svg": 338,
+    "png": 234,
+    "ico": 13,
+    "total": 585
+  },
+  "provenance": "Reconstructed equivalent; the transcripts omit initial source and the full original filename list.",
+  "selected_variant": "D4",
+  "raster_jobs": [
+    {
+      "in": "out/headmesh-brand/A-fullmesh/A1-solid/svg/favicon.svg",
+      "out": "out/headmesh-brand/A-fullmesh/A1-solid/png/favicon-16.png",
+      "w": 16,
+      "h": 16,
+      "scale": 1
+    },
+    {
+      "in": "out/headmesh-brand/A-fullmesh/A1-solid/svg/favicon.svg",
+      "out": "out/headmesh-brand/A-fullmesh/A1-solid/png/favicon-32.png",
+      "w": 32,
+      "h": 32,
+      "scale": 1
+    },
+    {
+      "in": "out/headmesh-brand/A-fullmesh/A1-solid/svg/favicon.svg",
+      "out": "out/headmesh-brand/A-fullmesh/A1-solid/png/favicon-48.png",
+      "w": 48,
+      "h": 48,
+      "scale": 1
+    },
+    {
+      "in": "out/headmesh-brand/A-fullmesh/A1-solid/svg/favicon.svg",
+      "out": "out/headmesh-brand/A-fullmesh/A1-solid/png/favicon-64.png",
+      "w": 64,
+      "h": 64,
+      "scale": 1
+    },
+    {
+      "in": "out/headmesh-brand/A-fullmesh/A1-solid/svg/app-icon-ink.svg",
+      "out": "out/headmesh-brand/A-fullmesh/A1-solid/png/apple-touch-icon-180.png",
+      "w": 180,
+      "h": 180,
+      "scale": 1
+    },
+    {
+      "in": "out/headmesh-brand/A-fullmesh/A1-solid/svg/app-icon-ink.svg",
+      "out": "out/headmesh-brand/A-fullmesh/A1-solid/png/icon-192.png",
+      "w": 192,
+      "h": 192,
+      "scale": 1
+    },
+    {
+      "in": "out/headmesh-brand/A-fullmesh/A1-solid/svg/app-icon-ink.svg",
+      "out": "out/headmesh-brand/A-fullmesh/A1-solid/png/icon-512.png",
+      "w": 512,
+      "h": 512,
+      "scale": 1
+    },
+    {
+      "in": "out/headmesh-brand/A-fullmesh/A1-solid/svg/app-icon-ink.svg",
+      "out": "out/headmesh-brand/A-fullmesh/A1-solid/png/app-icon-ink-1024.png",
+      "w": 1024,
+      "h": 1024,
+      "scale": 1
+    },
+    {
+      "in": "out/headmesh-brand/A-fullmesh/A1-solid/svg/app-icon-gradient.svg",
+      "out": "out/headmesh-brand/A-fullmesh/A1-solid/png/app-icon-gradient-1024.png",
+      "w": 1024,
+      "h": 1024,
+      "scale": 1
+    },
+    {
+      "in": "out/headmesh-brand/A-fullmesh/A1-solid/svg/app-icon-paper.svg",
+      "out": "out/headmesh-brand/A-fullmesh/A1-solid/png/app-icon-paper-1024.png",
+      "w": 1024,
+      "h": 1024,
+      "scale": 1
+    },
+    {
+      "in": "out/headmesh-brand/A-fullmesh/A1-solid/svg/mark-on-dark.svg",
+      "out": "out/headmesh-brand/A-fullmesh/A1-solid/png/mark-transparent-512.png",
+      "w": 512,
+      "h": 512,
+      "scale": 1
+    },
+    {
+      "in": "out/headmesh-brand/A-fullmesh/A1-solid/svg/lockup-horizontal-on-dark.svg",
+      "out": "out/headmesh-brand/A-fullmesh/A1-solid/png/lockup-horizontal-on-dark-1200.png",
+      "w": 1200,
+      "h": 302,
+      "scale": 1
+    },
+    {
+      "in": "out/headmesh-brand/A-fullmesh/A1-solid/svg/lockup-stacked-on-dark.svg",
+      "out": "out/headmesh-brand/A-fullmesh/A1-solid/png/lockup-stacked-on-dark-512.png",
+      "w": 512,
+      "h": 368,
+      "scale": 1
+    },
+    {
+      "in": "out/headmesh-brand/A-fullmesh/A1-solid/svg/lockup-horizontal-on-light.svg",
+      "out": "out/headmesh-brand/A-fullmesh/A1-solid/png/lockup-horizontal-on-light-1200.png",
+      "w": 1200,
+      "h": 302,
+      "scale": 1
+    },
+    {
+      "in": "out/headmesh-brand/A-fullmesh/A1-solid/svg/lockup-stacked-on-light.svg",
+      "out": "out/headmesh-brand/A-fullmesh/A1-solid/png/lockup-stacked-on-light-512.png",
+      "w": 512,
+      "h": 368,
+      "scale": 1
+    },
+    {
+      "in": "out/headmesh-brand/A-fullmesh/A1-solid/svg/og-1200x630.svg",
+      "out": "out/headmesh-brand/A-fullmesh/A1-solid/png/og-1200x630.png",
+      "w": 1200,
+      "h": 630,
+      "scale": 1
+    },
+    {
+      "in": "out/headmesh-brand/A-fullmesh/A1-solid/svg/banner-x-1500x500.svg",
+      "out": "out/headmesh-brand/A-fullmesh/A1-solid/png/banner-x-1500x500.png",
+      "w": 1500,
+      "h": 500,
+      "scale": 1
+    },
+    {
+      "in": "out/headmesh-brand/A-fullmesh/A1-solid/svg/banner-linkedin-1584x396.svg",
+      "out": "out/headmesh-brand/A-fullmesh/A1-solid/png/banner-linkedin-1584x396.png",
+      "w": 1584,
+      "h": 396,
+      "scale": 1
+    },
+    {
+      "in": "out/headmesh-brand/A-fullmesh/A2-schematic/svg/favicon.svg",
+      "out": "out/headmesh-brand/A-fullmesh/A2-schematic/png/favicon-16.png",
+      "w": 16,
+      "h": 16,
+      "scale": 1
+    },
+    {
+      "in": "out/headmesh-brand/A-fullmesh/A2-schematic/svg/favicon.svg",
+      "out": "out/headmesh-brand/A-fullmesh/A2-schematic/png/favicon-32.png",
+      "w": 32,
+      "h": 32,
+      "scale": 1
+    },
+    {
+      "in": "out/headmesh-brand/A-fullmesh/A2-schematic/svg/favicon.svg",
+      "out": "out/headmesh-brand/A-fullmesh/A2-schematic/png/favicon-48.png",
+      "w": 48,
+      "h": 48,
+      "scale": 1
+    },
+    {
+      "in": "out/headmesh-brand/A-fullmesh/A2-schematic/svg/favicon.svg",
+      "out": "out/headmesh-brand/A-fullmesh/A2-schematic/png/favicon-64.png",
+      "w": 64,
+      "h": 64,
+      "scale": 1
+    },
+    {
+      "in": "out/headmesh-brand/A-fullmesh/A2-schematic/svg/app-icon-ink.svg",
+      "out": "out/headmesh-brand/A-fullmesh/A2-schematic/png/apple-touch-icon-180.png",
+      "w": 180,
+      "h": 180,
+      "scale": 1
+    },
+    {
+      "in": "out/headmesh-brand/A-fullmesh/A2-schematic/svg/app-icon-ink.svg",
+      "out": "out/headmesh-brand/A-fullmesh/A2-schematic/png/icon-192.png",
+      "w": 192,
+      "h": 192,
+      "scale": 1
+    },
+    {
+      "in": "out/headmesh-brand/A-fullmesh/A2-schematic/svg/app-icon-ink.svg",
+      "out": "out/headmesh-brand/A-fullmesh/A2-schematic/png/icon-512.png",
+      "w": 512,
+      "h": 512,
+      "scale": 1
+    },
+    {
+      "in": "out/headmesh-brand/A-fullmesh/A2-schematic/svg/app-icon-ink.svg",
+      "out": "out/headmesh-brand/A-fullmesh/A2-schematic/png/app-icon-ink-1024.png",
+      "w": 1024,
+      "h": 1024,
+      "scale": 1
+    },
+    {
+      "in": "out/headmesh-brand/A-fullmesh/A2-schematic/svg/app-icon-gradient.svg",
+      "out": "out/headmesh-brand/A-fullmesh/A2-schematic/png/app-icon-gradient-1024.png",
+      "w": 1024,
+      "h": 1024,
+      "scale": 1
+    },
+    {
+      "in": "out/headmesh-brand/A-fullmesh/A2-schematic/svg/app-icon-paper.svg",
+      "out": "out/headmesh-brand/A-fullmesh/A2-schematic/png/app-icon-paper-1024.png",
+      "w": 1024,
+      "h": 1024,
+      "scale": 1
+    },
+    {
+      "in": "out/headmesh-brand/A-fullmesh/A2-schematic/svg/mark-on-dark.svg",
+      "out": "out/headmesh-brand/A-fullmesh/A2-schematic/png/mark-transparent-512.png",
+      "w": 512,
+      "h": 512,
+      "scale": 1
+    },
+    {
+      "in": "out/headmesh-brand/A-fullmesh/A2-schematic/svg/lockup-horizontal-on-dark.svg",
+      "out": "out/headmesh-brand/A-fullmesh/A2-schematic/png/lockup-horizontal-on-dark-1200.png",
+      "w": 1200,
+      "h": 302,
+      "scale": 1
+    },
+    {
+      "in": "out/headmesh-brand/A-fullmesh/A2-schematic/svg/lockup-stacked-on-dark.svg",
+      "out": "out/headmesh-brand/A-fullmesh/A2-schematic/png/lockup-stacked-on-dark-512.png",
+      "w": 512,
+      "h": 368,
+      "scale": 1
+    },
+    {
+      "in": "out/headmesh-brand/A-fullmesh/A2-schematic/svg/lockup-horizontal-on-light.svg",
+      "out": "out/headmesh-brand/A-fullmesh/A2-schematic/png/lockup-horizontal-on-light-1200.png",
+      "w": 1200,
+      "h": 302,
+      "scale": 1
+    },
+    {
+      "in": "out/headmesh-brand/A-fullmesh/A2-schematic/svg/lockup-stacked-on-light.svg",
+      "out": "out/headmesh-brand/A-fullmesh/A2-schematic/png/lockup-stacked-on-light-512.png",
+      "w": 512,
+      "h": 368,
+      "scale": 1
+    },
+    {
+      "in": "out/headmesh-brand/A-fullmesh/A2-schematic/svg/og-1200x630.svg",
+      "out": "out/headmesh-brand/A-fullmesh/A2-schematic/png/og-1200x630.png",
+      "w": 1200,
+      "h": 630,
+      "scale": 1
+    },
+    {
+      "in": "out/headmesh-brand/A-fullmesh/A2-schematic/svg/banner-x-1500x500.svg",
+      "out": "out/headmesh-brand/A-fullmesh/A2-schematic/png/banner-x-1500x500.png",
+      "w": 1500,
+      "h": 500,
+      "scale": 1
+    },
+    {
+      "in": "out/headmesh-brand/A-fullmesh/A2-schematic/svg/banner-linkedin-1584x396.svg",
+      "out": "out/headmesh-brand/A-fullmesh/A2-schematic/png/banner-linkedin-1584x396.png",
+      "w": 1584,
+      "h": 396,
+      "scale": 1
+    },
+    {
+      "in": "out/headmesh-brand/A-fullmesh/A3-pillars/svg/favicon.svg",
+      "out": "out/headmesh-brand/A-fullmesh/A3-pillars/png/favicon-16.png",
+      "w": 16,
+      "h": 16,
+      "scale": 1
+    },
+    {
+      "in": "out/headmesh-brand/A-fullmesh/A3-pillars/svg/favicon.svg",
+      "out": "out/headmesh-brand/A-fullmesh/A3-pillars/png/favicon-32.png",
+      "w": 32,
+      "h": 32,
+      "scale": 1
+    },
+    {
+      "in": "out/headmesh-brand/A-fullmesh/A3-pillars/svg/favicon.svg",
+      "out": "out/headmesh-brand/A-fullmesh/A3-pillars/png/favicon-48.png",
+      "w": 48,
+      "h": 48,
+      "scale": 1
+    },
+    {
+      "in": "out/headmesh-brand/A-fullmesh/A3-pillars/svg/favicon.svg",
+      "out": "out/headmesh-brand/A-fullmesh/A3-pillars/png/favicon-64.png",
+      "w": 64,
+      "h": 64,
+      "scale": 1
+    },
+    {
+      "in": "out/headmesh-brand/A-fullmesh/A3-pillars/svg/app-icon-ink.svg",
+      "out": "out/headmesh-brand/A-fullmesh/A3-pillars/png/apple-touch-icon-180.png",
+      "w": 180,
+      "h": 180,
+      "scale": 1
+    },
+    {
+      "in": "out/headmesh-brand/A-fullmesh/A3-pillars/svg/app-icon-ink.svg",
+      "out": "out/headmesh-brand/A-fullmesh/A3-pillars/png/icon-192.png",
+      "w": 192,
+      "h": 192,
+      "scale": 1
+    },
+    {
+      "in": "out/headmesh-brand/A-fullmesh/A3-pillars/svg/app-icon-ink.svg",
+      "out": "out/headmesh-brand/A-fullmesh/A3-pillars/png/icon-512.png",
+      "w": 512,
+      "h": 512,
+      "scale": 1
+    },
+    {
+      "in": "out/headmesh-brand/A-fullmesh/A3-pillars/svg/app-icon-ink.svg",
+      "out": "out/headmesh-brand/A-fullmesh/A3-pillars/png/app-icon-ink-1024.png",
+      "w": 1024,
+      "h": 1024,
+      "scale": 1
+    },
+    {
+      "in": "out/headmesh-brand/A-fullmesh/A3-pillars/svg/app-icon-gradient.svg",
+      "out": "out/headmesh-brand/A-fullmesh/A3-pillars/png/app-icon-gradient-1024.png",
+      "w": 1024,
+      "h": 1024,
+      "scale": 1
+    },
+    {
+      "in": "out/headmesh-brand/A-fullmesh/A3-pillars/svg/app-icon-paper.svg",
+      "out": "out/headmesh-brand/A-fullmesh/A3-pillars/png/app-icon-paper-1024.png",
+      "w": 1024,
+      "h": 1024,
+      "scale": 1
+    },
+    {
+      "in": "out/headmesh-brand/A-fullmesh/A3-pillars/svg/mark-on-dark.svg",
+      "out": "out/headmesh-brand/A-fullmesh/A3-pillars/png/mark-transparent-512.png",
+      "w": 512,
+      "h": 512,
+      "scale": 1
+    },
+    {
+      "in": "out/headmesh-brand/A-fullmesh/A3-pillars/svg/lockup-horizontal-on-dark.svg",
+      "out": "out/headmesh-brand/A-fullmesh/A3-pillars/png/lockup-horizontal-on-dark-1200.png",
+      "w": 1200,
+      "h": 302,
+      "scale": 1
+    },
+    {
+      "in": "out/headmesh-brand/A-fullmesh/A3-pillars/svg/lockup-stacked-on-dark.svg",
+      "out": "out/headmesh-brand/A-fullmesh/A3-pillars/png/lockup-stacked-on-dark-512.png",
+      "w": 512,
+      "h": 368,
+      "scale": 1
+    },
+    {
+      "in": "out/headmesh-brand/A-fullmesh/A3-pillars/svg/lockup-horizontal-on-light.svg",
+      "out": "out/headmesh-brand/A-fullmesh/A3-pillars/png/lockup-horizontal-on-light-1200.png",
+      "w": 1200,
+      "h": 302,
+      "scale": 1
+    },
+    {
+      "in": "out/headmesh-brand/A-fullmesh/A3-pillars/svg/lockup-stacked-on-light.svg",
+      "out": "out/headmesh-brand/A-fullmesh/A3-pillars/png/lockup-stacked-on-light-512.png",
+      "w": 512,
+      "h": 368,
+      "scale": 1
+    },
+    {
+      "in": "out/headmesh-brand/A-fullmesh/A3-pillars/svg/og-1200x630.svg",
+      "out": "out/headmesh-brand/A-fullmesh/A3-pillars/png/og-1200x630.png",
+      "w": 1200,
+      "h": 630,
+      "scale": 1
+    },
+    {
+      "in": "out/headmesh-brand/A-fullmesh/A3-pillars/svg/banner-x-1500x500.svg",
+      "out": "out/headmesh-brand/A-fullmesh/A3-pillars/png/banner-x-1500x500.png",
+      "w": 1500,
+      "h": 500,
+      "scale": 1
+    },
+    {
+      "in": "out/headmesh-brand/A-fullmesh/A3-pillars/svg/banner-linkedin-1584x396.svg",
+      "out": "out/headmesh-brand/A-fullmesh/A3-pillars/png/banner-linkedin-1584x396.png",
+      "w": 1584,
+      "h": 396,
+      "scale": 1
+    },
+    {
+      "in": "out/headmesh-brand/B-head-node/B1-glyph/svg/favicon.svg",
+      "out": "out/headmesh-brand/B-head-node/B1-glyph/png/favicon-16.png",
+      "w": 16,
+      "h": 16,
+      "scale": 1
+    },
+    {
+      "in": "out/headmesh-brand/B-head-node/B1-glyph/svg/favicon.svg",
+      "out": "out/headmesh-brand/B-head-node/B1-glyph/png/favicon-32.png",
+      "w": 32,
+      "h": 32,
+      "scale": 1
+    },
+    {
+      "in": "out/headmesh-brand/B-head-node/B1-glyph/svg/favicon.svg",
+      "out": "out/headmesh-brand/B-head-node/B1-glyph/png/favicon-48.png",
+      "w": 48,
+      "h": 48,
+      "scale": 1
+    },
+    {
+      "in": "out/headmesh-brand/B-head-node/B1-glyph/svg/favicon.svg",
+      "out": "out/headmesh-brand/B-head-node/B1-glyph/png/favicon-64.png",
+      "w": 64,
+      "h": 64,
+      "scale": 1
+    },
+    {
+      "in": "out/headmesh-brand/B-head-node/B1-glyph/svg/app-icon-ink.svg",
+      "out": "out/headmesh-brand/B-head-node/B1-glyph/png/apple-touch-icon-180.png",
+      "w": 180,
+      "h": 180,
+      "scale": 1
+    },
+    {
+      "in": "out/headmesh-brand/B-head-node/B1-glyph/svg/app-icon-ink.svg",
+      "out": "out/headmesh-brand/B-head-node/B1-glyph/png/icon-192.png",
+      "w": 192,
+      "h": 192,
+      "scale": 1
+    },
+    {
+      "in": "out/headmesh-brand/B-head-node/B1-glyph/svg/app-icon-ink.svg",
+      "out": "out/headmesh-brand/B-head-node/B1-glyph/png/icon-512.png",
+      "w": 512,
+      "h": 512,
+      "scale": 1
+    },
+    {
+      "in": "out/headmesh-brand/B-head-node/B1-glyph/svg/app-icon-ink.svg",
+      "out": "out/headmesh-brand/B-head-node/B1-glyph/png/app-icon-ink-1024.png",
+      "w": 1024,
+      "h": 1024,
+      "scale": 1
+    },
+    {
+      "in": "out/headmesh-brand/B-head-node/B1-glyph/svg/app-icon-gradient.svg",
+      "out": "out/headmesh-brand/B-head-node/B1-glyph/png/app-icon-gradient-1024.png",
+      "w": 1024,
+      "h": 1024,
+      "scale": 1
+    },
+    {
+      "in": "out/headmesh-brand/B-head-node/B1-glyph/svg/app-icon-paper.svg",
+      "out": "out/headmesh-brand/B-head-node/B1-glyph/png/app-icon-paper-1024.png",
+      "w": 1024,
+      "h": 1024,
+      "scale": 1
+    },
+    {
+      "in": "out/headmesh-brand/B-head-node/B1-glyph/svg/mark-on-dark.svg",
+      "out": "out/headmesh-brand/B-head-node/B1-glyph/png/mark-transparent-512.png",
+      "w": 512,
+      "h": 512,
+      "scale": 1
+    },
+    {
+      "in": "out/headmesh-brand/B-head-node/B1-glyph/svg/lockup-horizontal-on-dark.svg",
+      "out": "out/headmesh-brand/B-head-node/B1-glyph/png/lockup-horizontal-on-dark-1200.png",
+      "w": 1200,
+      "h": 290,
+      "scale": 1
+    },
+    {
+      "in": "out/headmesh-brand/B-head-node/B1-glyph/svg/lockup-stacked-on-dark.svg",
+      "out": "out/headmesh-brand/B-head-node/B1-glyph/png/lockup-stacked-on-dark-512.png",
+      "w": 512,
+      "h": 368,
+      "scale": 1
+    },
+    {
+      "in": "out/headmesh-brand/B-head-node/B1-glyph/svg/lockup-horizontal-on-light.svg",
+      "out": "out/headmesh-brand/B-head-node/B1-glyph/png/lockup-horizontal-on-light-1200.png",
+      "w": 1200,
+      "h": 290,
+      "scale": 1
+    },
+    {
+      "in": "out/headmesh-brand/B-head-node/B1-glyph/svg/lockup-stacked-on-light.svg",
+      "out": "out/headmesh-brand/B-head-node/B1-glyph/png/lockup-stacked-on-light-512.png",
+      "w": 512,
+      "h": 368,
+      "scale": 1
+    },
+    {
+      "in": "out/headmesh-brand/B-head-node/B1-glyph/svg/og-1200x630.svg",
+      "out": "out/headmesh-brand/B-head-node/B1-glyph/png/og-1200x630.png",
+      "w": 1200,
+      "h": 630,
+      "scale": 1
+    },
+    {
+      "in": "out/headmesh-brand/B-head-node/B1-glyph/svg/banner-x-1500x500.svg",
+      "out": "out/headmesh-brand/B-head-node/B1-glyph/png/banner-x-1500x500.png",
+      "w": 1500,
+      "h": 500,
+      "scale": 1
+    },
+    {
+      "in": "out/headmesh-brand/B-head-node/B1-glyph/svg/banner-linkedin-1584x396.svg",
+      "out": "out/headmesh-brand/B-head-node/B1-glyph/png/banner-linkedin-1584x396.png",
+      "w": 1584,
+      "h": 396,
+      "scale": 1
+    },
+    {
+      "in": "out/headmesh-brand/B-head-node/B2-node-h/svg/favicon.svg",
+      "out": "out/headmesh-brand/B-head-node/B2-node-h/png/favicon-16.png",
+      "w": 16,
+      "h": 16,
+      "scale": 1
+    },
+    {
+      "in": "out/headmesh-brand/B-head-node/B2-node-h/svg/favicon.svg",
+      "out": "out/headmesh-brand/B-head-node/B2-node-h/png/favicon-32.png",
+      "w": 32,
+      "h": 32,
+      "scale": 1
+    },
+    {
+      "in": "out/headmesh-brand/B-head-node/B2-node-h/svg/favicon.svg",
+      "out": "out/headmesh-brand/B-head-node/B2-node-h/png/favicon-48.png",
+      "w": 48,
+      "h": 48,
+      "scale": 1
+    },
+    {
+      "in": "out/headmesh-brand/B-head-node/B2-node-h/svg/favicon.svg",
+      "out": "out/headmesh-brand/B-head-node/B2-node-h/png/favicon-64.png",
+      "w": 64,
+      "h": 64,
+      "scale": 1
+    },
+    {
+      "in": "out/headmesh-brand/B-head-node/B2-node-h/svg/app-icon-ink.svg",
+      "out": "out/headmesh-brand/B-head-node/B2-node-h/png/apple-touch-icon-180.png",
+      "w": 180,
+      "h": 180,
+      "scale": 1
+    },
+    {
+      "in": "out/headmesh-brand/B-head-node/B2-node-h/svg/app-icon-ink.svg",
+      "out": "out/headmesh-brand/B-head-node/B2-node-h/png/icon-192.png",
+      "w": 192,
+      "h": 192,
+      "scale": 1
+    },
+    {
+      "in": "out/headmesh-brand/B-head-node/B2-node-h/svg/app-icon-ink.svg",
+      "out": "out/headmesh-brand/B-head-node/B2-node-h/png/icon-512.png",
+      "w": 512,
+      "h": 512,
+      "scale": 1
+    },
+    {
+      "in": "out/headmesh-brand/B-head-node/B2-node-h/svg/app-icon-ink.svg",
+      "out": "out/headmesh-brand/B-head-node/B2-node-h/png/app-icon-ink-1024.png",
+      "w": 1024,
+      "h": 1024,
+      "scale": 1
+    },
+    {
+      "in": "out/headmesh-brand/B-head-node/B2-node-h/svg/app-icon-gradient.svg",
+      "out": "out/headmesh-brand/B-head-node/B2-node-h/png/app-icon-gradient-1024.png",
+      "w": 1024,
+      "h": 1024,
+      "scale": 1
+    },
+    {
+      "in": "out/headmesh-brand/B-head-node/B2-node-h/svg/app-icon-paper.svg",
+      "out": "out/headmesh-brand/B-head-node/B2-node-h/png/app-icon-paper-1024.png",
+      "w": 1024,
+      "h": 1024,
+      "scale": 1
+    },
+    {
+      "in": "out/headmesh-brand/B-head-node/B2-node-h/svg/mark-on-dark.svg",
+      "out": "out/headmesh-brand/B-head-node/B2-node-h/png/mark-transparent-512.png",
+      "w": 512,
+      "h": 512,
+      "scale": 1
+    },
+    {
+      "in": "out/headmesh-brand/B-head-node/B2-node-h/svg/lockup-horizontal-on-dark.svg",
+      "out": "out/headmesh-brand/B-head-node/B2-node-h/png/lockup-horizontal-on-dark-1200.png",
+      "w": 1200,
+      "h": 290,
+      "scale": 1
+    },
+    {
+      "in": "out/headmesh-brand/B-head-node/B2-node-h/svg/lockup-stacked-on-dark.svg",
+      "out": "out/headmesh-brand/B-head-node/B2-node-h/png/lockup-stacked-on-dark-512.png",
+      "w": 512,
+      "h": 368,
+      "scale": 1
+    },
+    {
+      "in": "out/headmesh-brand/B-head-node/B2-node-h/svg/lockup-horizontal-on-light.svg",
+      "out": "out/headmesh-brand/B-head-node/B2-node-h/png/lockup-horizontal-on-light-1200.png",
+      "w": 1200,
+      "h": 290,
+      "scale": 1
+    },
+    {
+      "in": "out/headmesh-brand/B-head-node/B2-node-h/svg/lockup-stacked-on-light.svg",
+      "out": "out/headmesh-brand/B-head-node/B2-node-h/png/lockup-stacked-on-light-512.png",
+      "w": 512,
+      "h": 368,
+      "scale": 1
+    },
+    {
+      "in": "out/headmesh-brand/B-head-node/B2-node-h/svg/og-1200x630.svg",
+      "out": "out/headmesh-brand/B-head-node/B2-node-h/png/og-1200x630.png",
+      "w": 1200,
+      "h": 630,
+      "scale": 1
+    },
+    {
+      "in": "out/headmesh-brand/B-head-node/B2-node-h/svg/banner-x-1500x500.svg",
+      "out": "out/headmesh-brand/B-head-node/B2-node-h/png/banner-x-1500x500.png",
+      "w": 1500,
+      "h": 500,
+      "scale": 1
+    },
+    {
+      "in": "out/headmesh-brand/B-head-node/B2-node-h/svg/banner-linkedin-1584x396.svg",
+      "out": "out/headmesh-brand/B-head-node/B2-node-h/png/banner-linkedin-1584x396.png",
+      "w": 1584,
+      "h": 396,
+      "scale": 1
+    },
+    {
+      "in": "out/headmesh-brand/B-head-node/B3-badge/svg/favicon.svg",
+      "out": "out/headmesh-brand/B-head-node/B3-badge/png/favicon-16.png",
+      "w": 16,
+      "h": 16,
+      "scale": 1
+    },
+    {
+      "in": "out/headmesh-brand/B-head-node/B3-badge/svg/favicon.svg",
+      "out": "out/headmesh-brand/B-head-node/B3-badge/png/favicon-32.png",
+      "w": 32,
+      "h": 32,
+      "scale": 1
+    },
+    {
+      "in": "out/headmesh-brand/B-head-node/B3-badge/svg/favicon.svg",
+      "out": "out/headmesh-brand/B-head-node/B3-badge/png/favicon-48.png",
+      "w": 48,
+      "h": 48,
+      "scale": 1
+    },
+    {
+      "in": "out/headmesh-brand/B-head-node/B3-badge/svg/favicon.svg",
+      "out": "out/headmesh-brand/B-head-node/B3-badge/png/favicon-64.png",
+      "w": 64,
+      "h": 64,
+      "scale": 1
+    },
+    {
+      "in": "out/headmesh-brand/B-head-node/B3-badge/svg/app-icon-ink.svg",
+      "out": "out/headmesh-brand/B-head-node/B3-badge/png/apple-touch-icon-180.png",
+      "w": 180,
+      "h": 180,
+      "scale": 1
+    },
+    {
+      "in": "out/headmesh-brand/B-head-node/B3-badge/svg/app-icon-ink.svg",
+      "out": "out/headmesh-brand/B-head-node/B3-badge/png/icon-192.png",
+      "w": 192,
+      "h": 192,
+      "scale": 1
+    },
+    {
+      "in": "out/headmesh-brand/B-head-node/B3-badge/svg/app-icon-ink.svg",
+      "out": "out/headmesh-brand/B-head-node/B3-badge/png/icon-512.png",
+      "w": 512,
+      "h": 512,
+      "scale": 1
+    },
+    {
+      "in": "out/headmesh-brand/B-head-node/B3-badge/svg/app-icon-ink.svg",
+      "out": "out/headmesh-brand/B-head-node/B3-badge/png/app-icon-ink-1024.png",
+      "w": 1024,
+      "h": 1024,
+      "scale": 1
+    },
+    {
+      "in": "out/headmesh-brand/B-head-node/B3-badge/svg/app-icon-gradient.svg",
+      "out": "out/headmesh-brand/B-head-node/B3-badge/png/app-icon-gradient-1024.png",
+      "w": 1024,
+      "h": 1024,
+      "scale": 1
+    },
+    {
+      "in": "out/headmesh-brand/B-head-node/B3-badge/svg/app-icon-paper.svg",
+      "out": "out/headmesh-brand/B-head-node/B3-badge/png/app-icon-paper-1024.png",
+      "w": 1024,
+      "h": 1024,
+      "scale": 1
+    },
+    {
+      "in": "out/headmesh-brand/B-head-node/B3-badge/svg/mark-on-dark.svg",
+      "out": "out/headmesh-brand/B-head-node/B3-badge/png/mark-transparent-512.png",
+      "w": 512,
+      "h": 512,
+      "scale": 1
+    },
+    {
+      "in": "out/headmesh-brand/B-head-node/B3-badge/svg/lockup-horizontal-on-dark.svg",
+      "out": "out/headmesh-brand/B-head-node/B3-badge/png/lockup-horizontal-on-dark-1200.png",
+      "w": 1200,
+      "h": 290,
+      "scale": 1
+    },
+    {
+      "in": "out/headmesh-brand/B-head-node/B3-badge/svg/lockup-stacked-on-dark.svg",
+      "out": "out/headmesh-brand/B-head-node/B3-badge/png/lockup-stacked-on-dark-512.png",
+      "w": 512,
+      "h": 368,
+      "scale": 1
+    },
+    {
+      "in": "out/headmesh-brand/B-head-node/B3-badge/svg/lockup-horizontal-on-light.svg",
+      "out": "out/headmesh-brand/B-head-node/B3-badge/png/lockup-horizontal-on-light-1200.png",
+      "w": 1200,
+      "h": 290,
+      "scale": 1
+    },
+    {
+      "in": "out/headmesh-brand/B-head-node/B3-badge/svg/lockup-stacked-on-light.svg",
+      "out": "out/headmesh-brand/B-head-node/B3-badge/png/lockup-stacked-on-light-512.png",
+      "w": 512,
+      "h": 368,
+      "scale": 1
+    },
+    {
+      "in": "out/headmesh-brand/B-head-node/B3-badge/svg/og-1200x630.svg",
+      "out": "out/headmesh-brand/B-head-node/B3-badge/png/og-1200x630.png",
+      "w": 1200,
+      "h": 630,
+      "scale": 1
+    },
+    {
+      "in": "out/headmesh-brand/B-head-node/B3-badge/svg/banner-x-1500x500.svg",
+      "out": "out/headmesh-brand/B-head-node/B3-badge/png/banner-x-1500x500.png",
+      "w": 1500,
+      "h": 500,
+      "scale": 1
+    },
+    {
+      "in": "out/headmesh-brand/B-head-node/B3-badge/svg/banner-linkedin-1584x396.svg",
+      "out": "out/headmesh-brand/B-head-node/B3-badge/png/banner-linkedin-1584x396.png",
+      "w": 1584,
+      "h": 396,
+      "scale": 1
+    },
+    {
+      "in": "out/headmesh-brand/C-weave/C1-weave/svg/favicon.svg",
+      "out": "out/headmesh-brand/C-weave/C1-weave/png/favicon-16.png",
+      "w": 16,
+      "h": 16,
+      "scale": 1
+    },
+    {
+      "in": "out/headmesh-brand/C-weave/C1-weave/svg/favicon.svg",
+      "out": "out/headmesh-brand/C-weave/C1-weave/png/favicon-32.png",
+      "w": 32,
+      "h": 32,
+      "scale": 1
+    },
+    {
+      "in": "out/headmesh-brand/C-weave/C1-weave/svg/favicon.svg",
+      "out": "out/headmesh-brand/C-weave/C1-weave/png/favicon-48.png",
+      "w": 48,
+      "h": 48,
+      "scale": 1
+    },
+    {
+      "in": "out/headmesh-brand/C-weave/C1-weave/svg/favicon.svg",
+      "out": "out/headmesh-brand/C-weave/C1-weave/png/favicon-64.png",
+      "w": 64,
+      "h": 64,
+      "scale": 1
+    },
+    {
+      "in": "out/headmesh-brand/C-weave/C1-weave/svg/app-icon-ink.svg",
+      "out": "out/headmesh-brand/C-weave/C1-weave/png/apple-touch-icon-180.png",
+      "w": 180,
+      "h": 180,
+      "scale": 1
+    },
+    {
+      "in": "out/headmesh-brand/C-weave/C1-weave/svg/app-icon-ink.svg",
+      "out": "out/headmesh-brand/C-weave/C1-weave/png/icon-192.png",
+      "w": 192,
+      "h": 192,
+      "scale": 1
+    },
+    {
+      "in": "out/headmesh-brand/C-weave/C1-weave/svg/app-icon-ink.svg",
+      "out": "out/headmesh-brand/C-weave/C1-weave/png/icon-512.png",
+      "w": 512,
+      "h": 512,
+      "scale": 1
+    },
+    {
+      "in": "out/headmesh-brand/C-weave/C1-weave/svg/app-icon-ink.svg",
+      "out": "out/headmesh-brand/C-weave/C1-weave/png/app-icon-ink-1024.png",
+      "w": 1024,
+      "h": 1024,
+      "scale": 1
+    },
+    {
+      "in": "out/headmesh-brand/C-weave/C1-weave/svg/app-icon-gradient.svg",
+      "out": "out/headmesh-brand/C-weave/C1-weave/png/app-icon-gradient-1024.png",
+      "w": 1024,
+      "h": 1024,
+      "scale": 1
+    },
+    {
+      "in": "out/headmesh-brand/C-weave/C1-weave/svg/app-icon-paper.svg",
+      "out": "out/headmesh-brand/C-weave/C1-weave/png/app-icon-paper-1024.png",
+      "w": 1024,
+      "h": 1024,
+      "scale": 1
+    },
+    {
+      "in": "out/headmesh-brand/C-weave/C1-weave/svg/mark-on-dark.svg",
+      "out": "out/headmesh-brand/C-weave/C1-weave/png/mark-transparent-512.png",
+      "w": 512,
+      "h": 512,
+      "scale": 1
+    },
+    {
+      "in": "out/headmesh-brand/C-weave/C1-weave/svg/lockup-horizontal-on-dark.svg",
+      "out": "out/headmesh-brand/C-weave/C1-weave/png/lockup-horizontal-on-dark-1200.png",
+      "w": 1200,
+      "h": 269,
+      "scale": 1
+    },
+    {
+      "in": "out/headmesh-brand/C-weave/C1-weave/svg/lockup-stacked-on-dark.svg",
+      "out": "out/headmesh-brand/C-weave/C1-weave/png/lockup-stacked-on-dark-512.png",
+      "w": 512,
+      "h": 368,
+      "scale": 1
+    },
+    {
+      "in": "out/headmesh-brand/C-weave/C1-weave/svg/lockup-horizontal-on-light.svg",
+      "out": "out/headmesh-brand/C-weave/C1-weave/png/lockup-horizontal-on-light-1200.png",
+      "w": 1200,
+      "h": 269,
+      "scale": 1
+    },
+    {
+      "in": "out/headmesh-brand/C-weave/C1-weave/svg/lockup-stacked-on-light.svg",
+      "out": "out/headmesh-brand/C-weave/C1-weave/png/lockup-stacked-on-light-512.png",
+      "w": 512,
+      "h": 368,
+      "scale": 1
+    },
+    {
+      "in": "out/headmesh-brand/C-weave/C1-weave/svg/og-1200x630.svg",
+      "out": "out/headmesh-brand/C-weave/C1-weave/png/og-1200x630.png",
+      "w": 1200,
+      "h": 630,
+      "scale": 1
+    },
+    {
+      "in": "out/headmesh-brand/C-weave/C1-weave/svg/banner-x-1500x500.svg",
+      "out": "out/headmesh-brand/C-weave/C1-weave/png/banner-x-1500x500.png",
+      "w": 1500,
+      "h": 500,
+      "scale": 1
+    },
+    {
+      "in": "out/headmesh-brand/C-weave/C1-weave/svg/banner-linkedin-1584x396.svg",
+      "out": "out/headmesh-brand/C-weave/C1-weave/png/banner-linkedin-1584x396.png",
+      "w": 1584,
+      "h": 396,
+      "scale": 1
+    },
+    {
+      "in": "out/headmesh-brand/C-weave/C2-net/svg/favicon.svg",
+      "out": "out/headmesh-brand/C-weave/C2-net/png/favicon-16.png",
+      "w": 16,
+      "h": 16,
+      "scale": 1
+    },
+    {
+      "in": "out/headmesh-brand/C-weave/C2-net/svg/favicon.svg",
+      "out": "out/headmesh-brand/C-weave/C2-net/png/favicon-32.png",
+      "w": 32,
+      "h": 32,
+      "scale": 1
+    },
+    {
+      "in": "out/headmesh-brand/C-weave/C2-net/svg/favicon.svg",
+      "out": "out/headmesh-brand/C-weave/C2-net/png/favicon-48.png",
+      "w": 48,
+      "h": 48,
+      "scale": 1
+    },
+    {
+      "in": "out/headmesh-brand/C-weave/C2-net/svg/favicon.svg",
+      "out": "out/headmesh-brand/C-weave/C2-net/png/favicon-64.png",
+      "w": 64,
+      "h": 64,
+      "scale": 1
+    },
+    {
+      "in": "out/headmesh-brand/C-weave/C2-net/svg/app-icon-ink.svg",
+      "out": "out/headmesh-brand/C-weave/C2-net/png/apple-touch-icon-180.png",
+      "w": 180,
+      "h": 180,
+      "scale": 1
+    },
+    {
+      "in": "out/headmesh-brand/C-weave/C2-net/svg/app-icon-ink.svg",
+      "out": "out/headmesh-brand/C-weave/C2-net/png/icon-192.png",
+      "w": 192,
+      "h": 192,
+      "scale": 1
+    },
+    {
+      "in": "out/headmesh-brand/C-weave/C2-net/svg/app-icon-ink.svg",
+      "out": "out/headmesh-brand/C-weave/C2-net/png/icon-512.png",
+      "w": 512,
+      "h": 512,
+      "scale": 1
+    },
+    {
+      "in": "out/headmesh-brand/C-weave/C2-net/svg/app-icon-ink.svg",
+      "out": "out/headmesh-brand/C-weave/C2-net/png/app-icon-ink-1024.png",
+      "w": 1024,
+      "h": 1024,
+      "scale": 1
+    },
+    {
+      "in": "out/headmesh-brand/C-weave/C2-net/svg/app-icon-gradient.svg",
+      "out": "out/headmesh-brand/C-weave/C2-net/png/app-icon-gradient-1024.png",
+      "w": 1024,
+      "h": 1024,
+      "scale": 1
+    },
+    {
+      "in": "out/headmesh-brand/C-weave/C2-net/svg/app-icon-paper.svg",
+      "out": "out/headmesh-brand/C-weave/C2-net/png/app-icon-paper-1024.png",
+      "w": 1024,
+      "h": 1024,
+      "scale": 1
+    },
+    {
+      "in": "out/headmesh-brand/C-weave/C2-net/svg/mark-on-dark.svg",
+      "out": "out/headmesh-brand/C-weave/C2-net/png/mark-transparent-512.png",
+      "w": 512,
+      "h": 512,
+      "scale": 1
+    },
+    {
+      "in": "out/headmesh-brand/C-weave/C2-net/svg/lockup-horizontal-on-dark.svg",
+      "out": "out/headmesh-brand/C-weave/C2-net/png/lockup-horizontal-on-dark-1200.png",
+      "w": 1200,
+      "h": 269,
+      "scale": 1
+    },
+    {
+      "in": "out/headmesh-brand/C-weave/C2-net/svg/lockup-stacked-on-dark.svg",
+      "out": "out/headmesh-brand/C-weave/C2-net/png/lockup-stacked-on-dark-512.png",
+      "w": 512,
+      "h": 368,
+      "scale": 1
+    },
+    {
+      "in": "out/headmesh-brand/C-weave/C2-net/svg/lockup-horizontal-on-light.svg",
+      "out": "out/headmesh-brand/C-weave/C2-net/png/lockup-horizontal-on-light-1200.png",
+      "w": 1200,
+      "h": 269,
+      "scale": 1
+    },
+    {
+      "in": "out/headmesh-brand/C-weave/C2-net/svg/lockup-stacked-on-light.svg",
+      "out": "out/headmesh-brand/C-weave/C2-net/png/lockup-stacked-on-light-512.png",
+      "w": 512,
+      "h": 368,
+      "scale": 1
+    },
+    {
+      "in": "out/headmesh-brand/C-weave/C2-net/svg/og-1200x630.svg",
+      "out": "out/headmesh-brand/C-weave/C2-net/png/og-1200x630.png",
+      "w": 1200,
+      "h": 630,
+      "scale": 1
+    },
+    {
+      "in": "out/headmesh-brand/C-weave/C2-net/svg/banner-x-1500x500.svg",
+      "out": "out/headmesh-brand/C-weave/C2-net/png/banner-x-1500x500.png",
+      "w": 1500,
+      "h": 500,
+      "scale": 1
+    },
+    {
+      "in": "out/headmesh-brand/C-weave/C2-net/svg/banner-linkedin-1584x396.svg",
+      "out": "out/headmesh-brand/C-weave/C2-net/png/banner-linkedin-1584x396.png",
+      "w": 1584,
+      "h": 396,
+      "scale": 1
+    },
+    {
+      "in": "out/headmesh-brand/C-weave/C3-ribbon/svg/favicon.svg",
+      "out": "out/headmesh-brand/C-weave/C3-ribbon/png/favicon-16.png",
+      "w": 16,
+      "h": 16,
+      "scale": 1
+    },
+    {
+      "in": "out/headmesh-brand/C-weave/C3-ribbon/svg/favicon.svg",
+      "out": "out/headmesh-brand/C-weave/C3-ribbon/png/favicon-32.png",
+      "w": 32,
+      "h": 32,
+      "scale": 1
+    },
+    {
+      "in": "out/headmesh-brand/C-weave/C3-ribbon/svg/favicon.svg",
+      "out": "out/headmesh-brand/C-weave/C3-ribbon/png/favicon-48.png",
+      "w": 48,
+      "h": 48,
+      "scale": 1
+    },
+    {
+      "in": "out/headmesh-brand/C-weave/C3-ribbon/svg/favicon.svg",
+      "out": "out/headmesh-brand/C-weave/C3-ribbon/png/favicon-64.png",
+      "w": 64,
+      "h": 64,
+      "scale": 1
+    },
+    {
+      "in": "out/headmesh-brand/C-weave/C3-ribbon/svg/app-icon-ink.svg",
+      "out": "out/headmesh-brand/C-weave/C3-ribbon/png/apple-touch-icon-180.png",
+      "w": 180,
+      "h": 180,
+      "scale": 1
+    },
+    {
+      "in": "out/headmesh-brand/C-weave/C3-ribbon/svg/app-icon-ink.svg",
+      "out": "out/headmesh-brand/C-weave/C3-ribbon/png/icon-192.png",
+      "w": 192,
+      "h": 192,
+      "scale": 1
+    },
+    {
+      "in": "out/headmesh-brand/C-weave/C3-ribbon/svg/app-icon-ink.svg",
+      "out": "out/headmesh-brand/C-weave/C3-ribbon/png/icon-512.png",
+      "w": 512,
+      "h": 512,
+      "scale": 1
+    },
+    {
+      "in": "out/headmesh-brand/C-weave/C3-ribbon/svg/app-icon-ink.svg",
+      "out": "out/headmesh-brand/C-weave/C3-ribbon/png/app-icon-ink-1024.png",
+      "w": 1024,
+      "h": 1024,
+      "scale": 1
+    },
+    {
+      "in": "out/headmesh-brand/C-weave/C3-ribbon/svg/app-icon-gradient.svg",
+      "out": "out/headmesh-brand/C-weave/C3-ribbon/png/app-icon-gradient-1024.png",
+      "w": 1024,
+      "h": 1024,
+      "scale": 1
+    },
+    {
+      "in": "out/headmesh-brand/C-weave/C3-ribbon/svg/app-icon-paper.svg",
+      "out": "out/headmesh-brand/C-weave/C3-ribbon/png/app-icon-paper-1024.png",
+      "w": 1024,
+      "h": 1024,
+      "scale": 1
+    },
+    {
+      "in": "out/headmesh-brand/C-weave/C3-ribbon/svg/mark-on-dark.svg",
+      "out": "out/headmesh-brand/C-weave/C3-ribbon/png/mark-transparent-512.png",
+      "w": 512,
+      "h": 512,
+      "scale": 1
+    },
+    {
+      "in": "out/headmesh-brand/C-weave/C3-ribbon/svg/lockup-horizontal-on-dark.svg",
+      "out": "out/headmesh-brand/C-weave/C3-ribbon/png/lockup-horizontal-on-dark-1200.png",
+      "w": 1200,
+      "h": 269,
+      "scale": 1
+    },
+    {
+      "in": "out/headmesh-brand/C-weave/C3-ribbon/svg/lockup-stacked-on-dark.svg",
+      "out": "out/headmesh-brand/C-weave/C3-ribbon/png/lockup-stacked-on-dark-512.png",
+      "w": 512,
+      "h": 368,
+      "scale": 1
+    },
+    {
+      "in": "out/headmesh-brand/C-weave/C3-ribbon/svg/lockup-horizontal-on-light.svg",
+      "out": "out/headmesh-brand/C-weave/C3-ribbon/png/lockup-horizontal-on-light-1200.png",
+      "w": 1200,
+      "h": 269,
+      "scale": 1
+    },
+    {
+      "in": "out/headmesh-brand/C-weave/C3-ribbon/svg/lockup-stacked-on-light.svg",
+      "out": "out/headmesh-brand/C-weave/C3-ribbon/png/lockup-stacked-on-light-512.png",
+      "w": 512,
+      "h": 368,
+      "scale": 1
+    },
+    {
+      "in": "out/headmesh-brand/C-weave/C3-ribbon/svg/og-1200x630.svg",
+      "out": "out/headmesh-brand/C-weave/C3-ribbon/png/og-1200x630.png",
+      "w": 1200,
+      "h": 630,
+      "scale": 1
+    },
+    {
+      "in": "out/headmesh-brand/C-weave/C3-ribbon/svg/banner-x-1500x500.svg",
+      "out": "out/headmesh-brand/C-weave/C3-ribbon/png/banner-x-1500x500.png",
+      "w": 1500,
+      "h": 500,
+      "scale": 1
+    },
+    {
+      "in": "out/headmesh-brand/C-weave/C3-ribbon/svg/banner-linkedin-1584x396.svg",
+      "out": "out/headmesh-brand/C-weave/C3-ribbon/png/banner-linkedin-1584x396.png",
+      "w": 1584,
+      "h": 396,
+      "scale": 1
+    },
+    {
+      "in": "out/headmesh-brand/D-arch/D1-monogram/svg/favicon.svg",
+      "out": "out/headmesh-brand/D-arch/D1-monogram/png/favicon-16.png",
+      "w": 16,
+      "h": 16,
+      "scale": 1
+    },
+    {
+      "in": "out/headmesh-brand/D-arch/D1-monogram/svg/favicon.svg",
+      "out": "out/headmesh-brand/D-arch/D1-monogram/png/favicon-32.png",
+      "w": 32,
+      "h": 32,
+      "scale": 1
+    },
+    {
+      "in": "out/headmesh-brand/D-arch/D1-monogram/svg/favicon.svg",
+      "out": "out/headmesh-brand/D-arch/D1-monogram/png/favicon-48.png",
+      "w": 48,
+      "h": 48,
+      "scale": 1
+    },
+    {
+      "in": "out/headmesh-brand/D-arch/D1-monogram/svg/favicon.svg",
+      "out": "out/headmesh-brand/D-arch/D1-monogram/png/favicon-64.png",
+      "w": 64,
+      "h": 64,
+      "scale": 1
+    },
+    {
+      "in": "out/headmesh-brand/D-arch/D1-monogram/svg/app-icon-ink.svg",
+      "out": "out/headmesh-brand/D-arch/D1-monogram/png/apple-touch-icon-180.png",
+      "w": 180,
+      "h": 180,
+      "scale": 1
+    },
+    {
+      "in": "out/headmesh-brand/D-arch/D1-monogram/svg/app-icon-ink.svg",
+      "out": "out/headmesh-brand/D-arch/D1-monogram/png/icon-192.png",
+      "w": 192,
+      "h": 192,
+      "scale": 1
+    },
+    {
+      "in": "out/headmesh-brand/D-arch/D1-monogram/svg/app-icon-ink.svg",
+      "out": "out/headmesh-brand/D-arch/D1-monogram/png/icon-512.png",
+      "w": 512,
+      "h": 512,
+      "scale": 1
+    },
+    {
+      "in": "out/headmesh-brand/D-arch/D1-monogram/svg/app-icon-ink.svg",
+      "out": "out/headmesh-brand/D-arch/D1-monogram/png/app-icon-ink-1024.png",
+      "w": 1024,
+      "h": 1024,
+      "scale": 1
+    },
+    {
+      "in": "out/headmesh-brand/D-arch/D1-monogram/svg/app-icon-gradient.svg",
+      "out": "out/headmesh-brand/D-arch/D1-monogram/png/app-icon-gradient-1024.png",
+      "w": 1024,
+      "h": 1024,
+      "scale": 1
+    },
+    {
+      "in": "out/headmesh-brand/D-arch/D1-monogram/svg/app-icon-paper.svg",
+      "out": "out/headmesh-brand/D-arch/D1-monogram/png/app-icon-paper-1024.png",
+      "w": 1024,
+      "h": 1024,
+      "scale": 1
+    },
+    {
+      "in": "out/headmesh-brand/D-arch/D1-monogram/svg/mark-on-dark.svg",
+      "out": "out/headmesh-brand/D-arch/D1-monogram/png/mark-transparent-512.png",
+      "w": 512,
+      "h": 512,
+      "scale": 1
+    },
+    {
+      "in": "out/headmesh-brand/D-arch/D1-monogram/svg/lockup-horizontal-on-dark.svg",
+      "out": "out/headmesh-brand/D-arch/D1-monogram/png/lockup-horizontal-on-dark-1200.png",
+      "w": 1200,
+      "h": 309,
+      "scale": 1
+    },
+    {
+      "in": "out/headmesh-brand/D-arch/D1-monogram/svg/lockup-stacked-on-dark.svg",
+      "out": "out/headmesh-brand/D-arch/D1-monogram/png/lockup-stacked-on-dark-512.png",
+      "w": 512,
+      "h": 368,
+      "scale": 1
+    },
+    {
+      "in": "out/headmesh-brand/D-arch/D1-monogram/svg/lockup-horizontal-on-light.svg",
+      "out": "out/headmesh-brand/D-arch/D1-monogram/png/lockup-horizontal-on-light-1200.png",
+      "w": 1200,
+      "h": 309,
+      "scale": 1
+    },
+    {
+      "in": "out/headmesh-brand/D-arch/D1-monogram/svg/lockup-stacked-on-light.svg",
+      "out": "out/headmesh-brand/D-arch/D1-monogram/png/lockup-stacked-on-light-512.png",
+      "w": 512,
+      "h": 368,
+      "scale": 1
+    },
+    {
+      "in": "out/headmesh-brand/D-arch/D1-monogram/svg/og-1200x630.svg",
+      "out": "out/headmesh-brand/D-arch/D1-monogram/png/og-1200x630.png",
+      "w": 1200,
+      "h": 630,
+      "scale": 1
+    },
+    {
+      "in": "out/headmesh-brand/D-arch/D1-monogram/svg/banner-x-1500x500.svg",
+      "out": "out/headmesh-brand/D-arch/D1-monogram/png/banner-x-1500x500.png",
+      "w": 1500,
+      "h": 500,
+      "scale": 1
+    },
+    {
+      "in": "out/headmesh-brand/D-arch/D1-monogram/svg/banner-linkedin-1584x396.svg",
+      "out": "out/headmesh-brand/D-arch/D1-monogram/png/banner-linkedin-1584x396.png",
+      "w": 1584,
+      "h": 396,
+      "scale": 1
+    },
+    {
+      "in": "out/headmesh-brand/D-arch/D2-two-heads/svg/favicon.svg",
+      "out": "out/headmesh-brand/D-arch/D2-two-heads/png/favicon-16.png",
+      "w": 16,
+      "h": 16,
+      "scale": 1
+    },
+    {
+      "in": "out/headmesh-brand/D-arch/D2-two-heads/svg/favicon.svg",
+      "out": "out/headmesh-brand/D-arch/D2-two-heads/png/favicon-32.png",
+      "w": 32,
+      "h": 32,
+      "scale": 1
+    },
+    {
+      "in": "out/headmesh-brand/D-arch/D2-two-heads/svg/favicon.svg",
+      "out": "out/headmesh-brand/D-arch/D2-two-heads/png/favicon-48.png",
+      "w": 48,
+      "h": 48,
+      "scale": 1
+    },
+    {
+      "in": "out/headmesh-brand/D-arch/D2-two-heads/svg/favicon.svg",
+      "out": "out/headmesh-brand/D-arch/D2-two-heads/png/favicon-64.png",
+      "w": 64,
+      "h": 64,
+      "scale": 1
+    },
+    {
+      "in": "out/headmesh-brand/D-arch/D2-two-heads/svg/app-icon-ink.svg",
+      "out": "out/headmesh-brand/D-arch/D2-two-heads/png/apple-touch-icon-180.png",
+      "w": 180,
+      "h": 180,
+      "scale": 1
+    },
+    {
+      "in": "out/headmesh-brand/D-arch/D2-two-heads/svg/app-icon-ink.svg",
+      "out": "out/headmesh-brand/D-arch/D2-two-heads/png/icon-192.png",
+      "w": 192,
+      "h": 192,
+      "scale": 1
+    },
+    {
+      "in": "out/headmesh-brand/D-arch/D2-two-heads/svg/app-icon-ink.svg",
+      "out": "out/headmesh-brand/D-arch/D2-two-heads/png/icon-512.png",
+      "w": 512,
+      "h": 512,
+      "scale": 1
+    },
+    {
+      "in": "out/headmesh-brand/D-arch/D2-two-heads/svg/app-icon-ink.svg",
+      "out": "out/headmesh-brand/D-arch/D2-two-heads/png/app-icon-ink-1024.png",
+      "w": 1024,
+      "h": 1024,
+      "scale": 1
+    },
+    {
+      "in": "out/headmesh-brand/D-arch/D2-two-heads/svg/app-icon-gradient.svg",
+      "out": "out/headmesh-brand/D-arch/D2-two-heads/png/app-icon-gradient-1024.png",
+      "w": 1024,
+      "h": 1024,
+      "scale": 1
+    },
+    {
+      "in": "out/headmesh-brand/D-arch/D2-two-heads/svg/app-icon-paper.svg",
+      "out": "out/headmesh-brand/D-arch/D2-two-heads/png/app-icon-paper-1024.png",
+      "w": 1024,
+      "h": 1024,
+      "scale": 1
+    },
+    {
+      "in": "out/headmesh-brand/D-arch/D2-two-heads/svg/mark-on-dark.svg",
+      "out": "out/headmesh-brand/D-arch/D2-two-heads/png/mark-transparent-512.png",
+      "w": 512,
+      "h": 512,
+      "scale": 1
+    },
+    {
+      "in": "out/headmesh-brand/D-arch/D2-two-heads/svg/lockup-horizontal-on-dark.svg",
+      "out": "out/headmesh-brand/D-arch/D2-two-heads/png/lockup-horizontal-on-dark-1200.png",
+      "w": 1200,
+      "h": 309,
+      "scale": 1
+    },
+    {
+      "in": "out/headmesh-brand/D-arch/D2-two-heads/svg/lockup-stacked-on-dark.svg",
+      "out": "out/headmesh-brand/D-arch/D2-two-heads/png/lockup-stacked-on-dark-512.png",
+      "w": 512,
+      "h": 368,
+      "scale": 1
+    },
+    {
+      "in": "out/headmesh-brand/D-arch/D2-two-heads/svg/lockup-horizontal-on-light.svg",
+      "out": "out/headmesh-brand/D-arch/D2-two-heads/png/lockup-horizontal-on-light-1200.png",
+      "w": 1200,
+      "h": 309,
+      "scale": 1
+    },
+    {
+      "in": "out/headmesh-brand/D-arch/D2-two-heads/svg/lockup-stacked-on-light.svg",
+      "out": "out/headmesh-brand/D-arch/D2-two-heads/png/lockup-stacked-on-light-512.png",
+      "w": 512,
+      "h": 368,
+      "scale": 1
+    },
+    {
+      "in": "out/headmesh-brand/D-arch/D2-two-heads/svg/og-1200x630.svg",
+      "out": "out/headmesh-brand/D-arch/D2-two-heads/png/og-1200x630.png",
+      "w": 1200,
+      "h": 630,
+      "scale": 1
+    },
+    {
+      "in": "out/headmesh-brand/D-arch/D2-two-heads/svg/banner-x-1500x500.svg",
+      "out": "out/headmesh-brand/D-arch/D2-two-heads/png/banner-x-1500x500.png",
+      "w": 1500,
+      "h": 500,
+      "scale": 1
+    },
+    {
+      "in": "out/headmesh-brand/D-arch/D2-two-heads/svg/banner-linkedin-1584x396.svg",
+      "out": "out/headmesh-brand/D-arch/D2-two-heads/png/banner-linkedin-1584x396.png",
+      "w": 1584,
+      "h": 396,
+      "scale": 1
+    },
+    {
+      "in": "out/headmesh-brand/D-arch/D3-tunnel/svg/favicon.svg",
+      "out": "out/headmesh-brand/D-arch/D3-tunnel/png/favicon-16.png",
+      "w": 16,
+      "h": 16,
+      "scale": 1
+    },
+    {
+      "in": "out/headmesh-brand/D-arch/D3-tunnel/svg/favicon.svg",
+      "out": "out/headmesh-brand/D-arch/D3-tunnel/png/favicon-32.png",
+      "w": 32,
+      "h": 32,
+      "scale": 1
+    },
+    {
+      "in": "out/headmesh-brand/D-arch/D3-tunnel/svg/favicon.svg",
+      "out": "out/headmesh-brand/D-arch/D3-tunnel/png/favicon-48.png",
+      "w": 48,
+      "h": 48,
+      "scale": 1
+    },
+    {
+      "in": "out/headmesh-brand/D-arch/D3-tunnel/svg/favicon.svg",
+      "out": "out/headmesh-brand/D-arch/D3-tunnel/png/favicon-64.png",
+      "w": 64,
+      "h": 64,
+      "scale": 1
+    },
+    {
+      "in": "out/headmesh-brand/D-arch/D3-tunnel/svg/app-icon-ink.svg",
+      "out": "out/headmesh-brand/D-arch/D3-tunnel/png/apple-touch-icon-180.png",
+      "w": 180,
+      "h": 180,
+      "scale": 1
+    },
+    {
+      "in": "out/headmesh-brand/D-arch/D3-tunnel/svg/app-icon-ink.svg",
+      "out": "out/headmesh-brand/D-arch/D3-tunnel/png/icon-192.png",
+      "w": 192,
+      "h": 192,
+      "scale": 1
+    },
+    {
+      "in": "out/headmesh-brand/D-arch/D3-tunnel/svg/app-icon-ink.svg",
+      "out": "out/headmesh-brand/D-arch/D3-tunnel/png/icon-512.png",
+      "w": 512,
+      "h": 512,
+      "scale": 1
+    },
+    {
+      "in": "out/headmesh-brand/D-arch/D3-tunnel/svg/app-icon-ink.svg",
+      "out": "out/headmesh-brand/D-arch/D3-tunnel/png/app-icon-ink-1024.png",
+      "w": 1024,
+      "h": 1024,
+      "scale": 1
+    },
+    {
+      "in": "out/headmesh-brand/D-arch/D3-tunnel/svg/app-icon-gradient.svg",
+      "out": "out/headmesh-brand/D-arch/D3-tunnel/png/app-icon-gradient-1024.png",
+      "w": 1024,
+      "h": 1024,
+      "scale": 1
+    },
+    {
+      "in": "out/headmesh-brand/D-arch/D3-tunnel/svg/app-icon-paper.svg",
+      "out": "out/headmesh-brand/D-arch/D3-tunnel/png/app-icon-paper-1024.png",
+      "w": 1024,
+      "h": 1024,
+      "scale": 1
+    },
+    {
+      "in": "out/headmesh-brand/D-arch/D3-tunnel/svg/mark-on-dark.svg",
+      "out": "out/headmesh-brand/D-arch/D3-tunnel/png/mark-transparent-512.png",
+      "w": 512,
+      "h": 512,
+      "scale": 1
+    },
+    {
+      "in": "out/headmesh-brand/D-arch/D3-tunnel/svg/lockup-horizontal-on-dark.svg",
+      "out": "out/headmesh-brand/D-arch/D3-tunnel/png/lockup-horizontal-on-dark-1200.png",
+      "w": 1200,
+      "h": 309,
+      "scale": 1
+    },
+    {
+      "in": "out/headmesh-brand/D-arch/D3-tunnel/svg/lockup-stacked-on-dark.svg",
+      "out": "out/headmesh-brand/D-arch/D3-tunnel/png/lockup-stacked-on-dark-512.png",
+      "w": 512,
+      "h": 368,
+      "scale": 1
+    },
+    {
+      "in": "out/headmesh-brand/D-arch/D3-tunnel/svg/lockup-horizontal-on-light.svg",
+      "out": "out/headmesh-brand/D-arch/D3-tunnel/png/lockup-horizontal-on-light-1200.png",
+      "w": 1200,
+      "h": 309,
+      "scale": 1
+    },
+    {
+      "in": "out/headmesh-brand/D-arch/D3-tunnel/svg/lockup-stacked-on-light.svg",
+      "out": "out/headmesh-brand/D-arch/D3-tunnel/png/lockup-stacked-on-light-512.png",
+      "w": 512,
+      "h": 368,
+      "scale": 1
+    },
+    {
+      "in": "out/headmesh-brand/D-arch/D3-tunnel/svg/og-1200x630.svg",
+      "out": "out/headmesh-brand/D-arch/D3-tunnel/png/og-1200x630.png",
+      "w": 1200,
+      "h": 630,
+      "scale": 1
+    },
+    {
+      "in": "out/headmesh-brand/D-arch/D3-tunnel/svg/banner-x-1500x500.svg",
+      "out": "out/headmesh-brand/D-arch/D3-tunnel/png/banner-x-1500x500.png",
+      "w": 1500,
+      "h": 500,
+      "scale": 1
+    },
+    {
+      "in": "out/headmesh-brand/D-arch/D3-tunnel/svg/banner-linkedin-1584x396.svg",
+      "out": "out/headmesh-brand/D-arch/D3-tunnel/png/banner-linkedin-1584x396.png",
+      "w": 1584,
+      "h": 396,
+      "scale": 1
+    },
+    {
+      "in": "out/headmesh-brand/D-arch/D4-shared-leg/svg/favicon.svg",
+      "out": "out/headmesh-brand/D-arch/D4-shared-leg/png/favicon-16.png",
+      "w": 16,
+      "h": 16,
+      "scale": 1
+    },
+    {
+      "in": "out/headmesh-brand/D-arch/D4-shared-leg/svg/favicon.svg",
+      "out": "out/headmesh-brand/D-arch/D4-shared-leg/png/favicon-32.png",
+      "w": 32,
+      "h": 32,
+      "scale": 1
+    },
+    {
+      "in": "out/headmesh-brand/D-arch/D4-shared-leg/svg/favicon.svg",
+      "out": "out/headmesh-brand/D-arch/D4-shared-leg/png/favicon-48.png",
+      "w": 48,
+      "h": 48,
+      "scale": 1
+    },
+    {
+      "in": "out/headmesh-brand/D-arch/D4-shared-leg/svg/favicon.svg",
+      "out": "out/headmesh-brand/D-arch/D4-shared-leg/png/favicon-64.png",
+      "w": 64,
+      "h": 64,
+      "scale": 1
+    },
+    {
+      "in": "out/headmesh-brand/D-arch/D4-shared-leg/svg/app-icon-ink.svg",
+      "out": "out/headmesh-brand/D-arch/D4-shared-leg/png/apple-touch-icon-180.png",
+      "w": 180,
+      "h": 180,
+      "scale": 1
+    },
+    {
+      "in": "out/headmesh-brand/D-arch/D4-shared-leg/svg/app-icon-ink.svg",
+      "out": "out/headmesh-brand/D-arch/D4-shared-leg/png/icon-192.png",
+      "w": 192,
+      "h": 192,
+      "scale": 1
+    },
+    {
+      "in": "out/headmesh-brand/D-arch/D4-shared-leg/svg/app-icon-ink.svg",
+      "out": "out/headmesh-brand/D-arch/D4-shared-leg/png/icon-512.png",
+      "w": 512,
+      "h": 512,
+      "scale": 1
+    },
+    {
+      "in": "out/headmesh-brand/D-arch/D4-shared-leg/svg/app-icon-ink.svg",
+      "out": "out/headmesh-brand/D-arch/D4-shared-leg/png/app-icon-ink-1024.png",
+      "w": 1024,
+      "h": 1024,
+      "scale": 1
+    },
+    {
+      "in": "out/headmesh-brand/D-arch/D4-shared-leg/svg/app-icon-gradient.svg",
+      "out": "out/headmesh-brand/D-arch/D4-shared-leg/png/app-icon-gradient-1024.png",
+      "w": 1024,
+      "h": 1024,
+      "scale": 1
+    },
+    {
+      "in": "out/headmesh-brand/D-arch/D4-shared-leg/svg/app-icon-paper.svg",
+      "out": "out/headmesh-brand/D-arch/D4-shared-leg/png/app-icon-paper-1024.png",
+      "w": 1024,
+      "h": 1024,
+      "scale": 1
+    },
+    {
+      "in": "out/headmesh-brand/D-arch/D4-shared-leg/svg/mark-on-dark.svg",
+      "out": "out/headmesh-brand/D-arch/D4-shared-leg/png/mark-transparent-512.png",
+      "w": 512,
+      "h": 512,
+      "scale": 1
+    },
+    {
+      "in": "out/headmesh-brand/D-arch/D4-shared-leg/svg/lockup-horizontal-on-dark.svg",
+      "out": "out/headmesh-brand/D-arch/D4-shared-leg/png/lockup-horizontal-on-dark-1200.png",
+      "w": 1200,
+      "h": 309,
+      "scale": 1
+    },
+    {
+      "in": "out/headmesh-brand/D-arch/D4-shared-leg/svg/lockup-stacked-on-dark.svg",
+      "out": "out/headmesh-brand/D-arch/D4-shared-leg/png/lockup-stacked-on-dark-512.png",
+      "w": 512,
+      "h": 368,
+      "scale": 1
+    },
+    {
+      "in": "out/headmesh-brand/D-arch/D4-shared-leg/svg/lockup-horizontal-on-light.svg",
+      "out": "out/headmesh-brand/D-arch/D4-shared-leg/png/lockup-horizontal-on-light-1200.png",
+      "w": 1200,
+      "h": 309,
+      "scale": 1
+    },
+    {
+      "in": "out/headmesh-brand/D-arch/D4-shared-leg/svg/lockup-stacked-on-light.svg",
+      "out": "out/headmesh-brand/D-arch/D4-shared-leg/png/lockup-stacked-on-light-512.png",
+      "w": 512,
+      "h": 368,
+      "scale": 1
+    },
+    {
+      "in": "out/headmesh-brand/D-arch/D4-shared-leg/svg/og-1200x630.svg",
+      "out": "out/headmesh-brand/D-arch/D4-shared-leg/png/og-1200x630.png",
+      "w": 1200,
+      "h": 630,
+      "scale": 1
+    },
+    {
+      "in": "out/headmesh-brand/D-arch/D4-shared-leg/svg/banner-x-1500x500.svg",
+      "out": "out/headmesh-brand/D-arch/D4-shared-leg/png/banner-x-1500x500.png",
+      "w": 1500,
+      "h": 500,
+      "scale": 1
+    },
+    {
+      "in": "out/headmesh-brand/D-arch/D4-shared-leg/svg/banner-linkedin-1584x396.svg",
+      "out": "out/headmesh-brand/D-arch/D4-shared-leg/png/banner-linkedin-1584x396.png",
+      "w": 1584,
+      "h": 396,
+      "scale": 1
+    }
+  ]
+}

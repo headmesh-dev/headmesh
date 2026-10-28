@@ -1,6 +1,4 @@
 ---
-import "@fontsource-variable/inter";
-import "@fontsource-variable/jetbrains-mono";
 import "../styles/global.css";
 import { PUBLIC_CF_ANALYTICS_TOKEN } from "astro:env/client";
 import Footer from "../components/Footer.astro";
@@ -31,8 +29,8 @@ const fullTitle = title === "Headmesh" ? title : `${title} · Headmesh`;
     <meta name="description" content={description} />
     <link rel="canonical" href={canonical} />
     {noindex && <meta name="robots" content="noindex" />}
-    <meta name="theme-color" content="#ffffff" media="(prefers-color-scheme: light)" />
-    <meta name="theme-color" content="#0a0e13" media="(prefers-color-scheme: dark)" />
+    <meta name="theme-color" content="#F4F7F6" media="(prefers-color-scheme: light)" />
+    <meta name="theme-color" content="#070B12" media="(prefers-color-scheme: dark)" />
     <link rel="icon" href="/favicon.svg" type="image/svg+xml" />
     <link rel="apple-touch-icon" href="/apple-touch-icon.png" />
     <link rel="sitemap" href="/sitemap-index.xml" />

@@ -1,0 +1,38 @@
+---
+import { CONTACT_EMAIL, REPO_URL, SENDER, XCELSIOR_URL } from "../../shared/site";
+import Logo from "./Logo.astro";
+import Wordmark from "./Wordmark.astro";
+
+const year = new Date().getUTCFullYear();
+---
+
+<footer class="mt-28 border-t border-line">
+  <div class="container-page grid gap-10 py-12 sm:grid-cols-[1.2fr_1fr] sm:items-start">
+    <div class="max-w-sm">
+      <a href="/" class="inline-flex items-center gap-2.5 text-fg" aria-label="Headmesh home">
+        <Logo class="size-7" />
+        <Wordmark class="h-[17px] w-auto" />
+      </a>
+      <p class="mt-4 font-display text-xl font-bold tracking-tight">Share machines, not your network.</p>
+      <p class="mt-2 text-sm leading-relaxed text-muted">
+        Open, self-hostable, multi-tenant networking built on Headscale and WireGuard. An
+        <a class="text-fg underline-offset-4 hover:underline" href={XCELSIOR_URL}>Xcelsior Compute</a> project.
+      </p>
+    </div>
+    <nav aria-label="Footer" class="grid grid-cols-2 gap-x-12 gap-y-2.5 text-sm sm:grid-cols-3 sm:justify-self-end">
+      <a class="text-muted hover:text-fg" href="/docs/">Docs</a>
+      <a class="text-muted hover:text-fg" href={REPO_URL}>GitHub</a>
+      <a class="text-muted hover:text-fg" href="/waitlist/">Waitlist</a>
+      <a class="text-muted hover:text-fg" href="/privacy/">Privacy</a>
+      <a class="text-muted hover:text-fg" href="/terms/">Terms</a>
+      <a class="text-muted hover:text-fg" href="/.well-known/security.txt">Security</a>
+      <a class="col-span-2 text-muted hover:text-fg sm:col-span-3" href={`mailto:${CONTACT_EMAIL}`}>{CONTACT_EMAIL}</a>
+    </nav>
+  </div>
+  <div class="container-page border-t border-line/60 py-6 text-xs leading-relaxed text-muted">
+    <p>
+      © {year} {SENDER.legalName} Headmesh is not affiliated with Tailscale Inc. or the Headscale project.
+      WireGuard is a registered trademark of Jason A. Donenfeld.
+    </p>
+  </div>
+</footer>

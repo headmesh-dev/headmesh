@@ -1,0 +1,517 @@
+Read a file
+banner-linkedin-1584x396.png
+bash
+
+cd /home/claude/brand/gen && python3 - <<'EOF'
+s=open('build.py').read()
+s=s.replace("mx_, my_ = (left[0] + right[0]) / 2, (left[1] + right[1]) / 2 - fs * 1.5",
+            "mx_ = x + wa + gap / 2\n        my_ = left[1] + (right[1] - left[1]) * ((mx_ - left[0]) / (right[0] - left[0])) - fs * 1.4")
+open('build.py','w').write(s)
+EOF
+cd /home/claude/brand && python3 gen/build.py && node gen/render.js --batch tmp/kit-jobs.json && python3 - <<'EOF'
+import glob, os
+from PIL import Image
+for vdir in sorted(glob.glob('out/headmesh-brand/*/*/')):
+    ims=[Image.open(os.path.join(vdir,'png',f'favicon-{s}.png')).convert('RGBA') for s in (16,32,48)]
+    ims[2].save(os.path.join(vdir,'favicon.ico'), sizes=[(16,16),(32,32),(48,48)], append_images=ims[:2])
+print('ok')
+EOF
+Output
+
+svg written; png jobs: 234
+rendered 234
+ok
+Request
+
+{
+  "status": "completed",
+  "taskId": "3"
+}
+Response
+
+Updated task #3 status
+Request
+
+{
+  "description": "13 variations (A1–A3, B1–B3, C1–C3, D1–D4) scripted in gen/marks.py; wordmarks outlined from Google Fonts via HarfBuzz+fontTools.",
+  "status": "completed",
+  "taskId": "4"
+}
+Response
+
+Updated task #4 description, status
+Request
+
+{
+  "status": "in_progress",
+  "taskId": "8"
+}
+Response
+
+Updated task #8 status
+bash
+
+cd /tmp && for p in @fontsource-variable/bricolage-grotesque @fontsource/bricolage-grotesque @fontsource-variable/geist @fontsource/geist @fontsource-variable/geist-mono @fontsource/geist-mono @fontsource/geist-sans; do echo "$p $(npm view $p version 2>/dev/null || echo MISSING)"; done
+Output
+
+@fontsource-variable/bricolage-grotesque 5.3.0
+@fontsource/bricolage-grotesque 5.3.0
+@fontsource-variable/geist 5.3.0
+@fontsource/geist 5.3.0
+@fontsource-variable/geist-mono 5.3.0
+@fontsource/geist-mono 5.3.0
+@fontsource/geist-sans 5.3.0
+Shell cwd was reset to /home/claude
+bash
+
+cd /home/claude/headmesh/web/marketing && sed -n 1,80p tests/e2e/fixtures.ts; echo ----; cat src/components/ThemeToggle.astro; echo ----; sed -n 1,60p src/pages/waitlist.astro; echo; cat src/pages/404.astro | head -40; cat public/_headers; ls node_modules/@fontsource-variable/
+Output
+
+import { readFileSync } from "node:fs";
+import AxeBuilder from "@axe-core/playwright";
+import { test as base, expect, type Page } from "@playwright/test";
+
+/**
+ * The response headers Cloudflare Pages would send for every page, read from the built dist/_headers. `astro
+ * preview` doesn't apply _headers, so the fixture adds them to every same-origin response; that way the tests run
+ * under the real CSP and catch anything it would block. upgrade-insecure-requests is dropped because the preview
+ * server is plain HTTP.
+ */
+function productionHeaders(): Record<string, string> {
+  const file = readFileSync(new URL("../../dist/_headers", import.meta.url), "utf8");
+  const block = file.split(/\n(?=\S)/).find((section) => section.startsWith("/*\n"));
+  if (!block) throw new Error("dist/_headers has no /* rule; run `pnpm build` first");
+  const headers: Record<string, string> = {};
+  for (const line of block.split("\n").slice(1)) {
+    const match = /^\s+([\w-]+):\s*(.+)$/.exec(line);
+    if (match?.[1] && match[2]) headers[match[1].toLowerCase()] = match[2];
+  }
+  headers["content-security-policy"] = (headers["content-security-policy"] ?? "").replace(
+    /;\s*upgrade-insecure-requests/,
+    "",
+  );
+  return headers;
+}
+
+const HEADERS = productionHeaders();
+
+/** Minimal stand-in for Turnstile's implicit rendering, so tests never depend on Cloudflare's network. */
+const FAKE_TURNSTILE = `
+  window.turnstile = { reset() { window.__turnstileResets = (window.__turnstileResets || 0) + 1; } };
+  for (const el of document.querySelectorAll(".cf-turnstile")) {
+    const input = document.createElement("input");
+    input.type = "hidden";
+    input.name = "cf-turnstile-response";
+    input.value = "test-turnstile-token";
+    el.append(input);
+  }
+`;
+
+export interface PageProblems {
+  /** Console errors and uncaught exceptions. */
+  console: string[];
+}
+
+export const test = base.extend<{ problems: PageProblems }>({
+  // Automatic: every test gets the production headers, the Turnstile stub and no third-party traffic, whether or
+  // not it inspects the problems it collects.
+  problems: [
+    async ({ page, baseURL }, use) => {
+      const origin = new URL(baseURL ?? "http://localhost").origin;
+      const problems: PageProblems = { console: [] };
+
+      await page.route("**/*", async (route) => {
+        const url = new URL(route.request().url());
+        if (url.href === "https://challenges.cloudflare.com/turnstile/v0/api.js") {
+          return route.fulfill({ contentType: "text/javascript", body: FAKE_TURNSTILE });
+        }
+        if (url.origin !== origin) return route.abort();
+        const response = await route.fetch();
+        return route.fulfill({ response, headers: { ...response.headers(), ...HEADERS } });
+      });
+      await page.addInitScript(() => {
+        document.addEventListener("securitypolicyviolation", (event) => {
+          (window as unknown as { __csp: string[] }).__csp ??= [];
+          (window as unknown as { __csp: string[] }).__csp.push(`${event.violatedDirective} ${event.blockedURI}`);
+        });
+      });
+      page.on("console", (message) => {
+        if (message.type() === "error") problems.console.push(message.text());
+      });
+      page.on("pageerror", (error) => problems.console.push(error.message));
+
+      await use(problems);
+    },
+    { auto: true },
+  ],
+});
+
+/** Wait until the (fake) Turnstile widget has issued its token, as a person would before submitting. */
+----
+---
+---
+
+<button
+  type="button"
+  data-theme-toggle
+  class="inline-flex size-9 items-center justify-center rounded-md border border-line text-muted transition-colors hover:border-muted hover:text-fg"
+  aria-label="Switch colour theme"
+>
+  <svg
+    class="hidden size-[18px] dark:block"
+    viewBox="0 0 24 24"
+    fill="none"
+    stroke="currentColor"
+    stroke-width="2"
+    stroke-linecap="round"
+    stroke-linejoin="round"
+    aria-hidden="true"
+  >
+    <circle cx="12" cy="12" r="4"></circle>
+    <path d="M12 2v2M12 20v2M4.93 4.93l1.41 1.41M17.66 17.66l1.41 1.41M2 12h2M20 12h2M6.34 17.66l-1.41 1.41M19.07 4.93l-1.41 1.41"></path>
+  </svg>
+  <svg
+    class="block size-[18px] dark:hidden"
+    viewBox="0 0 24 24"
+    fill="none"
+    stroke="currentColor"
+    stroke-width="2"
+    stroke-linecap="round"
+    stroke-linejoin="round"
+    aria-hidden="true"
+  >
+    <path d="M21 12.79A9 9 0 1 1 11.21 3 7 7 0 0 0 21 12.79z"></path>
+  </svg>
+</button>
+
+<script>
+  import { initThemeToggle } from "../scripts/theme";
+
+  initThemeToggle();
+</script>
+----
+---
+import { PUBLIC_TURNSTILE_SITE_KEY } from "astro:env/client";
+import { CONSENT_TEXT, CONSENT_VERSION, CONTACT_EMAIL, LIMITS, SENDER, TURNSTILE_ACTION } from "../../shared/site";
+import Base from "../layouts/Base.astro";
+
+const senderLine = [SENDER.legalName, SENDER.postalAddress].filter(Boolean).join(", ");
+---
+
+<Base
+  title="Join the waitlist"
+  description="Get early access to Headmesh, the open, self-hostable, multi-tenant mesh for machines you share."
+  ogImage="waitlist"
+>
+  <section class="container-page grid gap-12 pt-16 sm:pt-24 lg:grid-cols-[1fr_1.1fr] lg:gap-20">
+    <div>
+      <p class="eyebrow">Early access</p>
+      <h1 class="mt-4 text-4xl font-bold tracking-tight text-balance sm:text-5xl">Join the waitlist</h1>
+      <p class="mt-5 max-w-lg text-lg leading-relaxed text-muted">
+        Headmesh is in early development. Leave your email and we'll invite you as soon as there's something to try.
+        Tell us what you'd use it for and we'll prioritise it.
+      </p>
+      <ul class="mt-8 space-y-3 text-muted">
+        <li class="flex gap-3"><span class="text-accent" aria-hidden="true">→</span>No spam: early-access invites and the occasional update.</li>
+        <li class="flex gap-3"><span class="text-accent" aria-hidden="true">→</span>You confirm by email first, and every message has a one-click unsubscribe.</li>
+        <li class="flex gap-3"><span class="text-accent" aria-hidden="true">→</span>We never sell or share your email.</li>
+      </ul>
+    </div>
+
+    <div class="rounded-2xl border border-line bg-surface p-6 sm:p-8">
+      <form id="waitlist-form" method="post" action="/api/waitlist" class="space-y-6" data-waitlist-form>
+        <div>
+          <label for="email" class="block text-sm font-semibold">Email</label>
+          <input
+            id="email"
+            name="email"
+            type="email"
+            required
+            autocomplete="email"
+            inputmode="email"
+            maxlength={LIMITS.email}
+            class="mt-2 block w-full rounded-lg border border-line bg-raised px-3.5 py-2.5 text-fg placeholder:text-muted/70 focus:border-accent focus:outline-none"
+            placeholder="you@example.com"
+            aria-describedby="email-error"
+          />
+          <p id="email-error" class="mt-1.5 hidden text-sm text-danger" data-error-for="email"></p>
+        </div>
+
+        <div>
+          <label for="use_case" class="block text-sm font-semibold">
+            What would you use Headmesh for? <span class="font-normal text-muted">(optional)</span>
+          </label>
+          <textarea
+            id="use_case"
+            name="use_case"
+            rows="4"
+            maxlength={LIMITS.useCase}
+            class="mt-2 block w-full resize-y rounded-lg border border-line bg-raised px-3.5 py-2.5 text-fg placeholder:text-muted/70 focus:border-accent focus:outline-none"
+            placeholder="Sharing GPUs with renters, giving AI agents access to a home lab, connecting client sites…"
+            aria-describedby="use_case-error"></textarea>
+          <p id="use_case-error" class="mt-1.5 hidden text-sm text-danger" data-error-for="use_case"></p>
+
+---
+import Base from "../layouts/Base.astro";
+---
+
+<Base title="Page not found" description="This page doesn't exist." noindex>
+  <section class="container-page pt-24 pb-8 sm:pt-32">
+    <p class="eyebrow">404</p>
+    <h1 class="mt-4 text-4xl font-bold tracking-tight sm:text-5xl">This page isn't on the mesh.</h1>
+    <p class="mt-5 max-w-lg text-lg leading-relaxed text-muted">
+      The link may be old or mistyped. Try the home page or the docs.
+    </p>
+    <div class="mt-8 flex flex-wrap gap-3">
+      <a href="/" class="btn btn-primary">Go home</a>
+      <a href="/docs/" class="btn btn-secondary">Read the docs</a>
+    </div>
+  </section>
+</Base>
+# Cloudflare Pages response headers (https://developers.cloudflare.com/pages/configuration/headers/).
+# These apply to static assets only; the Functions under /api set their own headers.
+#
+# {{SCRIPT_HASHES}} and {{STYLE_HASHES}} are replaced after `astro build` by scripts/csp.mjs with the SHA-256
+# hashes of every inline <script> and <style> in dist/; the build fails if a placeholder survives or an inline
+# event handler appears. Scripts and <style> elements are hash-only. Inline style *attributes* are allowed
+# (style-src-attr) because Starlight and Expressive Code set CSS custom properties that way; attributes can't load
+# anything (img-src/font-src are 'self') and can't run script.
+/*
+  Content-Security-Policy: default-src 'none'; script-src 'self' {{SCRIPT_HASHES}} https://challenges.cloudflare.com https://static.cloudflareinsights.com; style-src 'self' {{STYLE_HASHES}}; style-src-attr 'unsafe-inline'; img-src 'self' data:; font-src 'self'; connect-src 'self' https://cloudflareinsights.com; frame-src https://challenges.cloudflare.com; manifest-src 'self'; form-action 'self'; frame-ancestors 'none'; base-uri 'none'; object-src 'none'; upgrade-insecure-requests
+  Strict-Transport-Security: max-age=63072000; includeSubDomains; preload
+  X-Content-Type-Options: nosniff
+  X-Frame-Options: DENY
+  Referrer-Policy: strict-origin-when-cross-origin
+  Permissions-Policy: accelerometer=(), autoplay=(), camera=(), display-capture=(), geolocation=(), gyroscope=(), hid=(), magnetometer=(), microphone=(), midi=(), payment=(), screen-wake-lock=(), serial=(), usb=(), xr-spatial-tracking=(), browsing-topics=()
+  Cross-Origin-Opener-Policy: same-origin
+
+/_astro/*
+  Cache-Control: public, max-age=31536000, immutable
+
+# The production site is also reachable on its pages.dev hostname; keep that copy out of search results.
+https://:project.pages.dev/*
+  X-Robots-Tag: noindex
+inter
+jetbrains-mono
+bash
+
+timeout 200 pnpm add @fontsource-variable/bricolage-grotesque@^5.3.0 @fontsource-variable/geist@^5.3.0 @fontsource-variable/geist-mono@^5.3.0 @fontsource/bricolage-grotesque@^5.3.0 @fontsource/geist@^5.3.0 @fontsource/geist-mono@^5.3.0 --config.engine-strict=false 2>&1 | tail -4 && timeout 120 pnpm remove @fontsource-variable/inter @fontsource-variable/jetbrains-mono @fontsource/inter 2>&1 | tail -3; ls node_modules/@fontsource-variable/bricolage-grotesque/ | head; ls node_modules/@fontsource/bricolage-grotesque/files | grep -E "latin-(800|700)-normal" ; ls node_modules/@fontsource/geist/files | grep -E "^geist-latin-(400|500|600)-normal"; ls node_modules/@fontsource/geist-mono/files | grep -E "latin-500-normal"
+Output
+
+│   to run scripts.                                                            │
+│                                                                              │
+╰──────────────────────────────────────────────────────────────────────────────╯
+Done in 7.3s using pnpm v10.28.0
+- @fontsource/inter 5.3.0
+
+Done in 4s using pnpm v10.28.0
+CHANGELOG.md
+LICENSE
+README.md
+files
+index.css
+index.d.css.ts
+metadata.json
+opsz.css
+package.json
+scss
+bricolage-grotesque-latin-700-normal.woff
+bricolage-grotesque-latin-700-normal.woff2
+bricolage-grotesque-latin-800-normal.woff
+bricolage-grotesque-latin-800-normal.woff2
+geist-latin-400-normal.woff
+geist-latin-400-normal.woff2
+geist-latin-500-normal.woff
+geist-latin-500-normal.woff2
+geist-latin-600-normal.woff
+geist-latin-600-normal.woff2
+geist-mono-latin-500-normal.woff
+geist-mono-latin-500-normal.woff2
+bash
+
+cd /home/claude/headmesh/web/marketing/node_modules && grep -h "font-family" @fontsource-variable/bricolage-grotesque/opsz.css @fontsource-variable/geist/index.css @fontsource-variable/geist-mono/index.css | sort -u; grep -c "@font-face" @fontsource-variable/bricolage-grotesque/opsz.css; ls -la @fontsource-variable/bricolage-grotesque/files | grep opsz | head
+Output
+
+  font-family: 'Bricolage Grotesque Variable';
+  font-family: 'Geist Mono Variable';
+  font-family: 'Geist Variable';
+3
+-rw-r--r-- 2 root root  30736 Oct 28 04:24 bricolage-grotesque-latin-ext-opsz-normal.woff2
+-rw-r--r-- 2 root root  76888 Oct 28 04:24 bricolage-grotesque-latin-opsz-normal.woff2
+-rw-r--r-- 2 root root  12984 Oct 28 04:24 bricolage-grotesque-vietnamese-opsz-normal.woff2
+bash
+
+cd /home/claude/brand && python3 - <<'EOF'
+import sys; sys.path.insert(0,'gen')
+from textpath import text_paths, fmt
+tp=text_paths("headmesh","BricolageGrotesque-800.ttf",100,tracking=-0.025)
+x0,y0,x1,y1=tp['bounds']; print('bounds',[round(v,2) for v in tp['bounds']])
+# normalise to origin
+tp=text_paths("headmesh","BricolageGrotesque-800.ttf",100,tracking=-0.025,x0=-x0,baseline=-y0)
+d=fmt(tp['d'],1)
+print('w',round(x1-x0,2),'h',round(y1-y0,2),'baseline',round(-y0,2), 'len',len(d))
+open('tmp/wordmark_d.txt','w').write(d)
+EOF
+Output
+
+bounds [3.6, -70.0, 449.0, 1.4]
+w 445.4 h 71.4 baseline 70.0 len 5003
+Created a file
+global.css
+bash
+
+cd /home/claude/headmesh/web/marketing/src/components && D=$(cat /home/claude/brand/tmp/wordmark_d.txt) && cat > Logo.astro <<'EOF'
+---
+/**
+ * The Headmesh mark (brand kit v1, D4 "Shared leg"): an h and a mirrored h that share one leg.
+ * Two parties keep their own networks; only the leg they share lights up.
+ * The h's take `currentColor`; the shared leg uses the Meshlight gradient for the current theme.
+ */
+interface Props {
+  class?: string;
+}
+const { class: className } = Astro.props;
+// Unique per instance so several marks on one page don't share a gradient id.
+const gid = `hm-leg-${Math.random().toString(36).slice(2, 9)}`;
+---
+
+<svg class={className} viewBox="76 76 360 360" aria-hidden="true" focusable="false">
+  <defs>
+    <linearGradient id={gid} gradientUnits="userSpaceOnUse" x1="222" y1="280" x2="290" y2="424">
+      <stop offset="0" class="hm-stop-a"></stop>
+      <stop offset="1" class="hm-stop-b"></stop>
+    </linearGradient>
+  </defs>
+  <g fill="currentColor">
+    <path d="M88 390V122a34 34 0 0 1 68 0v268a34 34 0 0 1-68 0Z"></path>
+    <path d="M356 390V122a34 34 0 0 1 68 0v268a34 34 0 0 1-68 0Z"></path>
+    <path d="M88 280a101 101 0 0 1 202 0h-68a33 33 0 0 0-66 0Z"></path>
+    <path d="M222 280a101 101 0 0 1 202 0h-68a33 33 0 0 0-66 0Z"></path>
+  </g>
+  <path fill={`url(#${gid})`} d="M222 280h68v110a34 34 0 0 1-68 0Z"></path>
+</svg>
+EOF
+cat > Wordmark.astro <<EOF
+---
+/**
+ * The "headmesh" wordmark: Bricolage Grotesque ExtraBold, tracking -2.5%, outlined to a path so it never depends
+ * on font loading. Fills with currentColor. Generated by the brand kit (gen/textpath.py).
+ */
+interface Props {
+  class?: string;
+}
+const { class: className } = Astro.props;
+---
+
+<svg class={className} viewBox="0 0 445.4 71.4" aria-hidden="true" focusable="false">
+  <path fill="currentColor" d="$D"></path>
+</svg>
+EOF
+head -c 400 Wordmark.astro; echo; wc -c Wordmark.astro
+Output
+
+---
+/**
+ * The "headmesh" wordmark: Bricolage Grotesque ExtraBold, tracking -2.5%, outlined to a path so it never depends
+ * on font loading. Fills with currentColor. Generated by the brand kit (gen/textpath.py).
+ */
+interface Props {
+  class?: string;
+}
+const { class: className } = Astro.props;
+---
+
+<svg class={className} viewBox="0 0 445.4 71.4" aria-hidden="true" focusable="false">
+  <path fill
+5439 Wordmark.astro
+bash
+
+cat > Header.astro <<'EOF'
+---
+import { REPO_URL } from "../../shared/site";
+import GitHubIcon from "./GitHubIcon.astro";
+import Logo from "./Logo.astro";
+import ThemeToggle from "./ThemeToggle.astro";
+import Wordmark from "./Wordmark.astro";
+
+const path = Astro.url.pathname;
+---
+
+<header class="sticky top-0 z-40 border-b border-line/70 bg-bg/80 backdrop-blur-md supports-[backdrop-filter]:bg-bg/65">
+  <div class="container-page flex h-16 items-center justify-between gap-4">
+    <a href="/" class="group flex items-center gap-2.5 text-fg" aria-label="Headmesh home">
+      <Logo class="size-8 transition-transform duration-300 group-hover:-translate-y-px" />
+      <Wordmark class="h-[19px] w-auto" />
+    </a>
+    <nav aria-label="Main" class="flex items-center gap-1 sm:gap-2">
+      <a
+        href="/docs/"
+        class="rounded-md px-2.5 py-2 text-sm font-medium text-muted transition-colors hover:text-fg"
+        aria-current={path.startsWith("/docs") ? "page" : undefined}
+      >
+        Docs
+      </a>
+      <a
+        href={REPO_URL}
+        class="hidden items-center gap-1.5 rounded-md px-2.5 py-2 text-sm font-medium text-muted transition-colors hover:text-fg sm:inline-flex"
+      >
+        <GitHubIcon class="size-4" />
+        GitHub
+      </a>
+      <a
+        href="/waitlist/"
+        class="btn btn-primary ml-1 min-h-9 px-3.5 py-2 text-sm whitespace-nowrap"
+        aria-current={path.startsWith("/waitlist") ? "page" : undefined}
+      >
+        <span class="sm:hidden">Waitlist</span>
+        <span class="hidden sm:inline">Join the waitlist</span>
+      </a>
+      <ThemeToggle />
+    </nav>
+  </div>
+</header>
+EOF
+cat > Footer.astro <<'EOF'
+---
+import { CONTACT_EMAIL, REPO_URL, SENDER, XCELSIOR_URL } from "../../shared/site";
+import Logo from "./Logo.astro";
+import Wordmark from "./Wordmark.astro";
+
+const year = new Date().getUTCFullYear();
+---
+
+<footer class="mt-28 border-t border-line">
+  <div class="container-page grid gap-10 py-12 sm:grid-cols-[1.2fr_1fr] sm:items-start">
+    <div class="max-w-sm">
+      <a href="/" class="inline-flex items-center gap-2.5 text-fg" aria-label="Headmesh home">
+        <Logo class="size-7" />
+        <Wordmark class="h-[17px] w-auto" />
+      </a>
+      <p class="mt-4 font-display text-xl font-bold tracking-tight">Share machines, not your network.</p>
+      <p class="mt-2 text-sm leading-relaxed text-muted">
+        Open, self-hostable, multi-tenant networking built on Headscale and WireGuard. An
+        <a class="text-fg underline-offset-4 hover:underline" href={XCELSIOR_URL}>Xcelsior Compute</a> project.
+      </p>
+    </div>
+    <nav aria-label="Footer" class="grid grid-cols-2 gap-x-12 gap-y-2.5 text-sm sm:grid-cols-3 sm:justify-self-end">
+      <a class="text-muted hover:text-fg" href="/docs/">Docs</a>
+      <a class="text-muted hover:text-fg" href={REPO_URL}>GitHub</a>
+      <a class="text-muted hover:text-fg" href="/waitlist/">Waitlist</a>
+      <a class="text-muted hover:text-fg" href="/privacy/">Privacy</a>
+      <a class="text-muted hover:text-fg" href="/terms/">Terms</a>
+      <a class="text-muted hover:text-fg" href="/.well-known/security.txt">Security</a>
+      <a class="col-span-2 text-muted hover:text-fg sm:col-span-3" href={`mailto:${CONTACT_EMAIL}`}>{CONTACT_EMAIL}</a>
+    </nav>
+  </div>
+  <div class="container-page border-t border-line/60 py-6 text-xs leading-relaxed text-muted">
+    <p>
+      © {year} {SENDER.legalName} Headmesh is not affiliated with Tailscale Inc. or the Headscale project.
+      WireGuard is a registered trademark of Jason A. Donenfeld.
+    </p>
+  </div>
+</footer>
+EOF
+echo done
+Output
+
+done

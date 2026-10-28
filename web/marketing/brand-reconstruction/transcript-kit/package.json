@@ -1,0 +1,17 @@
+{
+  "name": "headmesh-brand-transcript-reconstruction",
+  "version": "1.0.0",
+  "private": true,
+  "type": "module",
+  "description": "All 13 Headmesh brand candidates reconstructed from recorded Claude commands and original raster references",
+  "scripts": {
+    "build": ".venv/bin/python gen/build.py && node gen/render.js --batch tmp/kit-jobs.json && node gen/render.js --batch tmp/bbox-jobs.json && .venv/bin/python gen/preview.py && node gen/render.js --batch tmp/preview-jobs.json && .venv/bin/python gen/verify.py && npm run png && node gen/check_gallery.js",
+    "png": ".venv/bin/python gen/png_exports.py build"
+  },
+  "dependencies": {
+    "@fontsource-variable/bricolage-grotesque": "5.3.0",
+    "@fontsource-variable/geist": "5.3.0",
+    "@fontsource-variable/geist-mono": "5.3.0",
+    "@playwright/test": "1.64.1"
+  }
+}

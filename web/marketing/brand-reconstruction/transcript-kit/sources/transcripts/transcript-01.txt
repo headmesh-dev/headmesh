@@ -1,0 +1,210 @@
+Created a file
+textpath.py
+Created a file
+marks.py
+Edited a file
+marks.py
+Created a file
+preview.py
+Created a file
+render.js
+bash
+
+python3 gen/preview.py && node gen/render.js preview/marks.html preview/marks.png 1650 1200 1 && python3 -c "
+from PIL import Image; im=Image.open('preview/marks.png'); print(im.size)"
+Output
+
+/home/claude/brand/preview/marks.html
+(1716, 1538)
+Read a file
+marks.png
+bash
+
+cd /home/claude/brand/gen && python3 - <<'EOF'
+import re
+s = open('marks.py').read()
+# A1: solid hub node with a halo instead of an eye-like ring
+s = s.replace('''    defs = g + _a_mask(pid, 64)
+    body = (
+        f'<g fill="none" stroke="{p}" stroke-width="{w}" stroke-linecap="round">'
+        f'<path d="M{AX0} {AY0}V{AY1}M{AX1} {AY0}V{AY1}"/>'
+        f'<path mask="url(#{pid}-m)" d="M{AX0} {AY0}L{AX1} {AY1}M{AX1} {AY0}L{AX0} {AY1}"/>'
+        f'<circle cx="{C}" cy="{C}" r="31" stroke-width="24"/></g>'
+    )''', '''    defs = g + _a_mask(pid, 60)
+    body = (
+        f'<g fill="none" stroke="{p}" stroke-width="{w}" stroke-linecap="round">'
+        f'<path d="M{AX0} {AY0}V{AY1}M{AX1} {AY0}V{AY1}"/>'
+        f'<path mask="url(#{pid}-m)" d="M{AX0} {AY0}L{AX1} {AY1}M{AX1} {AY0}L{AX0} {AY1}"/></g>'
+        f'<circle cx="{C}" cy="{C}" r="44" fill="{p}"/>'
+    )''')
+# B1 bigger satellites + thicker links
+s = s.replace("big, mid, sml = (366, 92, 34), (452, 150, 23), (448, 50, 15)",
+              "big, mid, sml = (364, 96, 40), (458, 156, 27), (452, 46, 18)")
+s = s.replace("body = _h_solid(p, dx, dy) + _sats(p, [big, mid, sml], links, dx, dy)",
+              "body = _h_solid(p, dx, dy) + _sats(p, [big, mid, sml], links, dx, dy, lw=13)")
+# B2 ball-terminal h: full ascender ending in the head node
+s = s.replace('''        f'd="M164 200V414M164 312A104 104 0 0 1 372 312V414"/>'
+        f'<circle cx="164" cy="116" r="54" fill="{p}"/>\'''', '''        f'd="M164 130V414M164 312A104 104 0 0 1 372 312V414"/>'
+        f'<circle cx="164" cy="112" r="56" fill="{p}"/>\'''')
+s = s.replace("big, mid, sml = (338, 118, 30), (430, 92, 21), (420, 182, 14)\n    head = (164, 116)",
+              "big, mid, sml = (330, 104, 34), (430, 78, 24), (424, 176, 16)\n    head = (164, 112)")
+s = s.replace("body += _sats(p, [big, mid, sml], links, dx, dy, lw=8)", "body += _sats(p, [big, mid, sml], links, dx, dy, lw=12)")
+# C1 compact weave
+s = s.replace("d, b = _weave(pid, p, [(0, -72), (1, 72)], w=58, L=150, gap=13)", "d, b = _weave(pid, p, [(0, -70), (1, 70)], w=62, L=124, gap=13)")
+# C2 thicker strands
+s = s.replace("d, b = _weave(pid, p, [(0, -100), (1, 0), (2, 100)], w=40, L=300, gap=11, clip=f\"{pid}-clip\")",
+              "d, b = _weave(pid, p, [(0, -104), (1, 0), (2, 104)], w=50, L=300, gap=12, clip=f\"{pid}-clip\")")
+s = s.replace("d, b = _weave(pid, p, [(0, -74), (1, 74)], w=72, L=150, gap=12, outline=18)", "d, b = _weave(pid, p, [(0, -74), (1, 74)], w=76, L=128, gap=12, outline=20)")
+open('marks.py','w').write(s)
+EOF
+grep -n "r=\"44\" fill\|lw=13\|M164 130\|L=124\|w=50\|w=76" marks.py | head; cd .. && python3 gen/preview.py >/dev/null && node gen/render.js preview/marks.html preview/marks.png 1650 1200 1
+Output
+
+67:        f'<circle cx="{C}" cy="{C}" r="44" fill="{p}"/>'
+139:    body = _h_solid(p, dx, dy) + _sats(p, [big, mid, sml], links, dx, dy, lw=13)
+150:        f'd="M164 130V414M164 312A104 104 0 0 1 372 312V414"/>'
+243:    d, b = _weave(pid, p, [(0, -70), (1, 70)], w=62, L=124, gap=13)
+253:    d, b = _weave(pid, p, [(0, -104), (1, 0), (2, 104)], w=50, L=300, gap=12, clip=f"{pid}-clip")
+262:    d, b = _weave(pid, p, [(0, -74), (1, 74)], w=76, L=128, gap=12, outline=20)
+288:        f'<circle cx="122" cy="120" r="44" fill="{p}"/><circle cx="390" cy="120" r="44" fill="{p}"/>'
+Read a file
+marks.png
+bash
+
+cd /home/claude/brand/gen && sed -n 55,70p marks.py && python3 -c "
+import sys; sys.path.insert(0,'.')
+from marks import icon_svg; print(icon_svg('A1')[:900])"
+Output
+
+            f'<rect width="512" height="512" fill="#fff"/><circle cx="{C}" cy="{C}" r="{rad}" fill="#000"/></mask>')
+
+
+def mark_A1(paint="grad", pid="a1"):
+    """Fullmesh · Solid — heavy rounded strokes, hollow head ring."""
+    p, g = _paint(paint, pid)
+    w = 62
+    defs = g + _a_mask(pid, 60)
+    body = (
+        f'<g fill="none" stroke="{p}" stroke-width="{w}" stroke-linecap="round">'
+        f'<path d="M{AX0} {AY0}V{AY1}M{AX1} {AY0}V{AY1}"/>'
+        f'<path mask="url(#{pid}-m)" d="M{AX0} {AY0}L{AX1} {AY1}M{AX1} {AY0}L{AX0} {AY1}"/></g>'
+        f'<circle cx="{C}" cy="{C}" r="44" fill="{p}"/>'
+    )
+    return defs, body
+
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512"><defs><linearGradient id="a1-g" gradientUnits="userSpaceOnUse" x1="72" y1="72" x2="440" y2="440"><stop offset="0" stop-color="#3CEFB4"/><stop offset="1" stop-color="#27BFF5"/></linearGradient><mask id="a1-m" maskUnits="userSpaceOnUse" x="0" y="0" width="512" height="512"><rect width="512" height="512" fill="#fff"/><circle cx="256" cy="256" r="60" fill="#000"/></mask></defs><g fill="none" stroke="url(#a1-g)" stroke-width="62" stroke-linecap="round"><path d="M140 112V400M372 112V400"/><path mask="url(#a1-m)" d="M140 112L372 400M372 112L140 400"/></g><circle cx="256" cy="256" r="44" fill="url(#a1-g)"/></svg>
+bash
+
+python3 - <<'EOF'
+s=open('marks.py').read()
+s=s.replace('''    """Fullmesh · Solid — heavy rounded strokes, hollow head ring."""
+    p, g = _paint(paint, pid)
+    w = 62
+    defs = g + _a_mask(pid, 60)
+    body = (
+        f'<g fill="none" stroke="{p}" stroke-width="{w}" stroke-linecap="round">'
+        f'<path d="M{AX0} {AY0}V{AY1}M{AX1} {AY0}V{AY1}"/>'
+        f'<path mask="url(#{pid}-m)" d="M{AX0} {AY0}L{AX1} {AY1}M{AX1} {AY0}L{AX0} {AY1}"/></g>'
+        f'<circle cx="{C}" cy="{C}" r="44" fill="{p}"/>'
+    )''','''    """Fullmesh · Solid — heavy rounded strokes; the head is the hub where links cross."""
+    p, g = _paint(paint, pid)
+    w = 62
+    defs = g
+    body = (
+        f'<g fill="none" stroke="{p}" stroke-width="{w}" stroke-linecap="round">'
+        f'<path d="M{AX0} {AY0}V{AY1}M{AX1} {AY0}V{AY1}"/>'
+        f'<path d="M{AX0} {AY0}L{AX1} {AY1}M{AX1} {AY0}L{AX0} {AY1}"/></g>'
+        f'<circle cx="{C}" cy="{C}" r="52" fill="{p}"/>'
+    )''')
+open('marks.py','w').write(s)
+EOF
+cat > /home/claude/brand/gen/wm_test.py <<'EOF'
+import sys, os
+sys.path.insert(0, os.path.dirname(__file__))
+from textpath import text_paths, fmt
+from marks import MINT, CYAN, INK
+rows = []
+tests = [("Geist-600.ttf","headmesh",-0.035,4),("Geist-700.ttf","HeadMesh",-0.03,4),("Sora-700.ttf","HeadMesh",-0.02,4),
+         ("Sora-600.ttf","headmesh",-0.03,4),("SpaceGrotesk-600.ttf","headmesh",-0.02,4),("SpaceGrotesk-700.ttf","HEADMESH",0.04,4),
+         ("BricolageGrotesque-800.ttf","headmesh",-0.04,4),("BricolageGrotesque-700.ttf","HeadMesh",-0.03,4),("InstrumentSans-700.ttf","headmesh",-0.03,4),("GeistMono-500.ttf","headmesh",-0.02,4)]
+y = 0
+svg = []
+for f, t, tr, sp in tests:
+    tp = text_paths(t, f, 110, tracking=tr, x0=40, baseline=y + 120, split=sp)
+    svg.append(f'<path fill="#fff" d="{fmt(tp["d_a"])}"/><path fill="url(#g)" d="{fmt(tp["d_b"])}"/><text x="700" y="{y+110}" fill="#789" font-size="22" font-family="monospace">{f} {tr}</text>')
+    y += 150
+open('/home/claude/brand/preview/wm.svg','w').write(f'<svg xmlns="http://www.w3.org/2000/svg" width="1100" height="{y+20}" viewBox="0 0 1100 {y+20}"><defs><linearGradient id="g" x1="0" x2="1"><stop offset="0" stop-color="{MINT}"/><stop offset="1" stop-color="{CYAN}"/></linearGradient></defs><rect width="100%" height="100%" fill="{INK}"/>{"".join(svg)}</svg>')
+EOF
+python3 /home/claude/brand/gen/wm_test.py && cd /home/claude/brand && node gen/render.js preview/wm.svg preview/wm.png 1100 1520 1
+Output
+
+Exit code 1
+node:internal/process/promises:394
+    triggerUncaughtException(err, true /* fromPromise */);
+    ^
+
+page.screenshot: Timeout 30000ms exceeded.
+Call log:
+  - taking page screenshot
+  - waiting for fonts to load...
+  - fonts loaded
+
+    at /home/claude/brand/gen/render.js:9:11 {
+  log: [
+    '  - taking page screenshot',
+    '  - waiting for fonts to load...',
+    '  - fonts loaded'
+  ],
+  name: 'TimeoutError'
+}
+
+Node.js v22.23.4
+Created a file
+render.js
+bash
+
+cd /home/claude/brand && node gen/render.js preview/wm.svg preview/wm.png 1100 1520 1 && echo ok
+Output
+
+ok
+Read a file
+wm.png
+bash
+
+mkdir -p tmp/bbox && python3 - <<'EOF'
+import sys, json
+sys.path.insert(0,'gen')
+from marks import MARKS, icon_svg
+jobs=[]
+for k in MARKS:
+    p=f'tmp/bbox/{k}.svg'; open(p,'w').write(icon_svg(k,'#000000',pid=k.lower()))
+    jobs.append({"in":p,"out":f'tmp/bbox/{k}.png',"w":512,"h":512,"scale":1})
+json.dump(jobs,open('tmp/bbox/jobs.json','w'))
+EOF
+node gen/render.js --batch tmp/bbox/jobs.json && python3 - <<'EOF'
+import json, sys
+from PIL import Image
+sys.path.insert(0,'gen')
+from marks import MARKS
+bb={}
+for k in MARKS:
+    im=Image.open(f'tmp/bbox/{k}.png').split()[-1]
+    bb[k]=im.getbbox()
+json.dump(bb,open('gen/bboxes.json','w'),indent=0)
+for k,v in bb.items(): print(k,v, 'w',v[2]-v[0],'h',v[3]-v[1], 'cx',(v[0]+v[2])/2,'cy',(v[1]+v[3])/2)
+EOF
+Output
+
+rendered 12
+A1 (109, 81, 403, 431) w 294 h 350 cx 256.0 cy 256.0
+A2 (82, 70, 430, 442) w 348 h 372 cx 256.0 cy 256.0
+A3 (100, 96, 412, 416) w 312 h 320 cx 256.0 cy 256.0
+B1 (90, 54, 455, 450) w 365 h 396 cx 272.5 cy 252.0
+B2 (82, 72, 428, 458) w 346 h 386 cx 255.0 cy 265.0
+B3 (62, 55, 465, 454) w 403 h 399 cx 263.5 cy 254.5
+C1 (87, 87, 425, 425) w 338 h 338 cx 256.0 cy 256.0
+C2 (76, 76, 436, 436) w 360 h 360 cx 256.0 cy 256.0
+C3 (75, 75, 437, 437) w 362 h 362 cx 256.0 cy 256.0
+D1 (88, 88, 424, 424) w 336 h 336 cx 256.0 cy 256.0
+D2 (78, 76, 434, 434) w 356 h 358 cx 256.0 cy 255.0
+D3 (88, 88, 424, 424) w 336 h 336 cx 256.0 cy 256.0

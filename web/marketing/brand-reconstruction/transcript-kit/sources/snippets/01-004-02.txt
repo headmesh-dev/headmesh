@@ -1,0 +1,15 @@
+import sys, os
+sys.path.insert(0, os.path.dirname(__file__))
+from textpath import text_paths, fmt
+from marks import MINT, CYAN, INK
+rows = []
+tests = [("Geist-600.ttf","headmesh",-0.035,4),("Geist-700.ttf","HeadMesh",-0.03,4),("Sora-700.ttf","HeadMesh",-0.02,4),
+         ("Sora-600.ttf","headmesh",-0.03,4),("SpaceGrotesk-600.ttf","headmesh",-0.02,4),("SpaceGrotesk-700.ttf","HEADMESH",0.04,4),
+         ("BricolageGrotesque-800.ttf","headmesh",-0.04,4),("BricolageGrotesque-700.ttf","HeadMesh",-0.03,4),("InstrumentSans-700.ttf","headmesh",-0.03,4),("GeistMono-500.ttf","headmesh",-0.02,4)]
+y = 0
+svg = []
+for f, t, tr, sp in tests:
+    tp = text_paths(t, f, 110, tracking=tr, x0=40, baseline=y + 120, split=sp)
+    svg.append(f'<path fill="#fff" d="{fmt(tp["d_a"])}"/><path fill="url(#g)" d="{fmt(tp["d_b"])}"/><text x="700" y="{y+110}" fill="#789" font-size="22" font-family="monospace">{f} {tr}</text>')
+    y += 150
+open('/home/claude/brand/preview/wm.svg','w').write(f'<svg xmlns="http://www.w3.org/2000/svg" width="1100" height="{y+20}" viewBox="0 0 1100 {y+20}"><defs><linearGradient id="g" x1="0" x2="1"><stop offset="0" stop-color="{MINT}"/><stop offset="1" stop-color="{CYAN}"/></linearGradient></defs><rect width="100%" height="100%" fill="{INK}"/>{"".join(svg)}</svg>')

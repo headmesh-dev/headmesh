@@ -1,0 +1,78 @@
+[
+  {
+    "file": "after-home-desk-dark.png",
+    "sha256": "04e5b97039b406e2836deae2ad7e6fb254994fe3da6189dd4e556fe5f08d88e1"
+  },
+  {
+    "file": "after-home-desk-light.png",
+    "sha256": "22d4909d6effe09e1fdded76387a4aa3929e6c842c6660ff0e207317b74767c8"
+  },
+  {
+    "file": "banner-linkedin-c1-1584x396.png",
+    "sha256": "21f54758e4cbcc42811cc2158ff2c2aca41bd5ed67a06aaf1ae3517d6c30373a"
+  },
+  {
+    "file": "banner-x-1500x500.png",
+    "sha256": "a752753946277537c338fe56764049394279d20e5629011318820c2eb9ce7a07"
+  },
+  {
+    "file": "before-home-desk-dark.jpg",
+    "sha256": "c607bec91d4d40639fae81296d19509b7f6701ac0fba164714e01292aa3cdad3"
+  },
+  {
+    "file": "before-home-desk-light.jpg",
+    "sha256": "5964fff7e92a0c92be495b3b41330630b38a2e778c2eb1660a73de21cbc9713d"
+  },
+  {
+    "file": "logo-system-study-1.jpeg",
+    "sha256": "39f01b34ce6413617b20872d61bfe76460da0b7da0b287b58c78fe3fab03d5db"
+  },
+  {
+    "file": "logo-system-study-2.jpeg",
+    "sha256": "8aaa194e47b93cf1b1676eee455b906a0a8689cabd998cf9ce7b1de5dc9de806"
+  },
+  {
+    "file": "og-card-flat-1200x630.png",
+    "sha256": "1b75cede6423f98ac182709ef96235de56391880e1a1246efc600975d2973350"
+  },
+  {
+    "file": "og-card-grant-1200x630.png",
+    "sha256": "092913cefe9fa8c9d30201ec2846d59eec7be990249c83b8c9af9463797f3aa2"
+  },
+  {
+    "file": "synced-docs-desktop-dark.png",
+    "sha256": "e0207ef582553ac6cf0e07071fe88f04c2ab56c59c9731a2e11ed8cf1e3a31d1"
+  },
+  {
+    "file": "synced-docs-desktop-light.png",
+    "sha256": "c3f20bf638bdf7ad6624abe91f9835a6d51b923775fb4cce74cbf39fa30a8245"
+  },
+  {
+    "file": "synced-home-desktop-dark.png",
+    "sha256": "edd6bda4dd43c61e31c37be8300ddc362466a3da9967ec413396d055a67d60b0"
+  },
+  {
+    "file": "synced-home-desktop-light.png",
+    "sha256": "489f99798197ad4ad8df523745d03549e1e65807665081b32074174f48b3f9d2"
+  },
+  {
+    "file": "synced-privacy-desktop-light.png",
+    "sha256": "65aedd2761168937a1731a8a204a67533319c604e56c6fcaef53f64f3ab979d1"
+  },
+  {
+    "file": "synced-quickstart-mobile-dark.png",
+    "sha256": "f6c76c1587bd1219d072bdd7afc19b8334ce301244e1d992c4bdbe452659fd61"
+  },
+  {
+    "file": "synced-quickstart-mobile-light.png",
+    "sha256": "17e11f56af2f6d743639fb48e22d7fc3bdb35f552c61074c7ab9bb975e68137d"
+  },
+  {
+    "file": "synced-waitlist-mobile-dark.png",
+    "sha256": "8ce5bc326ba6d2b5dff73cc5967767a3c0a81cc9d2ff458106fdd34204f98612"
+  },
+  {
+    "file": "wordmark-type-study.png",
+    "sha256": "a64dd33b0d4041cf0dea1e09036b3fe670fbab5377bee23acf8e70c9b9b05504"
+  }
+]

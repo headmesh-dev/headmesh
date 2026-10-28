@@ -1,0 +1,91 @@
+@import "@fontsource-variable/bricolage-grotesque/standard.css";
+@import "@fontsource-variable/geist";
+@import "@fontsource-variable/geist-mono";
+
+/* D4 Shared Leg: the marketing site and Starlight both consume these tokens. */
+:root {
+  color-scheme: light;
+  --hm-font-body: "Geist Variable", ui-sans-serif, system-ui, -apple-system, "Segoe UI", sans-serif;
+  --hm-font-display: "Bricolage Grotesque Variable", "Geist Variable", ui-sans-serif, sans-serif;
+  --hm-font-mono: "Geist Mono Variable", ui-monospace, SFMono-Regular, Menlo, monospace;
+  --hm-bg: #f4f7f6;
+  --hm-surface: #e9efee;
+  --hm-raised: #ffffff;
+  --hm-line: #d5dedc;
+  --hm-fg: #070b12;
+  --hm-muted: #52616c;
+  --hm-accent: #0a7a5c;
+  --hm-accent-strong: #0a70b0;
+  --hm-on-accent: #ffffff;
+  --hm-accent-soft: #e5f2ed;
+  --hm-danger: #b42318;
+  --hm-mark-start: var(--hm-accent);
+  --hm-mark-end: var(--hm-accent-strong);
+}
+
+:root[data-theme="dark"] {
+  color-scheme: dark;
+  --hm-bg: #070b12;
+  --hm-surface: #0b111a;
+  --hm-raised: #111a26;
+  --hm-line: #1c2736;
+  --hm-fg: #f2f6f9;
+  --hm-muted: #9aa8bc;
+  --hm-accent: #3cefb4;
+  --hm-accent-strong: #27bff5;
+  --hm-on-accent: #04170f;
+  --hm-accent-soft: #0f2e2c;
+  --hm-danger: #ff8a80;
+}
+
+/* Both sites remain legible in the system theme when JavaScript is unavailable. */
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme]) {
+    color-scheme: dark;
+    --hm-bg: #070b12;
+    --hm-surface: #0b111a;
+    --hm-raised: #111a26;
+    --hm-line: #1c2736;
+    --hm-fg: #f2f6f9;
+    --hm-muted: #9aa8bc;
+    --hm-accent: #3cefb4;
+    --hm-accent-strong: #27bff5;
+    --hm-on-accent: #04170f;
+    --hm-accent-soft: #0f2e2c;
+    --hm-danger: #ff8a80;
+  }
+}
+
+html {
+  background-color: var(--hm-bg);
+  color: var(--hm-fg);
+  font-family: var(--hm-font-body);
+  -webkit-font-smoothing: antialiased;
+  text-rendering: optimizeLegibility;
+}
+
+:where(h1, h2, h3, h4, h5, h6) {
+  font-family: var(--hm-font-display);
+  /* The final D4 wordmark uses the display cut at optical size 96. */
+  font-variation-settings: "opsz" 96;
+  letter-spacing: -0.025em;
+}
+
+.hm-stop-a {
+  stop-color: var(--hm-mark-start);
+}
+
+.hm-stop-b {
+  stop-color: var(--hm-mark-end);
+}
+
+::selection {
+  background-color: var(--hm-accent);
+  color: var(--hm-on-accent);
+}
+
+:focus-visible {
+  outline: 2px solid var(--hm-accent);
+  outline-offset: 3px;
+  border-radius: 4px;
+}

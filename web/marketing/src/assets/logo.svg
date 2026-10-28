@@ -1,1 +1,16 @@
-<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 32 32" width="32" height="32" fill="none"><title>Headmesh</title><g stroke="#1aa594" stroke-width="2.25" stroke-linecap="round" stroke-linejoin="round"><path d="M7 8h18L16 25z"/><path d="M7 8l9 7 9-7M16 15v10"/></g><g fill="#1aa594"><circle cx="7" cy="8" r="3.25"/><circle cx="25" cy="8" r="3.25"/><circle cx="16" cy="25" r="3.25"/><circle cx="16" cy="15" r="2.5"/></g></svg>
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="76 76 360 360" role="img" aria-labelledby="title">
+  <title id="title">Headmesh</title>
+  <defs>
+    <linearGradient id="shared-leg" gradientUnits="userSpaceOnUse" x1="222" y1="280" x2="290" y2="424">
+      <stop offset="0" stop-color="#3CEFB4" />
+      <stop offset="1" stop-color="#27BFF5" />
+    </linearGradient>
+  </defs>
+  <g fill="#F2F6F9">
+    <path d="M88 390V122a34 34 0 0 1 68 0v268a34 34 0 0 1-68 0Z" />
+    <path d="M356 390V122a34 34 0 0 1 68 0v268a34 34 0 0 1-68 0Z" />
+    <path d="M88 280a101 101 0 0 1 202 0h-68a33 33 0 0 0-66 0Z" />
+    <path d="M222 280a101 101 0 0 1 202 0h-68a33 33 0 0 0-66 0Z" />
+  </g>
+  <path fill="url(#shared-leg)" d="M222 280h68v110a34 34 0 0 1-68 0Z" />
+</svg>

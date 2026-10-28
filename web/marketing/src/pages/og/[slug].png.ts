@@ -1,4 +1,5 @@
 import type { APIRoute, GetStaticPaths } from "astro";
+import homeCard from "../../../brand-reference/headmesh-process/og-card-grant-1200x630.png?inline";
 import { type OgCard, renderOgImage } from "../../og/render";
 
 const cards: Record<string, OgCard> = {
@@ -21,5 +22,10 @@ const cards: Record<string, OgCard> = {
 export const getStaticPaths = (() =>
   Object.entries(cards).map(([slug, card]) => ({ params: { slug }, props: card }))) satisfies GetStaticPaths;
 
-export const GET: APIRoute<OgCard> = async ({ props }) =>
-  new Response(await renderOgImage(props), { headers: { "content-type": "image/png" } });
+export const GET: APIRoute<OgCard> = async ({ params, props }) => {
+  if (params.slug === "home") {
+    const bytes = Buffer.from(homeCard.slice(homeCard.indexOf(",") + 1), "base64");
+    return new Response(bytes, { headers: { "content-type": "image/png" } });
+  }
+  return new Response(await renderOgImage(props), { headers: { "content-type": "image/png" } });
+};

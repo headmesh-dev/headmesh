@@ -1,0 +1,67 @@
+[
+  {
+    "file": "selected-brand/icons/app-icon-on-light.svg",
+    "source": "public/brand/headmesh-v1/icons/app-icon-on-light.svg",
+    "sha256": "f0fe5b1eeca43a315dc0ccf88277746d049d13330d8f126d252151088ff81d36"
+  },
+  {
+    "file": "selected-brand/icons/app-icon.svg",
+    "source": "public/brand/headmesh-v1/icons/app-icon.svg",
+    "sha256": "11715cd85fad8144465a81a4f3951c36b1e95d75877a9300ca186d48fbc248f0"
+  },
+  {
+    "file": "selected-brand/icons/favicon.svg",
+    "source": "public/brand/headmesh-v1/icons/favicon.svg",
+    "sha256": "11715cd85fad8144465a81a4f3951c36b1e95d75877a9300ca186d48fbc248f0"
+  },
+  {
+    "file": "selected-brand/logos/lockup-on-dark.svg",
+    "source": "public/brand/headmesh-v1/logos/lockup-on-dark.svg",
+    "sha256": "0edac91efe7bc64d87f0ee088486b10f2bb5126372a64fb7ff725e07b06d9c46"
+  },
+  {
+    "file": "selected-brand/logos/lockup-on-light.svg",
+    "source": "public/brand/headmesh-v1/logos/lockup-on-light.svg",
+    "sha256": "08768a237ddecd5be93cac16ccac340e0137e805d8c42d9673dad18665dbf7ad"
+  },
+  {
+    "file": "selected-brand/logos/mark-on-dark.svg",
+    "source": "public/brand/headmesh-v1/logos/mark-on-dark.svg",
+    "sha256": "a6a6f6325c3fb6cad877216b109cdf2fcca465a21f76dc1243bb377837b7b328"
+  },
+  {
+    "file": "selected-brand/logos/mark-on-light.svg",
+    "source": "public/brand/headmesh-v1/logos/mark-on-light.svg",
+    "sha256": "de65f6f42061130ee29e176c3eb6e7c0a97d85be2538e6ddc40352cadaef099c"
+  },
+  {
+    "file": "selected-brand/social/linkedin-banner-1584x396.svg",
+    "source": "public/brand/headmesh-v1/social/linkedin-banner-1584x396.svg",
+    "sha256": "0ce4c30903eacb3cb3d98eb01aac231bbb45b49a4d75678020998cde6ff78097"
+  },
+  {
+    "file": "selected-brand/social/og-image-1200x630.svg",
+    "source": "public/brand/headmesh-v1/social/og-image-1200x630.svg",
+    "sha256": "06c5679e6b16457ae5fcf1c70f9e208b50156cab8b3bdf794aca9b6720fd5c29"
+  },
+  {
+    "file": "selected-brand/social/x-banner-1500x500.svg",
+    "source": "public/brand/headmesh-v1/social/x-banner-1500x500.svg",
+    "sha256": "f87412838c81fd2464191b7ab18c088ee1c3dc77dccc2bbd2859dc3c3433d266"
+  },
+  {
+    "file": "site/logo.svg",
+    "source": "src/assets/logo.svg",
+    "sha256": "9f6674ae2fe558543e175bb196c6995d8931087da1f08c7fe568eda1a8ca9051"
+  },
+  {
+    "file": "site/logo-on-light.svg",
+    "source": "src/assets/logo-on-light.svg",
+    "sha256": "239ab50820692a759863d49d04445d035bc43de48e9ef53e8577cb015b1a75d6"
+  },
+  {
+    "file": "site/favicon.svg",
+    "source": "public/favicon.svg",
+    "sha256": "52f1abd6d41c4ea3b4a2fdbd62b28ad6825b5fb35d137d0580337fb9b97f8386"
+  }
+]

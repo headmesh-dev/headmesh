@@ -74,13 +74,30 @@ export default defineConfig({
     starlight({
       title: "Headmesh Docs",
       description: "Documentation for Headmesh, the open, self-hostable, multi-tenant mesh built on Headscale.",
-      logo: { src: "./src/assets/logo.svg" },
+      logo: { dark: "./src/assets/logo.svg", light: "./src/assets/logo-on-light.svg", alt: "Headmesh" },
+      components: { SiteTitle: "./src/components/DocsSiteTitle.astro" },
       favicon: "/favicon.svg",
       disable404Route: true,
       pagefind: false,
       social: [{ icon: "github", label: "GitHub", href: REPO_URL }],
       editLink: { baseUrl: `${REPO_URL}/edit/main/web/marketing/` },
-      customCss: ["@fontsource-variable/inter", "@fontsource-variable/jetbrains-mono", "./src/styles/starlight.css"],
+      customCss: ["./src/styles/starlight.css"],
+      expressiveCode: {
+        styleOverrides: {
+          codeFontFamily: "var(--hm-font-mono)",
+          uiFontFamily: "var(--hm-font-body)",
+          codeBackground: "var(--hm-surface)",
+          codeForeground: "var(--hm-fg)",
+          borderColor: "var(--hm-line)",
+          borderRadius: "0.75rem",
+          frames: {
+            editorBackground: "var(--hm-surface)",
+            terminalBackground: "var(--hm-surface)",
+            editorActiveTabBackground: "var(--hm-surface)",
+            frameBoxShadowCssValue: "none",
+          },
+        },
+      },
       head: [
         { tag: "meta", attrs: { property: "og:image", content: `${SITE_URL}/og/docs.png` } },
         { tag: "meta", attrs: { name: "twitter:card", content: "summary_large_image" } },

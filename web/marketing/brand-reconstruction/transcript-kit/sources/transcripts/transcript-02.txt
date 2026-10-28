@@ -1,0 +1,2246 @@
+bash
+
+mkdir -p /home/claude/repo_src && cd /home/claude/repo_src && unzip -q -o "/root/.claude/uploads/743d91fe-3243-5280-bc7c-5f0209889ee4/c0e20e57-headmesh-main.zip" && ls; cd headmesh-main 2>/dev/null || cd $(ls -d */ | head -1); pwd; ls -la; find . -type f -not -path '*/node_modules/*' -not -path '*/.git/*' | sed 's|^\./||' | awk -F/ '{print $1"/"$2}' | sort | uniq -c | sort -rn | head -50; echo; find . -type f | wc -l
+Output
+
+headmesh-main
+/home/claude/repo_src/headmesh-main
+total 140
+drwxr-xr-x 17 root root  4096 Oct 27 22:56 .
+drwxr-xr-x  3 root root  4096 Oct 28 04:15 ..
+drwxr-xr-x  3 root root  4096 Oct 27 22:56 .agents
+drwxr-xr-x  2 root root  4096 Oct 27 22:56 .claude-plugin
+drwxr-xr-x  3 root root  4096 Oct 27 22:56 .github
+-rw-r--r--  1 root root   668 Oct 27 22:56 .gitignore
+-rw-r--r--  1 root root  1205 Oct 27 22:56 .golangci.yml
+-rw-r--r--  1 root root   879 Oct 27 22:56 CONTRIBUTING.md
+-rw-r--r--  1 root root  2746 Oct 27 22:56 README.md
+-rw-r--r--  1 root root  1188 Oct 27 22:56 SECURITY.md
+drwxr-xr-x  2 root root  4096 Oct 27 22:56 api
+-rw-r--r--  1 root root   548 Oct 27 22:56 buf.gen.headscale.yaml
+-rw-r--r--  1 root root   466 Oct 27 22:56 buf.gen.yaml
+-rw-r--r--  1 root root   282 Oct 27 22:56 buf.lock
+-rw-r--r--  1 root root   191 Oct 27 22:56 buf.yaml
+drwxr-xr-x  4 root root  4096 Oct 27 22:56 cmd
+drwxr-xr-x  5 root root  4096 Oct 27 22:56 core
+drwxr-xr-x  4 root root  4096 Oct 27 22:56 db
+drwxr-xr-x  4 root root  4096 Oct 27 22:56 deploy
+drwxr-xr-x  2 root root  4096 Oct 27 22:56 docs
+drwxr-xr-x  4 root root  4096 Oct 27 22:56 gen
+-rw-r--r--  1 root root  3661 Oct 27 22:56 go.mod
+-rw-r--r--  1 root root 17474 Oct 27 22:56 go.sum
+drwxr-xr-x  5 root root  4096 Oct 27 22:56 internal
+-rw-r--r--  1 root root  1160 Oct 27 22:56 mise.toml
+drwxr-xr-x  6 root root  4096 Oct 27 22:56 plugins
+drwxr-xr-x  4 root root  4096 Oct 27 22:56 proto
+-rw-r--r--  1 root root   881 Oct 27 22:56 renovate.json
+drwxr-xr-x 10 root root  4096 Oct 27 22:56 sandbox
+-rw-r--r--  1 root root   768 Oct 27 22:56 sqlc.yaml
+drwxr-xr-x  3 root root  4096 Oct 27 22:56 web
+    144 sandbox/image
+     74 web/marketing
+     46 sandbox/sandboxd
+     17 internal/store
+     15 sandbox/host
+     14 core/policy
+     11 plugins/xcelsior
+     11 plugins/headmesh
+      9 db/queries
+      8 sandbox/internal
+      8 proto/headscale
+      8 gen/headscale
+      7 sandbox/docs
+      6 internal/service
+      5 sandbox/config
+      4 plugins/schemas
+      4 plugins/gen
+      4 core/cellagent
+      3 sandbox/compose
+      3 cmd/headmesh-server
+      3 .github/workflows
+      2 sandbox/cmd
+      2 gen/cell
+      2 db/migrations
+      2 core/cellserver
+      2 cmd/headmesh-cellagent
+      1 sqlc.yaml/
+      1 sandbox/go.sum
+      1 sandbox/go.mod
+      1 renovate.json/
+      1 proto/cell
+      1 plugins/pnpm-lock.yaml
+      1 plugins/package.json
+      1 plugins/marketplace.source.yaml
+      1 plugins/README.md
+      1 mise.toml/
+      1 internal/headscale
+      1 go.sum/
+      1 go.mod/
+      1 docs/prod-hetzner-ubuntu-upgrade-handoff.md
+      1 docs/plan.md
+      1 docs/handoff.md
+      1 deploy/host
+      1 deploy/compose
+      1 db/embed.go
+      1 buf.yaml/
+      1 buf.lock/
+      1 buf.gen.yaml/
+      1 buf.gen.headscale.yaml/
+      1 api/operations.go
+
+449
+bash
+
+wc -c README.md docs/* sandbox/docs/* plugins/README.md CONTRIBUTING.md SECURITY.md 2>/dev/null; echo; find web -type f | grep -v node_modules | head -80
+Output
+
+   2746 README.md
+  20212 docs/handoff.md
+ 131426 docs/plan.md
+   6011 docs/prod-hetzner-ubuntu-upgrade-handoff.md
+      0 sandbox/docs/adr
+  13311 sandbox/docs/container-contract.md
+   7577 plugins/README.md
+    879 CONTRIBUTING.md
+   1188 SECURITY.md
+ 183350 total
+
+web/marketing/shared/api.ts
+web/marketing/shared/site.ts
+web/marketing/server/emails.ts
+web/marketing/server/waitlist.ts
+web/marketing/server/http.ts
+web/marketing/server/crypto.ts
+web/marketing/server/env.ts
+web/marketing/server/resend.ts
+web/marketing/server/schema.ts
+web/marketing/server/email.ts
+web/marketing/server/turnstile.ts
+web/marketing/src/components/Icon.astro
+web/marketing/src/components/TokenAction.astro
+web/marketing/src/components/GitHubIcon.astro
+web/marketing/src/components/ThemeToggle.astro
+web/marketing/src/components/Footer.astro
+web/marketing/src/components/Header.astro
+web/marketing/src/components/Logo.astro
+web/marketing/src/components/MeshDiagram.astro
+web/marketing/src/layouts/Base.astro
+web/marketing/src/assets/logo.svg
+web/marketing/src/og/render.ts
+web/marketing/src/content/docs/docs/self-hosting.mdx
+web/marketing/src/content/docs/docs/index.mdx
+web/marketing/src/content/docs/docs/concepts.mdx
+web/marketing/src/content/docs/docs/quickstart.mdx
+web/marketing/src/content/i18n/en.json
+web/marketing/src/scripts/theme.ts
+web/marketing/src/scripts/waitlist.ts
+web/marketing/src/scripts/token-action.ts
+web/marketing/src/styles/starlight.css
+web/marketing/src/styles/global.css
+web/marketing/src/pages/.well-known/security.txt.ts
+web/marketing/src/pages/apple-touch-icon.png.ts
+web/marketing/src/pages/waitlist.astro
+web/marketing/src/pages/og/[slug].png.ts
+web/marketing/src/pages/privacy.astro
+web/marketing/src/pages/waitlist/confirm.astro
+web/marketing/src/pages/waitlist/unsubscribe.astro
+web/marketing/src/pages/404.astro
+web/marketing/src/pages/index.astro
+web/marketing/src/pages/terms.astro
+web/marketing/src/content.config.ts
+web/marketing/public/_headers
+web/marketing/public/favicon.svg
+web/marketing/public/robots.txt
+web/marketing/public/_redirects
+web/marketing/astro.config.mjs
+web/marketing/README.md
+web/marketing/biome.json
+web/marketing/lighthouserc.json
+web/marketing/migrations/0001_create_waitlist.sql
+web/marketing/scripts/csp.mjs
+web/marketing/.gitignore
+web/marketing/vitest.config.ts
+web/marketing/pnpm-lock.yaml
+web/marketing/tests/scripts/csp.test.ts
+web/marketing/tests/e2e/fixtures.ts
+web/marketing/tests/e2e/smoke.spec.ts
+web/marketing/tests/functions/env.d.ts
+web/marketing/tests/functions/setup.ts
+web/marketing/tests/functions/email.test.ts
+web/marketing/tests/functions/waitlist.test.ts
+web/marketing/tests/functions/crypto.test.ts
+web/marketing/package.json
+web/marketing/wrangler.toml
+web/marketing/functions/worker-configuration.d.ts
+web/marketing/functions/api/waitlist.ts
+web/marketing/functions/api/waitlist/confirm.ts
+web/marketing/functions/api/waitlist/unsubscribe.ts
+web/marketing/functions/tsconfig.json
+web/marketing/playwright.config.ts
+web/marketing/tsconfig.json
+web/marketing/.dev.vars.example
+Read a file
+README.md
+Read a file
+handoff.md
+bash
+
+grep -n "^#" docs/plan.md | head -150
+Output
+
+1:# Headmesh — Technical Implementation Plan
+9:## 0. Context
+41:## 1. Ground truth discovered (these change the blueprint's assumptions)
+142:## 2. Architecture overview
+174:## 3. Repository, toolchain and engineering standards
+176:### 3.1 Layout (single Go module `github.com/headmesh-dev/headmesh`, Go 1.26)
+215:### 3.2 Pinned toolchain and libraries (latest stable as of 2026-10-26)
+241:### 3.3 Standards
+260:## 4. Milestones (parallel tracks: Core, Xcelsior, Sandbox, Consumer)
+273:## 5. M0 — Preparation and safety
+275:### 5.1 Fix the Headscale standby on the ASUS (sudo, needs approval)
+299:### 5.2 Xcelsior tailnet hardening (Xcelsior repo; prod ACL change, so approval and a maintenance window)
+321:### 5.3 Host prep on the ASUS (sudo, approval)
+329:### 5.4 prod-hetzner disk: reclaim now, then set-and-forget (reclaim approved 2026-10-26; config changes go in the Xcelsior repo `api/infra/`)
+352:### 5.5 Accounts and settings (Aaryn does these by hand; I can't create accounts or enter credentials)
+366:### 5.6 Repo bootstrap
+371:### 5.7 prod-hetzner: Ubuntu 24.04 → 26.04.1 (approved 2026-10-27; Aaryn runs every command)
+392:### 5.8 hm-prod-1: firewall and bootstrap (server created 2026-10-27; approved)
+414:## 6. Track A — Agent sandbox (blueprint step 1)
+416:### 6.1 Topology decision
+422:### 6.2 Image (`sandbox/image/Dockerfile`, multi-stage, published as `ghcr.io/headmesh-dev/sandbox:<ver>`, signed)
+441:### 6.3 Compose (`sandbox/compose/compose.yaml`) — skeleton
+481:### 6.4 Mounts, config and secret masking
+513:### 6.5 Host egress firewall (new; the blueprint missed it)
+521:### 6.6 Tailnet enrollment (M1, on the existing `xcelsior` cell; prod ACL change needs approval)
+535:### 6.7 s6-rc services (`sandbox/image/rootfs/etc/s6-overlay/s6-rc.d/`)
+554:### 6.8 `headmesh-sandboxd` — the MCP server and session manager
+611:### 6.9 Git and GitHub inside the container
+626:### 6.10 Concurrency protocol (no hard lock by default)
+637:### 6.11 Modes: Regular (default) and YOLO (opt-in)
+647:### 6.12 Backups (YOLO prerequisite)
+652:### 6.13 GPU (pitfall 6)
+657:### 6.14 Diagnostics
+668:### 6.15 Acceptance harness (`sandbox/tests/acceptance`)
+690:## 7. Track B — Cloud entry points
+692:### 7.1 Claude self-hosted runner (Claude cloud tasks)
+708:### 7.2 Claude Remote Control (Aaryn's interactive sessions)
+715:### 7.3 Codex: SSH remote connections (primary Codex front door, M1)
+723:### 7.4 OpenAI Secure MCP Tunnel (ChatGPT and Codex via Platform)
+730:### 7.5 Headmesh ingress for any MCP client (M3)
+738:### 7.6 `codex exec-server` (M1, alongside SSH and Tunnel; no extra Hetzner cost)
+751:### 7.7 Unified status
+757:## 8. Track C — Plugins and marketplace (one repo serving both ecosystems)
+759:### 8.1 Catalogs
+778:### 8.2 Plugin contents (both plugins)
+808:### 8.3 Xcelsior-side fixes (Xcelsior repo)
+815:### 8.4 Validation and release
+828:## 9. Track D — Headmesh core (control layer + API)
+830:### 9.1 Domain model (Postgres 18; UUIDv7 primary keys; `org_id` on every tenant table with a leading index)
+853:### 9.2 Mapping tenancy onto Headscale (no fork; Headscale ≥ v0.29.6)
+871:### 9.3 Policy compiler (`core/policy`) — pure, deterministic, property-tested
+896:### 9.4 Cell agent (`headmesh-cellagent`) — how Headmesh reaches Headscale without exposing it
+920:### 9.5 Enrollment ("one-click onboarding")
+931:### 9.6 Grants ("fine-grained, temporary access")
+943:### 9.7 Audit log (tamper-evident)
+950:### 9.8 API v1 (REST/JSON, OpenAPI 3.1 generated by Huma, committed, with an `oasdiff` breaking-change gate in CI)
+977:### 9.9 Authentication and authorization
+996:### 9.10 Webhooks
+1004:### 9.11 Observability and SLOs
+1026:### 9.12 Scale and cells
+1035:## 10. Track E — CLI (`headmesh`)
+1067:## 11. Track F — Xcelsior integration (Xcelsior repo, one folder)
+1107:## 12. Track G — Web
+1109:### 12.1 `web/marketing` (headmesh.dev, deployed independently)
+1131:### 12.2 `web/app` (sign-up first, dashboard later)
+1142:## 13. Deploy and operations
+1144:### 13.1 Cost (from the Hetzner API on 2026-10-26; net €, VAT 0%) — "one VM + on-demand standby"
+1181:### 13.2 hm-prod-1 stack (`deploy/compose/`)
+1209:### 13.3 Replication, backups and R2 budget (requirement 5)
+1227:### 13.4 Failure detection, fencing and recovery (requirements 1, 4, 7)
+1273:### 13.5 Restore drills (requirement 2)
+1291:### 13.6 DERP outside the VM (requirement 3)
+1299:### 13.7 Break-glass WireGuard (generalizing `wg-backdoor`)
+1307:### 13.8 Adopting the `xcelsior` cell (M4; every step needs approval)
+1324:## 14. Security model
+1360:## 15. Testing and CI
+1379:## 16. Blueprint coverage matrix
+1410:## 17. Spikes (each time-boxed to ≤ 0.5 day, with a fallback)
+1433:## 18. Verification (end to end)
+1468:## 19. Decisions and manual to-dos remaining for Aaryn
+bash
+
+sed -n 1,40p docs/plan.md; echo ......; sed -n 142,173p docs/plan.md; echo .....; sed -n 1107,1141p docs/plan.md; echo ....; sed -n 1468,1560p docs/plan.md
+Output
+
+# Headmesh — Technical Implementation Plan
+
+Source blueprint: `/mnt/storage/projects/Headscale Sandbox Plugin Handoff.md`.
+Plan date: 2026-10-26. Owner: Aaryn Biro (Xcelsior Compute Inc.).
+Everything below is the recommended approach. Items marked **SPIKE** are unverified facts with a time-boxed check and a named fallback (§17).
+
+---
+
+## 0. Context
+
+**Why this work.** Cloud agents (Claude, Codex) can't join Aaryn's self-hosted Headscale tailnet through their managed VPN settings. The blueprint's answer is a persistent Docker sandbox on the ASUS that joins Headscale itself, with several "front doors" for cloud agents. It is packaged as a plugin and grows into **Headmesh**: an open, self-hostable, multi-tenant Tailscale-style product built on Headscale. Xcelsior is its first customer. Around it: a plugin marketplace (Headmesh + Xcelsior), a CLI, a sign-up page and a marketing site.
+
+**What this plan delivers.**
+- A production-grade Go monorepo `github.com/headmesh-dev/headmesh`.
+- A live agent sandbox on the ASUS that passes the five-step acceptance test through each front door.
+- Plugins published for Claude Code and Codex.
+- The Headmesh control plane running on one Hetzner VM in Nuremberg, managing two Headscale "cells".
+- An integration folder in the Xcelsior repo.
+- headmesh.dev with a waitlist.
+
+**Decisions locked with Aaryn (2026-10-26).**
+
+| Topic | Decision |
+|---|---|
+| Names | GitHub org **`headmesh-dev`**. The plain `headmesh` org is taken by an unrelated, empty 2022 account. Domain **headmesh.dev**: registered today at Porkbun, DNS already on Cloudflare. Contact **aaryn.biro@headmesh.dev** plus **hello@headmesh.dev**. |
+| Core language | **Go** for core, api, cli, sandbox daemon and cell agent. Xcelsior stays Python and calls the API. |
+| Headscale | **Two cells.** Adopt `hs.xcelsior.ca` in place as cell `xcelsior`, keeping the 100.64.0.x IPs the Xcelsior code hardcodes. Add a fresh shared cell `hs1` (`hs1.headmesh.dev`) for public sign-ups. |
+| Headscale API exposure | **No gRPC exposure on prod-hetzner.** A cell agent beside each Headscale talks to it over its local unix socket and only connects **outbound** to Headmesh. Any design that opens Headscale gRPC needs Aaryn's explicit approval first (§9.4). |
+| Codex front doors | **All three in M1.** SSH remote connections are the primary route: they land **inside the sandbox container**, allowed only from Aaryn's own devices. Plus **OpenAI Secure MCP Tunnel**, plus the **`codex exec-server` orchestrator** (Agents API, §7.6). The acceptance test runs through SSH **and** exec-server. Exec-server adds no Hetzner cost: it runs in the sandbox on the ASUS, and OpenAI bills Agents API usage. |
+| Hosting | **One VM in Hetzner `nbg1` + on-demand standby.** Continuous replication to Cloudflare R2. Scripted restore to `fsn1`/`hel1` through the Hetzner API with fencing. No idle second server. No Canadian data-residency requirement. |
+| Cost | Create hm-prod-1 **now in M0** so the expiring Hetzner credits pay for it. Create it as a `cx23` and rescale **CPU/RAM-only** to `cx33` while credits last; that keeps the 40 GB disk, so it can drop back to `cx23` (€5.99/month) afterwards unless metrics justify `cx33` (€8.99/month) (§13.1). |
+| prod-hetzner disk | **Reclaim approved by Aaryn (2026-10-26).** Make it **set-and-forget** so nobody cleans the server by hand again (§5.4). |
+| npm | **Org `headmesh` secured by Aaryn (2026-10-27).** The `@headmesh/*` scope is reserved. CI publishes with npm trusted publishing (§5.5, §10). |
+| hm-prod-1 | **Created by Aaryn (2026-10-27)** in Hetzner project **"Headmesh"**: `cx23`, x86, 40 GB, `nbg1` (eu-central), IPv4 **<hm-prod-1 IPv4>**, **Ubuntu 26.04**. Root SSH key on the ASUS: `~/.ssh/hm-prod-1`. Next: Cloud Firewall, then bootstrap (§5.8). |
+| OS baseline | **Ubuntu 26.04 LTS ("resolute") on every machine**: ASUS (26.04.1), tower (upgraded 2026-10-26), hm-prod-1 (26.04), prod-hetzner (24.04 → 26.04.1, §5.7). Images, docs and scripts target 26.04. |
+| prod-hetzner OS upgrade | **Approved (2026-10-27). Aaryn runs it** from paste-ready commands; agents have no SSH access to prod-hetzner. Runbook: `docs/prod-hetzner-ubuntu-upgrade-handoff.md` plus the extra safeguards in §5.7. |
+| Execution | **Aaryn approves everything in this plan (2026-10-27).** Steps marked "approval" are pre-approved; prod-touching steps still announce themselves before they run. Every session follows §3.3 "Package discipline". |
+
+---
+
+......
+## 2. Architecture overview
+
+```
+ Cloudflare: DNS · Pages (headmesh.dev, get.headmesh.dev) · D1 (waitlist) · Turnstile · Workers cron (external monitor)
+             · R2 (Litestream + pgBackRest + encrypted keys + tofu state) · Email Routing (hello@, aaryn.biro@)
+
+ Hetzner nbg1 — hm-prod-1 <hm-prod-1 IPv4> (cx23 → cx33 when needed, Ubuntu 26.04), project "Headmesh" (separate token from prod-hetzner)
+ ┌─────────────────────────────────────────────────────────────────────────────────────────┐
+ │ Caddy 2 :443 ─► headmesh-server (REST API /v1, OAuth AS, web/app SPA, River workers)    │
+ │                     │ pgx                                                               │
+ │                 Postgres 18 ── pgBackRest ─► R2                                         │
+ │ Headscale v0.29.6 (cell hs1, policy.mode=database, embedded DERP region 900)            │
+ │     ▲ unix socket          Litestream (10 s) ─► R2                                      │
+ │ headmesh-cellagent[hs1] ── outbound bidi stream (mTLS) ─► headmesh-server               │
+ │ tailscaled (VM is a node in hs1 and in the xcelsior cell as tag:hm-ingress/ops)         │
+ └─────────────────────────────────────────────────────────────────────────────────────────┘
+          ▲ outbound only (HTTPS/mTLS) — no new inbound port, Headscale gRPC never exposed
+ prod-hetzner (nbg1, Xcelsior prod): Headscale hs.xcelsior.ca (cell "xcelsior") + headmesh-cellagent[xcelsior]
+          Xcelsior API → control_plane/headmesh (grants on rental events, onboarding via Headmesh API)
+
+ ASUS (home): headmesh-sandbox container (bridge netns, own node tag:sandbox / tag:sandbox-yolo)
+   s6-overlay: tailscaled(root, NET_ADMIN, Tailscale SSH) · tmux server · headmesh-sandboxd (MCP :8780)
+               · claude self-hosted-runner · claude remote-control · openai tunnel-client · [codex exec-server add-on]
+   Front doors: Claude cloud task → runner polls api.anthropic.com (outbound)
+                Codex desktop "Remote connections" → Tailscale SSH (from Aaryn's devices only) → inside container
+                ChatGPT/Codex → OpenAI tunnel ← tunnel-client (outbound) → sandboxd MCP
+                Claude Code / any MCP client → MagicDNS URL (M1) or https://asus.sbx.headmesh.dev/mcp via Headmesh ingress (M3)
+                Aaryn interactive → Claude Remote Control (host instance stays as fallback; sandbox instance added)
+```
+
+---
+
+.....
+## 12. Track G — Web
+
+### 12.1 `web/marketing` (headmesh.dev, deployed independently)
+- **Stack:** Astro 7.4 static output, Tailwind 4.3, Starlight 0.42 at `/docs` (adds the API reference via `starlight-openapi` from M2).
+  - Self-hosted fonts via Fontsource; dark mode with `prefers-color-scheme` and a toggle.
+  - Build-time OG images; sitemap; `security.txt`.
+  - `_headers`: strict CSP, HSTS (.dev is already on the HSTS preload list), Referrer-Policy, Permissions-Policy.
+- **Pages:** `/` (landing), `/docs`, `/github` (→ `github.com/headmesh-dev/headmesh`), `/waitlist`, `/privacy`, `/terms`.
+- **Copy (from the blueprint):**
+  - Headline: **"Share machines, not your network."** (variation 3).
+  - Subheadline: the blueprint's draft. Agent section heading: **"Give your AI agents a real machine, not a toy sandbox."** (variation 2).
+  - Five feature blocks.
+  - Proof: "Xcelsior Compute runs on Headmesh" (publish once M4 is live; until then "Built for Xcelsior Compute").
+  - CTA: Join the waitlist / Star on GitHub.
+- **Waitlist:**
+  - A Cloudflare Pages Function `functions/api/waitlist.ts`: zod validation, server-side **Turnstile** verify, normalized email, Cloudflare rate-limit binding.
+  - **D1** table `waitlist(id, email UNIQUE, use_case, source, utm, consent_version, ip_hash, created_at, confirmed_at, unsubscribed_at)`.
+  - **Double opt-in** email through Resend with a signed token. **CASL**: an explicit consent checkbox, sender identification (Xcelsior Compute Inc. postal address) and one-click unsubscribe.
+  - Admin export via `wrangler d1 execute`, behind Cloudflare Access for any admin route.
+  - The sign-up count is the success metric.
+- **Analytics:** **Cloudflare Web Analytics** (cookieless, free, no consent banner).
+- **Quality gates:** Lighthouse CI (≥ 95 on all four categories), Playwright and axe, broken-link check.
+- **Deploy:** Cloudflare Pages via GitHub Actions with a path filter `web/marketing/**`; preview deploys per PR. Marketing changes never touch the product.
+
+### 12.2 `web/app` (sign-up first, dashboard later)
+- **Stack:** Vite 8 + React 19 + TanStack Router (file-based, type-safe) + TanStack Query + `openapi-fetch` client generated from the API + shadcn/ui + Tailwind 4 + react-hook-form/zod. Built into `headmesh-server` with `go:embed` and served at `app.headmesh.dev`.
+- **M3 pages:**
+  - Sign up / sign in (email link, passkey, GitHub/Google), verify email, create org.
+  - **Onboarding checklist:** "Add your first device" shows a one-liner and live SSE device appearance.
+  - Devices list; invite links; grants list (read-only).
+- **Later:** HuJSON rules editor (Monaco with schema), access explain, audit viewer, webhooks, API keys, sandbox status.
+- **Tests:** Vitest and Playwright e2e in CI against an ephemeral server with Postgres.
+
+---
+
+....
+## 19. Decisions and manual to-dos remaining for Aaryn
+
+1. **Approvals needed before execution** (each asked at its step):
+   - sudo changes on the ASUS (§5.1, §5.3);
+   - the prod ACL and policy change and maintenance window (§5.2, §6.6);
+   - prod-hetzner Docker reclaim (**approved 2026-10-26**) and the daemon.json/timer/alert changes (§5.4);
+   - installing the cell agent on prod-hetzner (§13.8);
+   - switching hs.xcelsior.ca to `policy.mode: database`;
+   - the Headscale version pin (v0.29.6 tag vs the `main`/"0.30" build).
+2. **Accounts and settings** in §5.5. I can't create accounts or enter credentials.
+3. **License (gate before the repo goes public):** recommendation is **Apache-2.0** for the CLI, SDKs and plugins, and **AGPL-3.0** for the server (open core, protects a hosted offering), or Apache-2.0 everywhere for maximum adoption. Undecided per the blueprint.
+4. **Repo visibility:** private repos on a Free org can't enforce rulesets. Either go public early (after the license decision) or rely on hooks until then.
+5. **Mailbox for sending as aaryn.biro@headmesh.dev** (Zoho free vs Fastmail).
+6. **Second DERP location** before public launch (€5.99/month), or relying on Tailscale's public relays until then.
+7. **Tokens:** create the Hetzner "Headmesh" project API token (§5.5).
+bash
+
+cd /home/claude/repo_src/headmesh-main/web/marketing && wc -c README.md package.json astro.config.mjs src/styles/*.css src/pages/index.astro src/components/*.astro src/layouts/Base.astro src/assets/logo.svg public/favicon.svg src/content/i18n/en.json shared/site.ts src/og/render.ts public/_headers src/pages/waitlist.astro src/pages/apple-touch-icon.png.ts; cat README.md; cat package.json
+Output
+
+15824 README.md
+ 1592 package.json
+ 4318 astro.config.mjs
+ 4313 src/styles/global.css
+  722 src/styles/starlight.css
+ 9435 src/pages/index.astro
+ 1587 src/components/Footer.astro
+  879 src/components/GitHubIcon.astro
+ 1433 src/components/Header.astro
+ 1566 src/components/Icon.astro
+  600 src/components/Logo.astro
+ 3248 src/components/MeshDiagram.astro
+ 1052 src/components/ThemeToggle.astro
+  729 src/components/TokenAction.astro
+ 3201 src/layouts/Base.astro
+  429 src/assets/logo.svg
+  471 public/favicon.svg
+   50 src/content/i18n/en.json
+ 2005 shared/site.ts
+ 4226 src/og/render.ts
+ 1889 public/_headers
+ 5823 src/pages/waitlist.astro
+  202 src/pages/apple-touch-icon.png.ts
+65594 total
+# headmesh.dev
+
+The public marketing site, docs and waitlist for Headmesh (plan §12.1). It's a static Astro site with Starlight
+docs at `/docs`, plus three Cloudflare Pages Functions for the waitlist. It deploys to Cloudflare Pages on its
+own, so marketing changes never touch the product.
+
+| Path                                   | What it is                                                                                                                                                                          |
+| -------------------------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `src/pages/`                           | `/`, `/waitlist/` (plus `confirm/` and `unsubscribe/`), `/privacy/`, `/terms/`, the 404 page, OG images (`og/[slug].png.ts`), `apple-touch-icon.png` and `.well-known/security.txt` |
+| `src/content/docs/docs/`               | Starlight pages served at `/docs/` (placeholders that link to the repository docs)                                                                                                  |
+| `functions/api/`                       | Pages Functions: `POST /api/waitlist`, `POST /api/waitlist/confirm`, `POST /api/waitlist/unsubscribe`                                                                               |
+| `server/`                              | The Functions' logic: validation (zod), Turnstile, tokens, email, D1 queries                                                                                                        |
+| `shared/`                              | Facts both sides use: URLs, CASL sender identity, consent wording and version, field limits                                                                                         |
+| `migrations/`                          | D1 schema migrations                                                                                                                                                                |
+| `public/_headers`, `public/_redirects` | Security headers (CSP, HSTS, Referrer-Policy, Permissions-Policy) and the `/github` redirect                                                                                        |
+| `scripts/csp.mjs`                      | Post-build step that writes the SHA-256 hashes of every inline script into the CSP in `dist/_headers`                                                                               |
+| `tests/functions/`, `tests/scripts/`   | Vitest: Functions inside workerd against a real local D1, and the CSP script                                                                                                        |
+| `tests/e2e/`                           | Playwright + axe smoke tests against `astro preview`, run under the production headers                                                                                              |
+
+Stack: Astro 7.4, Starlight 0.42, Tailwind CSS 4.3, Fontsource (Inter, JetBrains Mono), zod 4, Wrangler 4, Biome 2,
+Vitest 5 with `@cloudflare/vitest-plugin`, Playwright + axe and Lighthouse CI.
+
+## Develop
+
+Node and pnpm come from the repository's `mise.toml` (`mise install`).
+
+```sh
+pnpm install          # from the repo root once pnpm-workspace.yaml lists web/marketing; until then, here
+pnpm dev              # http://localhost:4321 (pages only, no Functions)
+pnpm build            # astro build + CSP hashing into dist/_headers
+pnpm preview          # serve dist/
+```
+
+To run the waitlist end to end on your machine (Functions, local D1, Turnstile test keys, email links in the log):
+
+```sh
+cp .dev.vars.example .dev.vars          # then set WAITLIST_SECRET (openssl rand -base64 48)
+pnpm db:migrate:local
+pnpm build && pnpm pages:dev            # wrangler pages dev serves dist/ + functions/ with _headers applied
+```
+
+| Script              | What it does                                                                                                               |
+| ------------------- | -------------------------------------------------------------------------------------------------------------------------- |
+| `pnpm lint`         | Biome (format + lint), then `astro check` and `tsc` for the Functions                                                      |
+| `pnpm format`       | Biome with fixes applied                                                                                                   |
+| `pnpm test`         | Vitest: `functions` project in workerd (real D1, per-test reset), `scripts` project in Node                                |
+| `pnpm test:e2e`     | Playwright + axe on desktop and mobile, both colour schemes, under the CSP from `dist/_headers` (needs `pnpm build` first) |
+| `pnpm lhci`         | Lighthouse CI on five pages, 3 runs each, ≥ 95 in every category (needs `pnpm build`)                                      |
+| `pnpm types:worker` | Regenerate `functions/worker-configuration.d.ts` after changing `wrangler.toml`                                            |
+
+The e2e tests stub Turnstile and block every third-party request, so they never depend on the network. Set
+`PLAYWRIGHT_BASE_URL` to run them against a deployment instead of `astro preview`.
+
+## How the waitlist works
+
+1. The form posts JSON to `/api/waitlist`: email, optional use case (≤ 500 characters), the consent checkbox, the
+   consent wording version, the Turnstile token, and the source (`?ref=`, `utm_source` or the referring host) and
+   `utm_*` parameters.
+2. The Function validates with zod, normalises the email (trim, NFC, lowercase, punycode domain; no Gmail-style
+   rewriting), verifies Turnstile server-side (action must be `waitlist`) and limits each IP to 10 sign-ups an
+   hour, keyed on an HMAC of the IP. Raw IPs are never stored.
+3. It upserts the row and sends the double opt-in email through Resend. Repeat sign-ups get the same `202`
+   whether or not the address is known, and the confirmation is re-sent at most every 10 minutes. A person who
+   unsubscribed and signs up again gives fresh consent and has to confirm again.
+4. Email links point at `/waitlist/confirm/#token=…` and `/waitlist/unsubscribe/#token=…`. The token sits in the
+   fragment, so it never reaches server logs or Referer headers, and the page only posts it when the person
+   clicks. Link scanners that prefetch URLs can't confirm or unsubscribe anyone. The email also carries
+   RFC 8058 one-click `List-Unsubscribe` headers that point at `POST /api/waitlist/unsubscribe?token=…`.
+5. Tokens are `v1.<row id>[.<expiry>].<HMAC-SHA256>`, with a separate HKDF-derived key per purpose. Confirm
+   links expire after 7 days. Unsubscribe links never expire, because CASL requires them to work for at least 60
+   days. Tokens contain the row id, never the email.
+
+**CASL.** The consent checkbox is unticked by default and states the purpose. The form, every email and the privacy
+policy identify the sender (Xcelsior Compute Inc., mailing address, contact email). Every email can be unsubscribed
+in one click, and unsubscribes take effect immediately. Each row records which consent wording was shown
+(`consent_version`) and when consent was given, confirmed and withdrawn. When you change `CONSENT_TEXT` in
+`shared/site.ts`, bump `CONSENT_VERSION` too.
+
+**Fail-closed.** Until `SENDER.postalAddress` in `shared/site.ts` is filled in, production builds refuse to run
+and the Function refuses sign-ups with `503` instead of sending email that isn't CASL-compliant.
+
+The table (`migrations/0001_create_waitlist.sql`) is `waitlist(id, email UNIQUE, use_case, source, utm,
+consent_version, ip_hash, created_at, confirmed_at, unsubscribed_at, confirm_sent_at)`. `confirm_sent_at` is one
+column beyond the plan; it throttles confirmation re-sends. The mailable audience is
+`confirmed_at IS NOT NULL AND unsubscribed_at IS NULL`.
+
+## Configuration
+
+Nothing secret lives in the repository. `wrangler.toml` is the source of truth for the Pages project's bindings and
+plain variables. Secrets are set per environment.
+
+**Build time** (GitHub Actions environment, or `web/marketing/.env` locally):
+
+| Variable                    | Where it comes from                                                                                                                        |
+| --------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------ |
+| `PUBLIC_TURNSTILE_SITE_KEY` | Repository variable `TURNSTILE_SITE_KEY` for production. Without it, the build uses Cloudflare's always-pass test key (local and preview). |
+| `PUBLIC_CF_ANALYTICS_TOKEN` | Repository variable `CF_WEB_ANALYTICS_TOKEN`. Without it, no beacon is rendered.                                                           |
+| `HEADMESH_PRODUCTION=1`     | Set by the production deploy job. Fails the build if the Turnstile key is the test key or the postal address is empty.                     |
+
+**Runtime vars** (`wrangler.toml`): `SITE_URL`, `EMAIL_FROM`, `EMAIL_REPLY_TO` and `EMAIL_DELIVERY`. Production uses
+`resend`. `[env.preview]` uses `log`, so previews never send mail and their links go to
+`wrangler pages deployment tail`.
+
+**Runtime secrets** (Pages project, per environment):
+
+| Secret                 | Production                                                                                   | Preview                                                                                                                  |
+| ---------------------- | -------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------ |
+| `TURNSTILE_SECRET_KEY` | The widget's secret key                                                                      | Cloudflare's test secret `1x0000000000000000000000000000000AA` (it pairs with the test site key previews are built with) |
+| `WAITLIST_SECRET`      | `openssl rand -base64 48`; rotating it invalidates outstanding confirm and unsubscribe links | A different random value                                                                                                 |
+| `RESEND_API_KEY`       | A Resend key with sending access to `mail.headmesh.dev` only                                 | Not needed (`EMAIL_DELIVERY=log`)                                                                                        |
+
+**GitHub** (repository settings): secrets `CLOUDFLARE_API_TOKEN` (an account API token with _Cloudflare Pages:
+Edit_ and _D1: Edit_ only) and `CLOUDFLARE_ACCOUNT_ID`, plus variables `TURNSTILE_SITE_KEY` and
+`CF_WEB_ANALYTICS_TOKEN`. Create the environments `marketing-production` (deployment branch: `main` only) and
+`marketing-preview`. The deploy jobs are skipped until the repository variable `MARKETING_DEPLOY` is `enabled`, so
+CI only lints, tests and builds until setup is finished.
+
+## One-time setup
+
+These steps create Cloudflare and Resend resources and need Aaryn's go-ahead. Run the `wrangler` commands from
+`web/marketing/` after `pnpm exec wrangler login`.
+
+1. **D1 databases**
+
+   ```sh
+   pnpm exec wrangler d1 create headmesh-waitlist
+   pnpm exec wrangler d1 create headmesh-waitlist-preview
+   ```
+
+   Put the two printed `database_id`s into `wrangler.toml` (they're zeros now), then apply the schema with
+   `pnpm exec wrangler d1 migrations apply DB --remote` and the same command with `--env preview`. CI re-applies
+   pending migrations before every deploy.
+2. **Pages project**
+
+   ```sh
+   pnpm exec wrangler pages project create headmesh-marketing --production-branch main
+   ```
+
+   In the dashboard, add the custom domain `headmesh.dev` (DNS is already on Cloudflare). Don't turn on automatic
+   Web Analytics injection; the site renders its own beacon so the CSP stays exact.
+3. **Turnstile.** In the dashboard, add a Turnstile widget (Managed) for hostname `headmesh.dev`. Save the site key
+   as the GitHub variable `TURNSTILE_SITE_KEY`, and the secret with
+   `pnpm exec wrangler pages secret put TURNSTILE_SECRET_KEY --project-name headmesh-marketing`.
+4. **Resend.** Add the domain `mail.headmesh.dev`. Create the SPF, DKIM and bounce (MX) records it lists in
+   Cloudflare DNS and wait for verification. Publish a DMARC record for `headmesh.dev` if there isn't one. Create
+   an API key restricted to sending from that domain and store it with `wrangler pages secret put RESEND_API_KEY`.
+5. **Signing secret.** Run `openssl rand -base64 48 | pnpm exec wrangler pages secret put WAITLIST_SECRET
+   --project-name headmesh-marketing`.
+6. **Preview secrets.** `wrangler pages secret put` only targets production, so set the preview values from the
+   table above under _Settings → Variables and Secrets → Preview_ in the dashboard.
+7. **Web Analytics.** Add the site `headmesh.dev` under _Web Analytics_ with the manual JS snippet. Save its token
+   as the GitHub variable `CF_WEB_ANALYTICS_TOKEN`.
+8. **Rate limiting.** Pages Functions can't use the Workers rate-limit binding the plan names: Wrangler's Pages
+   config doesn't accept `ratelimits`. The Function enforces its own per-IP limit in D1. As an outer layer, add a WAF
+   rate-limiting rule for `POST /api/waitlist*` on the `headmesh.dev` zone, for example 20 requests per 10 minutes
+   per IP.
+9. **CASL sender address.** Fill in `SENDER.postalAddress` in `shared/site.ts`. Production builds fail without it.
+10. **Turn deploys on.** Once steps 1–9 are done, set the repository variable `MARKETING_DEPLOY` to `enabled`.
+11. **Before launch:** have the privacy policy and terms reviewed (they have no governing-law clause yet), and make
+    the GitHub repository public so the `/github` and "Star on GitHub" links work.
+
+## Operations
+
+There's no admin route; the waitlist is read with `wrangler d1 execute`. If an admin page is ever added, put it
+behind Cloudflare Access.
+
+```sh
+# Sign-up count, the success metric
+pnpm exec wrangler d1 execute DB --remote --command \
+  "SELECT count(*) AS confirmed FROM waitlist WHERE confirmed_at IS NOT NULL AND unsubscribed_at IS NULL"
+
+# Export the mailable list
+pnpm exec wrangler d1 execute DB --remote --json --command \
+  "SELECT email, use_case, source, utm, created_at, confirmed_at FROM waitlist
+   WHERE confirmed_at IS NOT NULL AND unsubscribed_at IS NULL ORDER BY created_at"
+
+# Delete sign-ups that were never confirmed (the privacy policy promises this; run it monthly)
+pnpm exec wrangler d1 execute DB --remote --command \
+  "DELETE FROM waitlist WHERE confirmed_at IS NULL AND created_at < strftime('%Y-%m-%dT%H:%M:%fZ', 'now', '-30 days')"
+
+# Live Function logs (structured JSON, never email addresses)
+pnpm exec wrangler pages deployment tail --project-name headmesh-marketing
+```
+
+`/.well-known/security.txt` gets an `Expires` 330 days after each build, so redeploy at least once every ten
+months.
+
+## Security headers
+
+`public/_headers` sets a CSP that allows only this origin, the SHA-256 hashes of the few inline scripts (theme
+detection and Starlight's own), Turnstile (`challenges.cloudflare.com`) and the Web Analytics beacon
+(`static.cloudflareinsights.com`, `cloudflareinsights.com`). Stylesheets and bundled scripts ship as files
+(`inlineStylesheets: "never"`, `assetsInlineLimit: 0`), so `style-src` is `'self'` only. Inline style
+_attributes_ are allowed through `style-src-attr` because Starlight sets CSS custom properties that way; they
+can't load resources or run code. The build fails if an inline event handler appears or the header grows past
+Pages' 2,000-character limit. The Functions set their own `no-store`, `nosniff` and `default-src 'none'` headers.
+{
+  "name": "@headmesh/marketing",
+  "version": "0.0.0",
+  "private": true,
+  "description": "headmesh.dev marketing site, docs and waitlist (Astro + Starlight on Cloudflare Pages)",
+  "license": "UNLICENSED",
+  "type": "module",
+  "engines": {
+    "node": ">=24"
+  },
+  "scripts": {
+    "dev": "astro dev",
+    "build": "astro build && node scripts/csp.mjs",
+    "preview": "astro preview",
+    "pages:dev": "wrangler pages dev",
+    "check": "astro check && tsc -p functions/tsconfig.json",
+    "lint": "biome check . && pnpm run check",
+    "format": "biome check --write .",
+    "test": "vitest run",
+    "test:watch": "vitest",
+    "test:e2e": "playwright test",
+    "lhci": "lhci autorun",
+    "types:worker": "wrangler types functions/worker-configuration.d.ts",
+    "db:migrate:local": "wrangler d1 migrations apply DB --local"
+  },
+  "dependencies": {
+    "@astrojs/markdown-remark": "^7.3.0",
+    "@astrojs/sitemap": "^3.7.4",
+    "@astrojs/starlight": "^0.42.7",
+    "@fontsource-variable/inter": "^5.3.0",
+    "@fontsource-variable/jetbrains-mono": "^5.3.0",
+    "@fontsource/inter": "^5.3.0",
+    "@resvg/resvg-js": "^2.6.2",
+    "@tailwindcss/vite": "^4.3.3",
+    "astro": "^7.4.2",
+    "satori": "^0.63.2",
+    "tailwindcss": "^4.3.3",
+    "zod": "^4.6.7"
+  },
+  "devDependencies": {
+    "@astrojs/check": "^0.9.12",
+    "@axe-core/playwright": "^4.14.0",
+    "@biomejs/biome": "2.6.3",
+    "@cloudflare/vitest-plugin": "^1.4.7",
+    "@lhci/cli": "^0.15.1",
+    "@playwright/test": "1.64.1",
+    "typescript": "^6.0.3",
+    "vitest": "^5.0.5",
+    "wrangler": "^4.152.0"
+  }
+}
+bash
+
+for f in src/styles/global.css src/styles/starlight.css src/components/Logo.astro src/assets/logo.svg public/favicon.svg src/components/Header.astro src/components/Footer.astro src/layouts/Base.astro; do echo "=================== $f"; cat "$f"; done
+Output
+
+=================== src/styles/global.css
+@import "tailwindcss";
+
+/* `dark:` follows the resolved theme on <html data-theme>, which the inline theme script sets before paint. */
+@custom-variant dark (&:where([data-theme="dark"], [data-theme="dark"] *));
+
+/* Semantic colour tokens. Values live in plain custom properties so one block per theme swaps everything. */
+@theme inline {
+  --font-sans: "Inter Variable", ui-sans-serif, system-ui, -apple-system, "Segoe UI", sans-serif;
+  --font-mono: "JetBrains Mono Variable", ui-monospace, SFMono-Regular, Menlo, monospace;
+
+  --color-bg: var(--hm-bg);
+  --color-surface: var(--hm-surface);
+  --color-raised: var(--hm-raised);
+  --color-line: var(--hm-line);
+  --color-fg: var(--hm-fg);
+  --color-muted: var(--hm-muted);
+  --color-accent: var(--hm-accent);
+  --color-accent-strong: var(--hm-accent-strong);
+  --color-on-accent: var(--hm-on-accent);
+  --color-accent-soft: var(--hm-accent-soft);
+  --color-danger: var(--hm-danger);
+}
+
+:root {
+  color-scheme: light;
+  --hm-bg: #ffffff;
+  --hm-surface: #f5f7f9;
+  --hm-raised: #ffffff;
+  --hm-line: #dde3e9;
+  --hm-fg: #0d1520;
+  --hm-muted: #4a5664;
+  --hm-accent: #0d7068;
+  --hm-accent-strong: #095a53;
+  --hm-on-accent: #ffffff;
+  --hm-accent-soft: #e3f4f1;
+  --hm-danger: #b42318;
+}
+
+:root[data-theme="dark"] {
+  color-scheme: dark;
+  --hm-bg: #0a0e13;
+  --hm-surface: #10161d;
+  --hm-raised: #151c25;
+  --hm-line: #232d38;
+  --hm-fg: #e8eef4;
+  --hm-muted: #9aa8b6;
+  --hm-accent: #3fd8c2;
+  --hm-accent-strong: #6ee6d4;
+  --hm-on-accent: #04211d;
+  --hm-accent-soft: #0f2a28;
+  --hm-danger: #ff8a80;
+}
+
+/* Without JavaScript the theme attribute is never set, so fall back to the system preference. */
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme]) {
+    color-scheme: dark;
+    --hm-bg: #0a0e13;
+    --hm-surface: #10161d;
+    --hm-raised: #151c25;
+    --hm-line: #232d38;
+    --hm-fg: #e8eef4;
+    --hm-muted: #9aa8b6;
+    --hm-accent: #3fd8c2;
+    --hm-accent-strong: #6ee6d4;
+    --hm-on-accent: #04211d;
+    --hm-accent-soft: #0f2a28;
+    --hm-danger: #ff8a80;
+  }
+}
+
+@layer base {
+  html {
+    background-color: var(--hm-bg);
+    color: var(--hm-fg);
+    font-family: var(--font-sans);
+    -webkit-font-smoothing: antialiased;
+    text-rendering: optimizeLegibility;
+    scroll-padding-top: 5rem;
+  }
+
+  ::selection {
+    background-color: var(--hm-accent);
+    color: var(--hm-on-accent);
+  }
+
+  :focus-visible {
+    outline: 2px solid var(--hm-accent);
+    outline-offset: 3px;
+    border-radius: 4px;
+  }
+}
+
+@layer components {
+  .container-page {
+    margin-inline: auto;
+    width: 100%;
+    max-width: 72rem;
+    padding-inline: 1.25rem;
+  }
+
+  @media (min-width: 640px) {
+    .container-page {
+      padding-inline: 2rem;
+    }
+  }
+
+  .btn {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    gap: 0.5rem;
+    border-radius: 0.5rem;
+    padding: 0.7rem 1.15rem;
+    font-weight: 600;
+    font-size: 0.95rem;
+    line-height: 1.25rem;
+    transition:
+      background-color 150ms,
+      border-color 150ms,
+      color 150ms;
+  }
+
+  .btn-primary {
+    background-color: var(--hm-accent);
+    color: var(--hm-on-accent);
+  }
+
+  .btn-primary:hover {
+    background-color: var(--hm-accent-strong);
+  }
+
+  .btn-secondary {
+    border: 1px solid var(--hm-line);
+    background-color: var(--hm-raised);
+    color: var(--hm-fg);
+  }
+
+  .btn-secondary:hover {
+    border-color: var(--hm-muted);
+  }
+
+  .eyebrow {
+    font-family: var(--font-mono);
+    font-size: 0.78rem;
+    font-weight: 500;
+    letter-spacing: 0.06em;
+    text-transform: uppercase;
+    color: var(--hm-accent);
+  }
+
+  /* Long-form text on the legal pages. */
+  .prose-page {
+    max-width: 44rem;
+    line-height: 1.7;
+    color: var(--hm-fg);
+  }
+
+  .prose-page h2 {
+    margin-top: 2.5rem;
+    margin-bottom: 0.75rem;
+    font-size: 1.35rem;
+    font-weight: 650;
+    letter-spacing: -0.01em;
+  }
+
+  .prose-page h3 {
+    margin-top: 1.75rem;
+    margin-bottom: 0.5rem;
+    font-size: 1.05rem;
+    font-weight: 650;
+  }
+
+  .prose-page p,
+  .prose-page ul {
+    margin-top: 0.85rem;
+  }
+
+  .prose-page ul {
+    list-style: disc;
+    padding-left: 1.4rem;
+  }
+
+  .prose-page li + li {
+    margin-top: 0.35rem;
+  }
+
+  .prose-page a {
+    color: var(--hm-accent);
+    text-decoration: underline;
+    text-underline-offset: 3px;
+  }
+}
+=================== src/styles/starlight.css
+/*
+ * Starlight theme: same fonts and accent as the marketing pages. Starlight's own theme variables live in cascade
+ * layers, so these unlayered rules win; each theme gets its own selector so neither leaks into the other.
+ */
+:root {
+  --sl-font: "Inter Variable", ui-sans-serif, system-ui, -apple-system, "Segoe UI", sans-serif;
+  --sl-font-mono: "JetBrains Mono Variable", ui-monospace, SFMono-Regular, Menlo, monospace;
+}
+
+:root:not([data-theme="light"]) {
+  --sl-color-accent-low: #0f2a28;
+  --sl-color-accent: #1aa594;
+  --sl-color-accent-high: #a6f0e4;
+  --sl-color-black: #0a0e13;
+}
+
+:root[data-theme="light"] {
+  --sl-color-accent-low: #cdeee8;
+  --sl-color-accent: #0d7068;
+  --sl-color-accent-high: #063f3a;
+}
+=================== src/components/Logo.astro
+---
+interface Props {
+  class?: string;
+}
+const { class: className } = Astro.props;
+---
+
+<svg
+  class={className}
+  viewBox="0 0 32 32"
+  fill="none"
+  aria-hidden="true"
+  focusable="false"
+>
+  <g stroke="currentColor" stroke-width="2.25" stroke-linecap="round" stroke-linejoin="round">
+    <path d="M7 8h18L16 25z"></path>
+    <path d="M7 8l9 7 9-7M16 15v10"></path>
+  </g>
+  <g fill="currentColor">
+    <circle cx="7" cy="8" r="3.25"></circle>
+    <circle cx="25" cy="8" r="3.25"></circle>
+    <circle cx="16" cy="25" r="3.25"></circle>
+    <circle cx="16" cy="15" r="2.5"></circle>
+  </g>
+</svg>
+=================== src/assets/logo.svg
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 32 32" width="32" height="32" fill="none"><title>Headmesh</title><g stroke="#1aa594" stroke-width="2.25" stroke-linecap="round" stroke-linejoin="round"><path d="M7 8h18L16 25z"/><path d="M7 8l9 7 9-7M16 15v10"/></g><g fill="#1aa594"><circle cx="7" cy="8" r="3.25"/><circle cx="25" cy="8" r="3.25"/><circle cx="16" cy="25" r="3.25"/><circle cx="16" cy="15" r="2.5"/></g></svg>
+=================== public/favicon.svg
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 32 32" fill="none"><title>Headmesh</title><rect width="32" height="32" rx="7" fill="#0a0e13"/><g stroke="#3fd8c2" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M8 9h16l-8 14.5z"/><path d="M8 9l8 6.25L24 9M16 15.25v8.25"/></g><g fill="#3fd8c2"><circle cx="8" cy="9" r="2.75"/><circle cx="24" cy="9" r="2.75"/><circle cx="16" cy="23.5" r="2.75"/><circle cx="16" cy="15.25" r="2.1"/></g></svg>
+=================== src/components/Header.astro
+---
+import { REPO_URL } from "../../shared/site";
+import Logo from "./Logo.astro";
+import ThemeToggle from "./ThemeToggle.astro";
+
+const path = Astro.url.pathname;
+---
+
+<header class="sticky top-0 z-40 border-b border-line/70 bg-bg/85 backdrop-blur supports-[backdrop-filter]:bg-bg/70">
+  <div class="container-page flex h-16 items-center justify-between gap-4">
+    <a href="/" class="flex items-center gap-2.5 font-semibold tracking-tight" aria-label="Headmesh home">
+      <Logo class="size-7 text-accent" />
+      <span class="text-[1.05rem]">Headmesh</span>
+    </a>
+    <nav aria-label="Main" class="flex items-center gap-1 sm:gap-2">
+      <a
+        href="/docs/"
+        class="rounded-md px-2.5 py-2 text-sm font-medium text-muted transition-colors hover:text-fg"
+        aria-current={path.startsWith("/docs") ? "page" : undefined}
+      >
+        Docs
+      </a>
+      <a
+        href={REPO_URL}
+        class="hidden rounded-md px-2.5 py-2 text-sm font-medium text-muted transition-colors hover:text-fg sm:inline-block"
+      >
+        GitHub
+      </a>
+      <a
+        href="/waitlist/"
+        class="btn btn-primary ml-1 px-3.5 py-2 text-sm whitespace-nowrap"
+        aria-current={path.startsWith("/waitlist") ? "page" : undefined}
+      >
+        <span class="sm:hidden">Waitlist</span>
+        <span class="hidden sm:inline">Join the waitlist</span>
+      </a>
+      <ThemeToggle />
+    </nav>
+  </div>
+</header>
+=================== src/components/Footer.astro
+---
+import { CONTACT_EMAIL, REPO_URL, SENDER } from "../../shared/site";
+import Logo from "./Logo.astro";
+
+const year = new Date().getUTCFullYear();
+---
+
+<footer class="mt-24 border-t border-line">
+  <div class="container-page flex flex-col gap-8 py-10 sm:flex-row sm:items-start sm:justify-between">
+    <div class="max-w-sm">
+      <a href="/" class="flex items-center gap-2 font-semibold" aria-label="Headmesh home">
+        <Logo class="size-6 text-accent" />
+        <span>Headmesh</span>
+      </a>
+      <p class="mt-3 text-sm text-muted">
+        Open, self-hostable, multi-tenant networking built on Headscale and WireGuard.
+      </p>
+    </div>
+    <nav aria-label="Footer" class="grid grid-cols-2 gap-x-12 gap-y-2 text-sm sm:grid-cols-3">
+      <a class="text-muted hover:text-fg" href="/docs/">Docs</a>
+      <a class="text-muted hover:text-fg" href={REPO_URL}>GitHub</a>
+      <a class="text-muted hover:text-fg" href="/waitlist/">Waitlist</a>
+      <a class="text-muted hover:text-fg" href="/privacy/">Privacy</a>
+      <a class="text-muted hover:text-fg" href="/terms/">Terms</a>
+      <a class="text-muted hover:text-fg" href="/.well-known/security.txt">Security</a>
+      <a class="text-muted hover:text-fg" href={`mailto:${CONTACT_EMAIL}`}>{CONTACT_EMAIL}</a>
+    </nav>
+  </div>
+  <div class="container-page border-t border-line/60 py-6 text-xs text-muted">
+    <p>
+      © {year} {SENDER.legalName} Headmesh is not affiliated with Tailscale Inc. or the Headscale project.
+      WireGuard is a registered trademark of Jason A. Donenfeld.
+    </p>
+  </div>
+</footer>
+=================== src/layouts/Base.astro
+---
+import "@fontsource-variable/inter";
+import "@fontsource-variable/jetbrains-mono";
+import "../styles/global.css";
+import { PUBLIC_CF_ANALYTICS_TOKEN } from "astro:env/client";
+import Footer from "../components/Footer.astro";
+import Header from "../components/Header.astro";
+
+interface Props {
+  title: string;
+  description: string;
+  /** Slug of the build-time OG image under /og/ (see src/pages/og/[slug].png.ts). */
+  ogImage?: string;
+  /** Keep the page out of search results (confirmation and unsubscribe pages). */
+  noindex?: boolean;
+}
+
+const { title, description, ogImage = "home", noindex = false } = Astro.props;
+const site = Astro.site ?? new URL("https://headmesh.dev");
+const canonical = new URL(Astro.url.pathname, site);
+const ogImageUrl = new URL(`/og/${ogImage}.png`, site);
+const fullTitle = title === "Headmesh" ? title : `${title} · Headmesh`;
+---
+
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>{fullTitle}</title>
+    <meta name="description" content={description} />
+    <link rel="canonical" href={canonical} />
+    {noindex && <meta name="robots" content="noindex" />}
+    <meta name="theme-color" content="#ffffff" media="(prefers-color-scheme: light)" />
+    <meta name="theme-color" content="#0a0e13" media="(prefers-color-scheme: dark)" />
+    <link rel="icon" href="/favicon.svg" type="image/svg+xml" />
+    <link rel="apple-touch-icon" href="/apple-touch-icon.png" />
+    <link rel="sitemap" href="/sitemap-index.xml" />
+
+    <meta property="og:type" content="website" />
+    <meta property="og:site_name" content="Headmesh" />
+    <meta property="og:title" content={fullTitle} />
+    <meta property="og:description" content={description} />
+    <meta property="og:url" content={canonical} />
+    <meta property="og:image" content={ogImageUrl} />
+    <meta property="og:image:width" content="1200" />
+    <meta property="og:image:height" content="630" />
+    <meta name="twitter:card" content="summary_large_image" />
+
+    <!-- Resolve the theme before first paint. Shares Starlight's storage key so /docs and the marketing pages agree. -->
+    <script is:inline>
+      (() => {
+        const stored = typeof localStorage !== "undefined" && localStorage.getItem("starlight-theme");
+        const theme = stored || (matchMedia("(prefers-color-scheme: light)").matches ? "light" : "dark");
+        document.documentElement.dataset.theme = theme === "light" ? "light" : "dark";
+      })();
+    </script>
+  </head>
+  <body class="flex min-h-screen flex-col bg-bg text-fg">
+    <a
+      href="#main"
+      class="sr-only z-50 rounded-md bg-accent px-4 py-2 font-semibold text-on-accent focus:not-sr-only focus:fixed focus:top-3 focus:left-3"
+    >
+      Skip to content
+    </a>
+    <Header />
+    <main id="main" class="flex-1">
+      <slot />
+    </main>
+    <Footer />
+    {
+      PUBLIC_CF_ANALYTICS_TOKEN && (
+        <script
+          is:inline
+          defer
+          src="https://static.cloudflareinsights.com/beacon.min.js"
+          data-cf-beacon={JSON.stringify({ token: PUBLIC_CF_ANALYTICS_TOKEN })}
+        />
+      )
+    }
+  </body>
+</html>
+bash
+
+for f in src/pages/index.astro src/components/MeshDiagram.astro src/components/Icon.astro src/og/render.ts src/pages/apple-touch-icon.png.ts src/pages/og/\[slug\].png.ts src/content/i18n/en.json shared/site.ts; do echo "=================== $f"; cat "$f"; done
+Output
+
+=================== src/pages/index.astro
+---
+import { REPO_URL, XCELSIOR_URL } from "../../shared/site";
+import GitHubIcon from "../components/GitHubIcon.astro";
+import Icon, { type IconName } from "../components/Icon.astro";
+import MeshDiagram from "../components/MeshDiagram.astro";
+import Base from "../layouts/Base.astro";
+
+const features: { icon: IconName; title: string; body: string }[] = [
+  {
+    icon: "link",
+    title: "One-click onboarding",
+    body: "Invite a device, teammate or GPU with a single link or command. It joins the right network with the right permissions.",
+  },
+  {
+    icon: "layers",
+    title: "True multi-tenancy",
+    body: "Isolated workspaces with their own members, devices and rules. Other tenants' machines aren't just blocked, they're invisible.",
+  },
+  {
+    icon: "clock",
+    title: "Temporary access",
+    body: "Grant one machine or service for a set time. When the time is up, access revokes itself.",
+  },
+  {
+    icon: "bot",
+    title: "Agent sandboxes",
+    body: "Let cloud AI agents work on your real files and private services safely, in a scoped or full-access mode.",
+  },
+  {
+    icon: "server",
+    title: "Yours to run",
+    body: "Open source and self-hostable, with no closed control server between you and your machines.",
+  },
+];
+
+const agentPoints: { icon: IconName; title: string; body: string }[] = [
+  {
+    icon: "shield",
+    title: "Scoped by default",
+    body: "Agents see the folders you mount and the services you grant. Nothing else on your network is reachable.",
+  },
+  {
+    icon: "key",
+    title: "Full access only on purpose",
+    body: "Full-access mode is opt-in, time-limited and refuses to start without a recent backup. When it expires, the sandbox drops back to scoped mode.",
+  },
+  {
+    icon: "eye",
+    title: "Its own identity",
+    body: "The sandbox joins your mesh as a separate device with its own rules, never borrowing your workstation's access.",
+  },
+  {
+    icon: "check",
+    title: "Works with the agents you use",
+    body: "Reach it over MCP, SSH or a remote session from Claude Code, Codex and any MCP client.",
+  },
+];
+
+const parts = [
+  { name: "WireGuard", body: "Every connection is end-to-end encrypted with modern, audited cryptography." },
+  {
+    name: "Headscale",
+    body: "The open-source control server does the coordination. Headmesh drives it; it doesn't fork it.",
+  },
+  {
+    name: "Tailscale clients",
+    body: "Devices run the standard, open-source Tailscale client on every major platform.",
+  },
+];
+---
+
+<Base
+  title="Headmesh"
+  description="Headmesh builds on Headscale and WireGuard to give teams, renters and AI agents secure access to exactly the machines they need, and nothing else."
+>
+  <!-- Hero -->
+  <section class="relative overflow-hidden">
+    <div
+      class="pointer-events-none absolute inset-x-0 top-0 -z-10 h-[34rem] bg-[radial-gradient(60rem_28rem_at_70%_-10%,var(--hm-accent-soft),transparent)]"
+      aria-hidden="true"
+    >
+    </div>
+    <div class="container-page grid items-center gap-14 pt-16 pb-20 sm:pt-24 lg:grid-cols-[1.05fr_1fr] lg:gap-12">
+      <div>
+        <p class="eyebrow">Open source · Self-hostable · Built on Headscale</p>
+        <h1 class="mt-5 text-4xl leading-[1.08] font-bold tracking-tight text-balance sm:text-5xl lg:text-[3.6rem]">
+          Share machines, not your network.
+        </h1>
+        <p class="mt-6 max-w-xl text-lg leading-relaxed text-muted">
+          Headmesh builds on Headscale and WireGuard to give teams, renters and AI agents secure access to exactly the
+          machines they need, and nothing else.
+        </p>
+        <div class="mt-9 flex flex-wrap gap-3">
+          <a href="/waitlist/" class="btn btn-primary">
+            Join the waitlist
+            <Icon name="arrow" class="size-4" />
+          </a>
+          <a href={REPO_URL} class="btn btn-secondary">
+            <GitHubIcon class="size-4" />
+            Star on GitHub
+          </a>
+        </div>
+        <p class="mt-6 text-sm text-muted">In early development. Join the waitlist for early access.</p>
+      </div>
+      <div class="mx-auto w-full max-w-[34rem]">
+        <MeshDiagram />
+      </div>
+    </div>
+  </section>
+
+  <!-- Features -->
+  <section aria-labelledby="features-heading" class="border-t border-line bg-surface/60 py-20 sm:py-24">
+    <div class="container-page">
+      <div class="max-w-2xl">
+        <p class="eyebrow">What Headmesh adds</p>
+        <h2 id="features-heading" class="mt-4 text-3xl font-bold tracking-tight text-balance sm:text-4xl">
+          Tailscale-style networking, built for sharing.
+        </h2>
+        <p class="mt-4 text-lg leading-relaxed text-muted">
+          Headscale gives one organisation an open control server. Headmesh adds what you need to share machines
+          between people and organisations who don't fully trust each other: owners, renters, teammates and AI agents.
+        </p>
+      </div>
+      <ul class="mt-12 grid gap-5 sm:grid-cols-2 lg:grid-cols-6">
+        {
+          features.map((feature, i) => (
+            <li class:list={["rounded-xl border border-line bg-raised p-6", i < 3 ? "lg:col-span-2" : "lg:col-span-3"]}>
+              <span class="inline-flex size-10 items-center justify-center rounded-lg bg-accent-soft text-accent">
+                <Icon name={feature.icon} class="size-5" />
+              </span>
+              <h3 class="mt-5 text-lg font-semibold tracking-tight">{feature.title}</h3>
+              <p class="mt-2 leading-relaxed text-muted">{feature.body}</p>
+            </li>
+          ))
+        }
+      </ul>
+    </div>
+  </section>
+
+  <!-- Agent sandboxes -->
+  <section aria-labelledby="agents-heading" class="py-20 sm:py-28">
+    <div class="container-page grid gap-12 lg:grid-cols-[0.9fr_1.1fr] lg:gap-16">
+      <div>
+        <p class="eyebrow">Agent sandboxes</p>
+        <h2 id="agents-heading" class="mt-4 text-3xl font-bold tracking-tight text-balance sm:text-4xl">
+          Give your AI agents a real machine, not a toy sandbox.
+        </h2>
+        <p class="mt-5 text-lg leading-relaxed text-muted">
+          Cloud agents can't join a private mesh on their own. Headmesh runs a persistent sandbox on your hardware that
+          joins the mesh itself, so agents can work on your real files and private services without your network being
+          opened up to them.
+        </p>
+      </div>
+      <ul class="grid gap-x-8 gap-y-9 sm:grid-cols-2">
+        {
+          agentPoints.map((point) => (
+            <li>
+              <span class="inline-flex size-9 items-center justify-center rounded-lg border border-line text-accent">
+                <Icon name={point.icon} class="size-[18px]" />
+              </span>
+              <h3 class="mt-4 font-semibold tracking-tight">{point.title}</h3>
+              <p class="mt-1.5 leading-relaxed text-muted">{point.body}</p>
+            </li>
+          ))
+        }
+      </ul>
+    </div>
+  </section>
+
+  <!-- Proof -->
+  <section aria-labelledby="proof-heading" class="container-page">
+    <div class="rounded-2xl border border-line bg-surface p-8 sm:p-12">
+      <p class="eyebrow">First customer</p>
+      <h2 id="proof-heading" class="mt-4 text-3xl font-bold tracking-tight sm:text-4xl">Built for Xcelsior Compute</h2>
+      <p class="mt-5 max-w-3xl text-lg leading-relaxed text-muted">
+        Xcelsior Compute, a GPU marketplace, is the first production user of Headmesh. GPU owners and renters connect
+        through it without exposing anyone's home network: a renter reaches the one machine they rented, for as long as
+        the rental lasts, and nothing else.
+      </p>
+      <a
+        href={XCELSIOR_URL}
+        class="mt-7 inline-flex items-center gap-1.5 font-semibold text-accent underline-offset-4 hover:underline"
+      >
+        Visit Xcelsior Compute
+        <Icon name="arrow" class="size-4" />
+      </a>
+    </div>
+  </section>
+
+  <!-- Built on -->
+  <section aria-labelledby="parts-heading" class="container-page py-20 sm:py-24">
+    <h2 id="parts-heading" class="text-2xl font-bold tracking-tight sm:text-3xl">No new networking, no new crypto.</h2>
+    <p class="mt-3 max-w-2xl text-lg leading-relaxed text-muted">
+      Headmesh is a control layer. The parts that move your packets are proven, open and already everywhere.
+    </p>
+    <dl class="mt-10 grid gap-5 sm:grid-cols-3">
+      {
+        parts.map((part) => (
+          <div class="rounded-xl border border-line p-6">
+            <dt class="font-mono text-sm font-semibold text-accent">{part.name}</dt>
+            <dd class="mt-2 leading-relaxed text-muted">{part.body}</dd>
+          </div>
+        ))
+      }
+    </dl>
+  </section>
+
+  <!-- CTA -->
+  <section aria-labelledby="cta-heading" class="container-page">
+    <div class="flex flex-col items-start gap-8 border-t border-line pt-16 sm:flex-row sm:items-center sm:justify-between">
+      <div>
+        <h2 id="cta-heading" class="text-2xl font-bold tracking-tight sm:text-3xl">Be first on the mesh.</h2>
+        <p class="mt-2 text-lg text-muted">Get early access when it opens, or follow along on GitHub.</p>
+      </div>
+      <div class="flex flex-wrap gap-3">
+        <a href="/waitlist/" class="btn btn-primary">
+          Join the waitlist
+          <Icon name="arrow" class="size-4" />
+        </a>
+        <a href={REPO_URL} class="btn btn-secondary">
+          <GitHubIcon class="size-4" />
+          Star on GitHub
+        </a>
+      </div>
+    </div>
+  </section>
+</Base>
+=================== src/components/MeshDiagram.astro
+---
+// Hero illustration: one owner workspace shares exactly one machine with a renter (time-limited) and one with
+// an AI agent sandbox, while everything else stays private.
+---
+
+<svg
+  viewBox="0 0 520 340"
+  class="h-auto w-full font-mono"
+  role="img"
+  aria-labelledby="mesh-diagram-title"
+>
+  <title id="mesh-diagram-title">
+    Diagram: a renter holds a four-hour grant to one GPU in your workspace, an AI agent sandbox reaches only your
+    NAS, and your desktop stays private.
+  </title>
+
+  <!-- Workspaces -->
+  <rect x="8" y="8" width="208" height="324" rx="14" class="fill-surface stroke-line" stroke-width="1.5"></rect>
+  <text x="28" y="38" class="fill-muted" font-size="11" letter-spacing="1.2">YOUR WORKSPACE</text>
+
+  <rect x="312" y="8" width="200" height="150" rx="14" class="fill-surface stroke-line" stroke-width="1.5"></rect>
+  <text x="332" y="38" class="fill-muted" font-size="11" letter-spacing="1.2">RENTER</text>
+  <text x="332" y="134" class="fill-muted" font-size="11">sees gpu-01 only</text>
+
+  <rect x="312" y="182" width="200" height="150" rx="14" class="fill-surface stroke-line" stroke-width="1.5"></rect>
+  <text x="332" y="212" class="fill-muted" font-size="11" letter-spacing="1.2">AI AGENT</text>
+  <text x="332" y="308" class="fill-muted" font-size="11">scoped mode</text>
+
+  <!-- Grants -->
+  <g class="stroke-accent" stroke-width="1.75" stroke-dasharray="5 5" fill="none">
+    <path d="M332 84H196"></path>
+    <path d="M332 258H264V166H196"></path>
+  </g>
+  <g class="fill-accent">
+    <circle cx="196" cy="84" r="3.5"></circle>
+    <circle cx="332" cy="84" r="3.5"></circle>
+    <circle cx="196" cy="166" r="3.5"></circle>
+    <circle cx="332" cy="258" r="3.5"></circle>
+  </g>
+  <text x="264" y="74" text-anchor="middle" class="fill-accent" font-size="11">grant · 4h</text>
+  <text x="258" y="216" text-anchor="end" class="fill-accent" font-size="11">scoped</text>
+
+  <!-- Devices -->
+  <g font-size="13">
+    <rect x="28" y="64" width="168" height="40" rx="8" class="fill-raised stroke-line" stroke-width="1.5"></rect>
+    <circle cx="46" cy="84" r="4" class="fill-accent"></circle>
+    <text x="60" y="88.5" class="fill-fg">gpu-01</text>
+
+    <rect x="28" y="146" width="168" height="40" rx="8" class="fill-raised stroke-line" stroke-width="1.5"></rect>
+    <circle cx="46" cy="166" r="4" class="fill-accent"></circle>
+    <text x="60" y="170.5" class="fill-fg">nas</text>
+
+    <rect x="28" y="228" width="168" height="40" rx="8" class="fill-raised stroke-line" stroke-width="1.5"></rect>
+    <circle cx="46" cy="248" r="4" class="fill-muted"></circle>
+    <text x="60" y="252.5" class="fill-fg">desktop</text>
+    <text x="184" y="252" text-anchor="end" class="fill-muted" font-size="10.5">private</text>
+
+    <rect x="332" y="64" width="160" height="40" rx="8" class="fill-raised stroke-line" stroke-width="1.5"></rect>
+    <circle cx="350" cy="84" r="4" class="fill-accent"></circle>
+    <text x="364" y="88.5" class="fill-fg">laptop</text>
+
+    <rect x="332" y="238" width="160" height="40" rx="8" class="fill-raised stroke-line" stroke-width="1.5"></rect>
+    <circle cx="350" cy="258" r="4" class="fill-accent"></circle>
+    <text x="364" y="262.5" class="fill-fg">sandbox</text>
+  </g>
+</svg>
+=================== src/components/Icon.astro
+---
+// Small stroke icons drawn for this site (24×24 grid, currentColor).
+const paths = {
+  link: "M10 13a5 5 0 0 0 7.07 0l3-3a5 5 0 0 0-7.07-7.07l-1.5 1.5M14 11a5 5 0 0 0-7.07 0l-3 3a5 5 0 0 0 7.07 7.07l1.5-1.5",
+  layers: "M12 3 2.5 8 12 13l9.5-5L12 3zM2.5 12.5 12 17.5l9.5-5M2.5 16.5 12 21.5l9.5-5",
+  clock: "M12 21a9 9 0 1 0 0-18 9 9 0 0 0 0 18zM12 7v5l3.5 2",
+  bot: "M12 4v3M5 9.5A2.5 2.5 0 0 1 7.5 7h9A2.5 2.5 0 0 1 19 9.5v7a2.5 2.5 0 0 1-2.5 2.5h-9A2.5 2.5 0 0 1 5 16.5v-7zM9.5 12.5v1M14.5 12.5v1M2.5 12v3M21.5 12v3",
+  server:
+    "M4 5.5A1.5 1.5 0 0 1 5.5 4h13A1.5 1.5 0 0 1 20 5.5v4a1.5 1.5 0 0 1-1.5 1.5h-13A1.5 1.5 0 0 1 4 9.5v-4zM4 14.5A1.5 1.5 0 0 1 5.5 13h13a1.5 1.5 0 0 1 1.5 1.5v4a1.5 1.5 0 0 1-1.5 1.5h-13A1.5 1.5 0 0 1 4 18.5v-4zM7.5 7.5h.01M7.5 16.5h.01",
+  shield: "M12 3 4.5 6v5.5c0 4.6 3.2 8.4 7.5 9.5 4.3-1.1 7.5-4.9 7.5-9.5V6L12 3zM9 12l2 2 4-4",
+  check: "M5 12.5l4.5 4.5L19 7.5",
+  arrow: "M5 12h14M13 6l6 6-6 6",
+  eye: "M2.5 12S6 5 12 5s9.5 7 9.5 7-3.5 7-9.5 7-9.5-7-9.5-7zM12 15a3 3 0 1 0 0-6 3 3 0 0 0 0 6z",
+  key: "M15.5 7.5 19 4M17 6l2.5 2.5M11.4 12.6a4.5 4.5 0 1 1-6.36 6.36 4.5 4.5 0 0 1 6.36-6.36zM11.4 12.6 15.5 8.5",
+} as const;
+
+export type IconName = keyof typeof paths;
+
+interface Props {
+  name: IconName;
+  class?: string;
+}
+
+const { name, class: className } = Astro.props;
+---
+
+<svg
+  class={className}
+  viewBox="0 0 24 24"
+  fill="none"
+  stroke="currentColor"
+  stroke-width="1.75"
+  stroke-linecap="round"
+  stroke-linejoin="round"
+  aria-hidden="true"
+  focusable="false"
+>
+  <path d={paths[name]}></path>
+</svg>
+=================== src/og/render.ts
+// Build-time Open Graph images (1200×630 PNG), rendered with Satori and resvg. Nothing here runs in the browser.
+
+import interRegular from "@fontsource/inter/files/inter-latin-400-normal.woff?inline";
+import interBold from "@fontsource/inter/files/inter-latin-700-normal.woff?inline";
+import { Resvg } from "@resvg/resvg-js";
+import satori from "satori";
+
+const WIDTH = 1200;
+const HEIGHT = 630;
+
+const COLORS = { bg: "#0a0e13", fg: "#e8eef4", muted: "#9aa8b6", accent: "#3fd8c2", line: "#232d38" };
+
+const MARK_SVG = `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 32 32" fill="none"><g stroke="${COLORS.accent}" stroke-width="2.25" stroke-linecap="round" stroke-linejoin="round"><path d="M7 8h18L16 25z"/><path d="M7 8l9 7 9-7M16 15v10"/></g><g fill="${COLORS.accent}"><circle cx="7" cy="8" r="3.25"/><circle cx="25" cy="8" r="3.25"/><circle cx="16" cy="25" r="3.25"/><circle cx="16" cy="15" r="2.5"/></g></svg>`;
+
+function fontData(dataUrl: string): ArrayBuffer {
+  const bytes = Buffer.from(dataUrl.slice(dataUrl.indexOf(",") + 1), "base64");
+  return bytes.buffer.slice(bytes.byteOffset, bytes.byteOffset + bytes.byteLength) as ArrayBuffer;
+}
+
+const fonts = [
+  { name: "Inter", data: fontData(interRegular), weight: 400 as const, style: "normal" as const },
+  { name: "Inter", data: fontData(interBold), weight: 700 as const, style: "normal" as const },
+];
+
+type Node = {
+  type: string;
+  props: Record<string, unknown> & { children?: Node | string | (Node | string)[] | undefined };
+};
+
+const el = (type: string, style: Record<string, unknown>, children?: Node["props"]["children"], extra = {}): Node => ({
+  type,
+  props: { style, children, ...extra },
+});
+
+export type OgCard = {
+  title: string;
+  subtitle: string;
+};
+
+export async function renderOgImage({ title, subtitle }: OgCard): Promise<Uint8Array<ArrayBuffer>> {
+  const tree = el(
+    "div",
+    {
+      width: "100%",
+      height: "100%",
+      display: "flex",
+      flexDirection: "column",
+      justifyContent: "space-between",
+      padding: "72px 80px",
+      backgroundColor: COLORS.bg,
+      backgroundImage: "radial-gradient(900px 420px at 85% -10%, #0f2a28, transparent)",
+      color: COLORS.fg,
+      fontFamily: "Inter",
+    },
+    [
+      el("div", { display: "flex", alignItems: "center", gap: "18px" }, [
+        el("img", { width: 56, height: 56 }, undefined, {
+          src: `data:image/svg+xml;base64,${Buffer.from(MARK_SVG).toString("base64")}`,
+          width: 56,
+          height: 56,
+        }),
+        el("div", { fontSize: 40, fontWeight: 700, letterSpacing: "-0.02em" }, "Headmesh"),
+      ]),
+      el("div", { display: "flex", flexDirection: "column", gap: "24px" }, [
+        el("div", { fontSize: 72, fontWeight: 700, lineHeight: 1.08, letterSpacing: "-0.03em", maxWidth: 1000 }, title),
+        el("div", { fontSize: 32, lineHeight: 1.35, color: COLORS.muted, maxWidth: 960 }, subtitle),
+      ]),
+      el(
+        "div",
+        {
+          display: "flex",
+          justifyContent: "space-between",
+          borderTop: `2px solid ${COLORS.line}`,
+          paddingTop: "28px",
+          fontSize: 26,
+          color: COLORS.muted,
+        },
+        [
+          el("div", { color: COLORS.accent, fontWeight: 700 }, "headmesh.dev"),
+          el("div", {}, "Open source · Self-hostable · Multi-tenant"),
+        ],
+      ),
+    ],
+  );
+
+  // Satori's types expect a ReactNode; this plain object tree is the documented React-free form.
+  const svg = await satori(tree as unknown as Parameters<typeof satori>[0], { width: WIDTH, height: HEIGHT, fonts });
+  return new Uint8Array(new Resvg(svg, { fitTo: { mode: "width", value: WIDTH } }).render().asPng());
+}
+
+/** Square app icon for iOS home screens: the mark on a full-bleed background (iOS rounds the corners). */
+export function renderTouchIcon(size = 180): Uint8Array<ArrayBuffer> {
+  const svg = `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 32 32" width="${size}" height="${size}"><rect width="32" height="32" fill="${COLORS.bg}"/><g transform="translate(4.8 4.8) scale(0.7)">${MARK_SVG.replace(/^<svg[^>]*>|<\/svg>$/g, "")}</g></svg>`;
+  return new Uint8Array(new Resvg(svg, { fitTo: { mode: "width", value: size } }).render().asPng());
+}
+=================== src/pages/apple-touch-icon.png.ts
+import type { APIRoute } from "astro";
+import { renderTouchIcon } from "../og/render";
+
+export const GET: APIRoute = () => new Response(renderTouchIcon(), { headers: { "content-type": "image/png" } });
+=================== src/pages/og/[slug].png.ts
+import type { APIRoute, GetStaticPaths } from "astro";
+import { type OgCard, renderOgImage } from "../../og/render";
+
+const cards: Record<string, OgCard> = {
+  home: {
+    title: "Share machines, not your network.",
+    subtitle: "Secure access for teams, renters and AI agents to exactly the machines they need, and nothing else.",
+  },
+  waitlist: {
+    title: "Join the Headmesh waitlist",
+    subtitle: "Early access to the open, self-hostable, multi-tenant mesh built on Headscale and WireGuard.",
+  },
+  docs: {
+    title: "Headmesh documentation",
+    subtitle: "Workspaces, devices, rules, grants, cells and agent sandboxes.",
+  },
+  privacy: { title: "Privacy policy", subtitle: "What headmesh.dev collects, why, and what you can do about it." },
+  terms: { title: "Terms of use", subtitle: "The terms for using the headmesh.dev website and waitlist." },
+};
+
+export const getStaticPaths = (() =>
+  Object.entries(cards).map(([slug, card]) => ({ params: { slug }, props: card }))) satisfies GetStaticPaths;
+
+export const GET: APIRoute<OgCard> = async ({ props }) =>
+  new Response(await renderOgImage(props), { headers: { "content-type": "image/png" } });
+=================== src/content/i18n/en.json
+{
+  "page.editLink": "Edit this page on GitHub"
+}
+=================== shared/site.ts
+// Facts shared by the static site (build time) and the Pages Functions (runtime). Keep this module free of
+// DOM- and Workers-specific APIs so both sides can import it.
+
+export const SITE_URL = "https://headmesh.dev";
+export const REPO_URL = "https://github.com/headmesh-dev/headmesh";
+export const CONTACT_EMAIL = "hello@headmesh.dev";
+/** Matches SECURITY.md at the repository root. */
+export const SECURITY_EMAIL = "security@headmesh.dev";
+export const XCELSIOR_URL = "https://xcelsior.ca";
+
+/**
+ * Sender identification for CASL (S.C. 2010, c. 23, s. 6(2)): every consent request and every email must
+ * name the sender and give a mailing address plus one other contact method.
+ *
+ * `postalAddress` must be filled in before launch. Production builds fail while it is empty (see
+ * `astro.config.mjs`), and the waitlist Function refuses sign-ups rather than send non-compliant email.
+ */
+export interface Sender {
+  readonly legalName: string;
+  readonly postalAddress: string;
+  readonly email: string;
+  readonly website: string;
+}
+
+export const SENDER: Sender = {
+  legalName: "Xcelsior Compute Inc.",
+  postalAddress: "",
+  email: CONTACT_EMAIL,
+  website: SITE_URL,
+};
+
+/**
+ * Version of the consent wording shown next to the waitlist checkbox. Change the version whenever the wording
+ * changes so each stored consent record points at the exact text the person agreed to.
+ */
+export const CONSENT_VERSION = "2026-10-27";
+
+export const CONSENT_TEXT =
+  "Yes, email me about Headmesh: early-access invitations and occasional product updates. " +
+  "I can unsubscribe at any time.";
+
+/** Turnstile action name. The Function rejects tokens minted for any other action. */
+export const TURNSTILE_ACTION = "waitlist";
+
+/** Limits enforced by both the form (maxlength) and the Function (zod). */
+export const LIMITS = {
+  email: 254,
+  useCase: 500,
+  source: 64,
+  utmValue: 128,
+} as const;
+
+export const UTM_KEYS = ["utm_source", "utm_medium", "utm_campaign", "utm_term", "utm_content"] as const;
+bash
+
+node --version; pnpm --version 2>&1 | head -1; corepack --version 2>&1|head -1; npm --version; cat /home/claude/repo_src/headmesh-main/mise.toml; cat /home/claude/repo_src/headmesh-main/web/marketing/astro.config.mjs | head -80
+Output
+
+v22.23.4
+10.28.0
+0.36.0
+10.9.9
+# Toolchain pins for every contributor and CI job. `mise install` sets up everything.
+[tools]
+go = "1.26.8"
+node = "24.16.0"
+pnpm = "10"
+"go:github.com/bufbuild/buf/cmd/buf" = "1.75.0"
+"go:google.golang.org/protobuf/cmd/protoc-gen-go" = "1.36.12"
+"go:google.golang.org/grpc/cmd/protoc-gen-go-grpc" = "1.6.2"
+"go:connectrpc.com/connect/v2/cmd/protoc-gen-connect-go" = "2.0.2"
+"go:github.com/sqlc-dev/sqlc/cmd/sqlc" = "1.31.1"
+"go:github.com/golangci/golangci-lint/v2/cmd/golangci-lint" = "2.15.0"
+
+[env]
+CGO_ENABLED = "0"
+
+[tasks.generate]
+description = "Regenerate protobuf stubs and sqlc queries"
+run = ["buf generate", "buf generate --template buf.gen.headscale.yaml", "sqlc generate"]
+
+[tasks.lint]
+description = "Lint Go code"
+run = "golangci-lint run ./..."
+
+[tasks.test]
+description = "Unit and property tests with the race detector"
+run = "CGO_ENABLED=1 go test -race -count=1 ./..."
+
+[tasks."test:integration"]
+description = "Integration tests (needs Docker)"
+run = "CGO_ENABLED=1 go test -race -count=1 -tags integration ./..."
+
+[tasks.build]
+description = "Build all binaries into ./bin"
+run = "go build -trimpath -ldflags='-s -w' -o bin/ ./cmd/..."
+// @ts-check
+
+import { existsSync } from "node:fs";
+import sitemap from "@astrojs/sitemap";
+import starlight from "@astrojs/starlight";
+import tailwindcss from "@tailwindcss/vite";
+import { defineConfig, envField } from "astro/config";
+import { REPO_URL, SENDER, SITE_URL } from "./shared/site.ts";
+
+/** Cloudflare's "always passes" Turnstile test site key, used when no real key is configured. */
+const TURNSTILE_TEST_SITE_KEY = "1x00000000000000000000AA";
+
+// Pages that must never appear in the sitemap.
+const UNLISTED = ["/github/", "/waitlist/confirm/", "/waitlist/unsubscribe/", "/404/"];
+
+// Config-time settings come from the environment, or from web/marketing/.env for local builds (astro:env reads the
+// same sources for the pages).
+const dotenv = new URL(".env", import.meta.url);
+if (existsSync(dotenv)) process.loadEnvFile(dotenv);
+const env = process.env;
+
+// The production deploy job sets HEADMESH_PRODUCTION=1. Refuse to build a production site that would collect
+// sign-ups it can't verify or email without CASL sender identification.
+if (env.HEADMESH_PRODUCTION === "1") {
+  const problems = [];
+  if (!env.PUBLIC_TURNSTILE_SITE_KEY || env.PUBLIC_TURNSTILE_SITE_KEY === TURNSTILE_TEST_SITE_KEY) {
+    problems.push("PUBLIC_TURNSTILE_SITE_KEY must be the real Turnstile site key");
+  }
+  if (!SENDER.postalAddress) {
+    problems.push("SENDER.postalAddress in shared/site.ts must be set (CASL sender identification)");
+  }
+  if (problems.length > 0) {
+    throw new Error(`Production build preflight failed:\n- ${problems.join("\n- ")}`);
+  }
+}
+
+/** Cloudflare Web Analytics beacon for Starlight pages (the marketing layout renders its own copy). */
+const analyticsHead = env.PUBLIC_CF_ANALYTICS_TOKEN
+  ? [
+      {
+        tag: /** @type {const} */ ("script"),
+        attrs: {
+          defer: true,
+          src: "https://static.cloudflareinsights.com/beacon.min.js",
+          "data-cf-beacon": JSON.stringify({ token: env.PUBLIC_CF_ANALYTICS_TOKEN }),
+        },
+      },
+    ]
+  : [];
+
+export default defineConfig({
+  site: SITE_URL,
+  output: "static",
+  build: {
+    // Ship stylesheets as files so the CSP can stay `style-src 'self'` (see public/_headers).
+    inlineStylesheets: "never",
+  },
+  redirects: {
+    // Cloudflare Pages answers this with a real redirect from public/_redirects; this page is the fallback
+    // for `astro preview` and any host that ignores _redirects.
+    "/github": REPO_URL,
+  },
+  env: {
+    schema: {
+      PUBLIC_TURNSTILE_SITE_KEY: envField.string({
+        context: "client",
+        access: "public",
+        default: TURNSTILE_TEST_SITE_KEY,
+      }),
+      PUBLIC_CF_ANALYTICS_TOKEN: envField.string({ context: "client", access: "public", optional: true }),
+    },
+  },
+  integrations: [
+    starlight({
+      title: "Headmesh Docs",
+      description: "Documentation for Headmesh, the open, self-hostable, multi-tenant mesh built on Headscale.",
+      logo: { src: "./src/assets/logo.svg" },
+      favicon: "/favicon.svg",
+      disable404Route: true,
+      pagefind: false,
+bash
+
+cp -r /home/claude/repo_src/headmesh-main /home/claude/headmesh && cd /home/claude/headmesh && git init -q -b main && git add -A && git -c user.name="baseline" -c user.email="baseline@local" commit -qm "Baseline: headmesh-main.zip as uploaded" && git log --oneline | head -2; cd web/marketing && (timeout 280 pnpm install --frozen-lockfile --config.engine-strict=false 2>&1 | tail -15)
+Output
+
+3a26859 Baseline: headmesh-main.zip as uploaded
++ @cloudflare/vitest-plugin 1.4.7
++ @lhci/cli 0.15.1
++ @playwright/test 1.64.1
++ typescript 6.0.3
++ vitest 5.0.5
++ wrangler 4.152.0
+
+╭ Warning ─────────────────────────────────────────────────────────────────────╮
+│                                                                              │
+│   Ignored build scripts: esbuild@0.28.2, workerd@1.20261019.1.               │
+│   Run "pnpm approve-builds" to pick which dependencies should be allowed     │
+│   to run scripts.                                                            │
+│                                                                              │
+╰──────────────────────────────────────────────────────────────────────────────╯
+Done in 15.2s using pnpm v10.28.0
+bash
+
+(timeout 280 pnpm build 2>&1 | tail -25)
+Output
+
+04:16:41   ├─ /404.html (+26ms) 
+04:16:41   ├─ /apple-touch-icon.png (+7.61s) 
+04:16:48   ├─ /github/index.html (+4ms) 
+04:16:48   ├─ /og/home.png (+515ms) 
+04:16:49   ├─ /og/waitlist.png (+325ms) 
+04:16:49   ├─ /og/docs.png (+286ms) 
+04:16:50   ├─ /og/privacy.png (+278ms) 
+04:16:50   ├─ /og/terms.png (+269ms) 
+04:16:50   ├─ /privacy/index.html (+7ms) 
+04:16:50   ├─ /terms/index.html (+6ms) 
+04:16:50   ├─ /waitlist/confirm/index.html (+6ms) 
+04:16:50   ├─ /waitlist/unsubscribe/index.html (+5ms) 
+04:16:50   ├─ /waitlist/index.html (+8ms) 
+04:16:50   ├─ /index.html (+6ms) 
+04:16:50   ├─ /docs/index.html (+31ms) 
+04:16:50   ├─ /docs/concepts/index.html (+12ms) 
+04:16:50   ├─ /docs/quickstart/index.html (+11ms) 
+04:16:50   ├─ /docs/self-hosting/index.html (+15ms) 
+04:16:50 ✓ Completed in 9.76s.
+
+04:16:50 [build] ✓ Completed in 12.71s.
+04:16:50 [@astrojs/sitemap] `sitemap-index.xml` created at `dist`
+04:16:50 [build] 11 page(s) built in 15.04s
+04:16:50 [build] Complete!
+csp: hashed 5 inline script(s) and 0 inline style(s) into _headers
+bash
+
+(nohup pnpm preview --port 4321 > /tmp/claude-0/-home-claude/743d91fe-3243-5280-bc7c-5f0209889ee4/scratchpad/preview.log 2>&1 &) ; sleep 6; curl -s -o /dev/null -w "%{http_code}\n" http://localhost:4321/; cat > /tmp/claude-0/-home-claude/743d91fe-3243-5280-bc7c-5f0209889ee4/scratchpad/shoot_hm.js <<'EOF'
+const { chromium } = require('playwright');
+const [,, base, outdir, tag] = process.argv;
+(async () => {
+  const b = await chromium.launch();
+  const shots = [
+    ['/', 1440, 900, 'dark', 'home-desk-dark'], ['/', 1440, 900, 'light', 'home-desk-light'],
+    ['/', 390, 844, 'dark', 'home-mob-dark'], ['/waitlist/', 1440, 900, 'dark', 'waitlist-desk-dark'],
+    ['/docs/', 1440, 900, 'dark', 'docs-desk-dark'],
+  ];
+  for (const [path, w, h, scheme, name] of shots) {
+    const ctx = await b.newContext({ viewport: { width: w, height: h }, colorScheme: scheme, deviceScaleFactor: 1 });
+    const p = await ctx.newPage();
+    await p.goto(base + path, { waitUntil: 'networkidle' });
+    await p.waitForTimeout(800);
+    await p.screenshot({ path: `${outdir}/${tag}-${name}.png`, fullPage: true });
+    await ctx.close();
+  }
+  await b.close();
+})();
+EOF
+mkdir -p /home/claude/research/hm && node /tmp/claude-0/-home-claude/743d91fe-3243-5280-bc7c-5f0209889ee4/scratchpad/shoot_hm.js http://localhost:4321 /home/claude/research/hm before && cd /home/claude/research/hm && python3 -c "
+from PIL import Image; import glob
+for f in sorted(glob.glob('before-*.png')):
+    im=Image.open(f); print(f, im.size)
+    w,h=im.size
+    if w>1000: im.convert('RGB').resize((w//2,h//2)).save(f.replace('.png','.jpg'),quality=72)
+    else: im.convert('RGB').save(f.replace('.png','.jpg'),quality=72)
+"
+Output
+
+Exit code 1
+200
+node:internal/process/promises:394
+    triggerUncaughtException(err, true /* fromPromise */);
+    ^
+
+page.goto: Timeout 30000ms exceeded.
+Call log:
+  - navigating to "http://localhost:4321/waitlist/", waiting until "networkidle"
+
+    at /tmp/claude-0/-home-claude/743d91fe-3243-5280-bc7c-5f0209889ee4/scratchpad/shoot_hm.js:13:13 {
+  log: [
+    '  - navigating to "http://localhost:4321/waitlist/", waiting until "networkidle"'
+  ],
+  name: 'TimeoutError'
+}
+
+Node.js v22.23.4
+Read a file
+before-home-desk-dark.jpg
+Read a file
+before-home-desk-light.jpg
+bash
+
+cd /home/claude/headmesh && grep -n -i "get.headmesh.dev\|curl -fsSL\|headmesh join\|headmesh invite\|install.sh\|one-liner" docs/plan.md | head -30; echo; sed -n 1035,1066p docs/plan.md; echo; cat web/marketing/tests/e2e/smoke.spec.ts | head -120
+Output
+
+90:- [internal operations detail removed]
+145: Cloudflare: DNS · Pages (headmesh.dev, get.headmesh.dev) · D1 (waitlist) · Turnstile · Workers cron (external monitor)
+208:    install/                 # install.sh served at get.headmesh.dev
+266:| **M2 Core v0 + hs1 + CLI (weeks 2–5)** | Domain, compiler, cell agent, enrollment, grants, audit, API; hs1 on Hetzner; CLI join/invite/status | E2E isolation matrix green; revocation p99 < 5 s; `headmesh join` works on a fresh VM; first restore drill green |
+921:1. An admin creates a token: `POST /v1/orgs/{org}/enrollment-tokens {roles, max_uses, ttl, ephemeral, approval_required}`. The response holds the join URL `https://app.headmesh.dev/join/<token>` (an OS-detecting page) and one-liners:
+922:   - Linux/macOS: `curl -fsSL https://get.headmesh.dev | sh -s -- join hmj_…`
+923:   - Windows (later): `irm https://get.headmesh.dev/install.ps1 | iex`
+925:2. The device runs `headmesh join hmj_…`, which calls `POST /v1/enroll {token, hostname, os, arch, kind}`. Rate limited per token and per IP. If approval is required, the request queues until an admin approves.
+1062:  - `install.sh` at get.headmesh.dev verifies sha256 **and** the cosign signature.
+1080:  - `install.sh join_mesh` either calls `POST /v1/enroll` and keeps the existing `tailscaled-xcelsior` unit (minimal change first), or runs `headmesh join --instance xcelsior`.
+1135:  - **Onboarding checklist:** "Add your first device" shows a one-liner and live SSE device appearance.
+1450:  - `curl -fsSL https://get.headmesh.dev | sh -s -- join hmj_…` works on a fresh `cx23`, and the device appears with its MagicDNS name.
+
+## 10. Track E — CLI (`headmesh`)
+
+- **Commands:**
+  - Account: `login` (device flow), `logout`, `whoami`.
+  - Network: `join <token|url> [--name] [--isolated] [--instance <name>] [--accept-dns]`, `leave`, `status [--json]`.
+  - Devices: `devices ls|rename|rm`, `invite device|member [--role] [--ttl] [--uses]`.
+  - Access: `grant create --to <org> --device <d> --ports tcp:22 --ttl 4h`, `grant ls|revoke|extend`, `rules ls|apply -f|preview`.
+  - Audit: `audit tail|verify`.
+  - Sandbox: `sandbox init|render|up [--yolo --ttl]|down|recreate|status|doctor|logs|shell|attach|backup|scan-secrets|acceptance`.
+  - Codex add-on: `agent run --provider openai`.
+  - Tooling: `doctor`, `completion`, `version`, `update`.
+- **`join` on Linux:**
+  1. Detect existing `tailscaled` instances.
+  2. If the host is already on another tailnet, or `--isolated` is set, create an **isolated instance**: systemd template `headmesh-tailscaled@<instance>.service` with its own `--state`, `--socket=/run/headmesh/<instance>.sock`, `--port` (41650+n) and `--tun=hm<n>`. This is Xcelsior's `tailscaled-xcelsior` pattern, generalized.
+  3. If Tailscale isn't installed, install it from pkgs.tailscale.com after a consent prompt.
+  4. sudo is requested only for steps that need it.
+  - macOS: Tailscale standalone app with a custom login server (documented). Windows: M5+.
+- **Credentials and output:**
+  - Credentials live in the OS keyring (go-keyring), falling back to a 0600 file.
+  - `--json` on every command, with documented exit codes.
+  - No telemetry by default.
+- **Distribution (GoReleaser):**
+  - Targets: linux, darwin and windows on amd64 and arm64.
+  - Signing and SBOM: cosign keyless signatures, SBOM, provenance.
+  - Homebrew tap `headmesh-dev/homebrew-tap`; deb/rpm via nfpm.
+  - npm `@headmesh/cli` with platform `optionalDependencies` (`@headmesh/cli-linux-x64`, …), published by CI with npm trusted publishing; plus a `headmesh` alias package.
+  - `go install`.
+  - `install.sh` at get.headmesh.dev verifies sha256 **and** the cosign signature.
+- **Tests:** testscript golden tests for every command, plus e2e `join` against an ephemeral Hetzner VM in the nightly suite.
+
+---
+
+
+import { cspViolations, expect, expectAccessible, test, waitForTurnstile } from "./fixtures";
+
+const PAGES = [
+  { path: "/", heading: "Share machines, not your network." },
+  { path: "/waitlist/", heading: "Join the waitlist" },
+  { path: "/waitlist/confirm/", heading: "Confirm your email" },
+  { path: "/waitlist/unsubscribe/", heading: "Unsubscribe" },
+  { path: "/privacy/", heading: "Privacy policy" },
+  { path: "/terms/", heading: "Terms of use" },
+  { path: "/docs/", heading: "Headmesh documentation" },
+  { path: "/docs/quickstart/", heading: "Quickstart" },
+  { path: "/docs/concepts/", heading: "Concepts" },
+  { path: "/docs/self-hosting/", heading: "Self-hosting" },
+  { path: "/this-page-does-not-exist/", heading: "This page isn't on the mesh." },
+];
+
+for (const { path, heading } of PAGES) {
+  for (const colorScheme of ["light", "dark"] as const) {
+    test(`${path} renders cleanly under the production CSP (${colorScheme})`, async ({ page, problems }) => {
+      await page.emulateMedia({ colorScheme });
+      const response = await page.goto(path);
+      expect(response?.status()).toBe(path.startsWith("/this-page") ? 404 : 200);
+      await expect(page.getByRole("heading", { level: 1 })).toHaveText(heading);
+      await expect(page.locator("html")).toHaveAttribute("data-theme", colorScheme);
+
+      // No horizontal scrolling at any viewport.
+      const overflow = await page.evaluate(() => document.documentElement.scrollWidth - window.innerWidth);
+      expect(overflow).toBeLessThanOrEqual(0);
+
+      await expectAccessible(page);
+      expect(await cspViolations(page)).toEqual([]);
+      // The 404 page's own document request is the one expected console error.
+      expect(problems.console.filter((line) => !line.includes("status of 404"))).toEqual([]);
+    });
+  }
+}
+
+test("home page carries the launch copy and both calls to action", async ({ page, problems }) => {
+  await page.goto("/");
+  await expect(page).toHaveTitle("Headmesh");
+  await expect(
+    page.getByText("Headmesh builds on Headscale and WireGuard to give teams, renters and AI agents"),
+  ).toBeVisible();
+  await expect(
+    page.getByRole("heading", { name: "Give your AI agents a real machine, not a toy sandbox." }),
+  ).toBeVisible();
+  await expect(page.getByRole("heading", { name: "Built for Xcelsior Compute" })).toBeVisible();
+  for (const feature of [
+    "One-click onboarding",
+    "True multi-tenancy",
+    "Temporary access",
+    "Agent sandboxes",
+    "Yours to run",
+  ]) {
+    await expect(page.getByRole("heading", { level: 3, name: feature })).toBeVisible();
+  }
+  const main = page.getByRole("main");
+  await expect(main.getByRole("link", { name: "Join the waitlist" }).first()).toHaveAttribute("href", "/waitlist/");
+  await expect(main.getByRole("link", { name: "Star on GitHub" }).first()).toHaveAttribute(
+    "href",
+    "https://github.com/headmesh-dev/headmesh",
+  );
+  await expect(page.locator('meta[property="og:image"]')).toHaveAttribute(
+    "content",
+    "https://headmesh.dev/og/home.png",
+  );
+  await expect(page.locator('link[rel="canonical"]')).toHaveAttribute("href", "https://headmesh.dev/");
+  expect(problems.console).toEqual([]);
+});
+
+test("theme toggle switches theme and carries over to the docs", async ({ page }) => {
+  await page.emulateMedia({ colorScheme: "light" });
+  await page.goto("/");
+  const html = page.locator("html");
+  await expect(html).toHaveAttribute("data-theme", "light");
+
+  await page.getByRole("button", { name: "Switch to dark theme" }).click();
+  await expect(html).toHaveAttribute("data-theme", "dark");
+  await expect(page.getByRole("button", { name: "Switch to light theme" })).toBeVisible();
+
+  await page.reload();
+  await expect(html).toHaveAttribute("data-theme", "dark");
+  await page.goto("/docs/");
+  await expect(html).toHaveAttribute("data-theme", "dark");
+});
+
+test.describe("waitlist form", () => {
+  test("sends a well-formed sign-up and shows the next step", async ({ page, problems }) => {
+    let sent: Record<string, unknown> | undefined;
+    await page.route("**/api/waitlist", async (route) => {
+      expect(await route.request().headerValue("content-type")).toBe("application/json");
+      sent = route.request().postDataJSON();
+      await route.fulfill({ status: 202, json: { ok: true } });
+    });
+
+    await page.goto("/waitlist/?utm_source=newsletter&utm_campaign=launch&ignored=1");
+    await waitForTurnstile(page);
+    await page.getByLabel("Email", { exact: true }).fill("  ada@example.com ");
+    await page.getByLabel(/What would you use Headmesh for/).fill("GPU sharing");
+    await page.getByRole("checkbox").check();
+    await page.getByRole("button", { name: "Join the waitlist" }).click();
+
+    const success = page.getByRole("heading", { name: "Check your inbox" });
+    await expect(success).toBeVisible();
+    await expect(page.getByText("ada@example.com", { exact: true })).toBeVisible();
+    expect(sent).toEqual({
+      email: "ada@example.com",
+      use_case: "GPU sharing",
+      consent: true,
+      consent_version: expect.any(String),
+      turnstile_token: "test-turnstile-token",
+      source: "newsletter",
+      utm: { utm_source: "newsletter", utm_campaign: "launch" },
+    });
+    expect(await cspViolations(page)).toEqual([]);
+    expect(problems.console).toEqual([]);
+  });
+
+  test("won't submit without consent", async ({ page }) => {
+    let requests = 0;
+Request
+
+{
+  "activeForm": "Implementing site redesign",
+  "description": "New tokens, fonts, logo/favicon/OG, redesigned landing + components in the Astro site; keep e2e/axe/CSP/Lighthouse constraints; build, test, screenshot; deliver patch.",
+  "subject": "Implement redesign in headmesh web/marketing"
+}
+Response
+
+Task #8 created successfully: Implement redesign in headmesh web/marketing
+Request
+
+{
+  "description": "Repo docs read: 'Share machines, not your network', multi-tenant, temporary grants, agent sandboxes, yours to run, zero blind trust. Define values, voice, palette, type.",
+  "taskId": "3"
+}
+Response
+
+Updated task #3 description
+bash
+
+cd /home/claude/brand/gen && python3 - <<'EOF'
+s=open('marks.py').read()
+s=s.replace('''MARKS = {''','''def mark_D4(paint="grad", pid="d4", fg=None):
+    """Arch · Shared Leg — two h's in the foreground colour; the one leg they share glows."""
+    p, g = _paint(paint, pid)
+    f = fg or p
+    body = (
+        f'<g fill="{f}">'
+        f'<path d="M88 390V122A34 34 0 0 1 156 122V390A34 34 0 0 1 88 390Z"/>'
+        f'<path d="M356 390V122A34 34 0 0 1 424 122V390A34 34 0 0 1 356 390Z"/>'
+        f'<path d="M88 280A101 101 0 0 1 290 280H222A33 33 0 0 0 156 280Z"/>'
+        f'<path d="M222 280A101 101 0 0 1 424 280H356A33 33 0 0 0 290 280Z"/></g>'
+        f'<path fill="{p}" d="M222 280H290V390A34 34 0 0 1 222 390Z"/>'
+    )
+    return g, body
+
+
+MARKS = {''')
+s=s.replace('''    "D3": ("Arch", "Tunnel", mark_D3),
+}''','''    "D3": ("Arch", "Tunnel", mark_D3),
+    "D4": ("Arch", "Shared Leg", mark_D4),
+}''')
+open('marks.py','w').write(s)
+EOF
+python3 -c "
+import sys; sys.path.insert(0,'/home/claude/brand/gen')
+from marks import icon_svg
+open('/home/claude/brand/tmp/bbox/D4.svg','w').write(icon_svg('D4','#000000'))
+"; cd /home/claude/brand && echo '[{"in":"tmp/bbox/D4.svg","out":"tmp/bbox/D4.png","w":512,"h":512}]' > tmp/bbox/j4.json && node gen/render.js --batch tmp/bbox/j4.json && python3 -c "
+import json; from PIL import Image
+bb=json.load(open('gen/bboxes.json')); bb['D4']=list(Image.open('tmp/bbox/D4.png').split()[-1].getbbox()); json.dump(bb,open('gen/bboxes.json','w')); print(bb['D4'])"
+python3 - <<'EOF'
+# contrast checks for UI tokens
+def lum(h):
+    h=h.lstrip('#'); r,g,b=[int(h[i:i+2],16)/255 for i in (0,2,4)]
+    f=lambda c: c/12.92 if c<=0.03928 else ((c+0.055)/1.055)**2.4
+    return 0.2126*f(r)+0.7152*f(g)+0.0722*f(b)
+def cr(a,b):
+    la,lb=sorted([lum(a),lum(b)],reverse=True); return (la+0.05)/(lb+0.05)
+pairs=[('#3CEFB4','#070B12'),('#27BFF5','#070B12'),('#9AA9B8','#070B12'),('#9AA9B8','#111A26'),('#04170F','#3CEFB4'),
+('#0A7A5C','#FFFFFF'),('#0A7A5C','#F3F6F5'),('#087356','#F3F6F5'),('#0A70B0','#FFFFFF'),('#4A5664','#FFFFFF'),('#4A5664','#F3F6F5'),('#FFFFFF','#0A7A5C'),('#0A9E74','#FFFFFF'),('#6B7A89','#070B12'),('#E9F0F5','#070B12')]
+for a,b in pairs: print(a,'on',b, round(cr(a,b),2))
+EOF
+Output
+
+rendered 1
+[88, 88, 424, 424]
+#3CEFB4 on #070B12 13.32
+#27BFF5 on #070B12 9.25
+#9AA9B8 on #070B12 8.2
+#9AA9B8 on #111A26 7.29
+#04170F on #3CEFB4 12.51
+#0A7A5C on #FFFFFF 5.31
+#0A7A5C on #F3F6F5 4.89
+#087356 on #F3F6F5 5.37
+#0A70B0 on #FFFFFF 5.31
+#4A5664 on #FFFFFF 7.48
+#4A5664 on #F3F6F5 6.88
+#FFFFFF on #0A7A5C 5.31
+#0A9E74 on #FFFFFF 3.41
+#6B7A89 on #070B12 4.48
+#E9F0F5 on #070B12 17.12
+Created a file
+build.py
+bash
+
+python3 gen/build.py && time node gen/render.js --batch tmp/kit-jobs.json && python3 - <<'EOF'
+import glob, os
+from PIL import Image
+for vdir in sorted(glob.glob('out/headmesh-brand/*/*/')):
+    ims=[Image.open(os.path.join(vdir,'png',f'favicon-{s}.png')).convert('RGBA') for s in (16,32,48)]
+    ims[2].save(os.path.join(vdir,'favicon.ico'), sizes=[(16,16),(32,32),(48,48)], append_images=ims[:2])
+print(len(glob.glob('out/headmesh-brand/*/*/favicon.ico')), 'ico files')
+EOF
+du -sh out/headmesh-brand; find out/headmesh-brand -type f | wc -l
+Output
+
+svg written; png jobs: 234
+rendered 234
+
+real	0m34.616s
+user	0m13.638s
+sys	0m4.252s
+13 ico files
+25M	out/headmesh-brand
+585
+bash
+
+python3 - <<'EOF'
+import glob, os
+rows=[]
+for vdir in sorted(glob.glob('out/headmesh-brand/*/*/')):
+    k=os.path.basename(vdir.rstrip('/'))
+    s=lambda n: os.path.abspath(os.path.join(vdir,'svg',n))
+    rows.append(f'''<div class="r"><div class="k">{k}</div>
+    <div class="c dark"><img src="{s('lockup-horizontal-on-dark.svg')}" style="height:70px"></div>
+    <div class="c light"><img src="{s('lockup-horizontal-on-light.svg')}" style="height:70px"></div>
+    <img src="{s('app-icon-ink.svg')}" class="a"><img src="{s('app-icon-gradient.svg')}" class="a"><img src="{s('app-icon-paper.svg')}" class="a">
+    <div class="c dark"><img src="{s('lockup-stacked-on-dark.svg')}" style="height:110px"></div>
+    <img src="{os.path.abspath(os.path.join(vdir,'png','favicon-16.png'))}" style="width:16px;height:16px;image-rendering:pixelated;transform:scale(3);margin:0 24px">
+    </div>''')
+html='<html><body style="margin:0;background:#2a2f38;font:12px system-ui;color:#ccc"><style>.r{display:flex;align-items:center;gap:12px;padding:8px 12px}.k{width:150px}.c{padding:10px 14px;border-radius:8px}.dark{background:#070B12}.light{background:#F4F7F6}.a{width:72px;height:72px}</style>'+''.join(rows)+'</body></html>'
+open('preview/kit.html','w').write(html)
+EOF
+node gen/render.js preview/kit.html preview/kit.png 1500 900 1 && python3 -c "from PIL import Image; im=Image.open('preview/kit.png'); print(im.size)"
+Output
+
+(1500, 1898)
+bash
+
+python3 -c "
+from PIL import Image; im=Image.open('preview/kit.png').convert('RGB'); w,h=im.size
+im.crop((0,0,w,h//2)).save('preview/kit_a.jpg',quality=80); im.crop((0,h//2,w,h)).save('preview/kit_b.jpg',quality=80)"
+Output
+
+(Bash completed with no output)
+Read a file
+kit_a.jpg
+Read a file
+kit_b.jpg
+Read a file
+og-1200x630.png
+Read a file
+banner-x-1500x500.png
+bash
+
+cd /home/claude/brand/gen && python3 - <<'EOF'
+s=open('build.py').read()
+start=s.index('def constellation(')
+end=s.index('def social_card(')
+new='''def constellation(x, y, w, h, seed=7, n=34, key="D1", label=True):
+    """Brand motif — two tenants, one grant. Each workspace is a sealed region of meshed nodes; exactly one link
+    crosses between them, and it glows. Everything else stays private."""
+    rnd = random.Random(seed)
+    gap = w * 0.16
+    wa = (w - gap) * 0.58
+    wb = (w - gap) - wa
+    regions = [(x, y, wa, h, 0), (x + wa + gap, y + h * 0.16, wb, h * 0.68, 1)]
+    defs, body = "", ""
+    pts = []
+    for (rx, ry, rw, rh, side) in regions:
+        body += (f'<rect x="{rx:.1f}" y="{ry:.1f}" width="{rw:.1f}" height="{rh:.1f}" rx="{min(rw, rh) * 0.12:.1f}" '
+                 f'fill="#0B111A" stroke="#1C2736" stroke-width="1.5"/>')
+        cols, rows_ = (4, 3) if side == 0 else (2, 3)
+        mx, my = rw * 0.14, rh * 0.17
+        for i in range(cols):
+            for j in range(rows_):
+                if rnd.random() < 0.18:
+                    continue
+                px = rx + mx + (rw - 2 * mx) * (i + 0.5 + (rnd.random() - 0.5) * 0.55) / cols
+                py = ry + my + (rh - 2 * my) * (j + 0.5 + (rnd.random() - 0.5) * 0.55) / rows_
+                pts.append((px, py, side))
+    lines = ""
+    for i, (ax, ay, sa) in enumerate(pts):
+        ds = sorted((math.hypot(ax - bx, ay - by), j) for j, (bx, by, sb) in enumerate(pts) if j != i and sb == sa)
+        for dist, j in ds[:2]:
+            if j > i:
+                bx, by, _ = pts[j]
+                lines += f'<line x1="{ax:.1f}" y1="{ay:.1f}" x2="{bx:.1f}" y2="{by:.1f}"/>'
+    a_side = [p for p in pts if p[2] == 0]
+    b_side = [p for p in pts if p[2] == 1]
+    cy = y + h / 2
+    left = min(a_side, key=lambda p: -p[0] + abs(p[1] - cy) * 0.6)
+    right = min(b_side, key=lambda p: p[0] + abs(p[1] - cy) * 0.6)
+    gid = uid("cg")
+    defs += (f'<linearGradient id="{gid}" gradientUnits="userSpaceOnUse" x1="{left[0]:.1f}" y1="0" x2="{right[0]:.1f}" y2="0">'
+             f'<stop offset="0" stop-color="{MINT}"/><stop offset="1" stop-color="{CYAN}"/></linearGradient>')
+    body += f'<g stroke="#223044" stroke-width="1.5">{lines}</g>'
+    body += "".join(f'<circle cx="{px:.1f}" cy="{py:.1f}" r="{max(3.0, w * 0.0075):.1f}" fill="#334357"/>'
+                    for px, py, s in pts if (px, py, s) not in (left, right))
+    body += (f'<path d="M{left[0]:.1f} {left[1]:.1f}L{right[0]:.1f} {right[1]:.1f}" stroke="url(#{gid})" '
+             f'stroke-width="{max(2.5, w * 0.006):.1f}" stroke-dasharray="9 7" stroke-linecap="round" fill="none"/>')
+    rr = max(6.0, w * 0.013)
+    for p, c in ((left, MINT), (right, CYAN)):
+        body += (f'<circle cx="{p[0]:.1f}" cy="{p[1]:.1f}" r="{rr * 2.4:.1f}" fill="{c}" opacity=".14"/>'
+                 f'<circle cx="{p[0]:.1f}" cy="{p[1]:.1f}" r="{rr:.1f}" fill="{c}"/>')
+    if label:
+        fs = max(11.0, w * 0.026)
+        t = text_paths("grant · 4h", MONO_FONT, fs)
+        tw = t["bounds"][2] - t["bounds"][0]
+        mx_, my_ = (left[0] + right[0]) / 2, (left[1] + right[1]) / 2 - fs * 1.5
+        px, py = mx_ - tw / 2 - fs * 0.6, my_ - fs * 0.95
+        body += (f'<rect x="{px:.1f}" y="{py:.1f}" width="{tw + fs * 1.2:.1f}" height="{fs * 1.6:.1f}" rx="{fs * 0.8:.1f}" '
+                 f'fill="#0E2A24" stroke="{MINT}" stroke-opacity=".45"/>')
+        t = text_paths("grant · 4h", MONO_FONT, fs, x0=mx_ - tw / 2, baseline=py + fs * 1.13)
+        body += f'<path fill="{MINT}" d="{fmt(t["d"])}"/>'
+    return defs, body
+
+
+'''
+s=s[:start]+new+s[end:]
+# OG layout tweaks: motif placement and spacing
+s=s.replace('cd, cb = constellation(W * 0.52, H * 0.08, W * 0.5, H * 0.62, seed=11)','cd, cb = constellation(W * 0.56, H * 0.13, W * 0.37, H * 0.36, seed=11)')
+s=s.replace('''        y = H * 0.56
+        for i, line in enumerate(["Share machines,", "not your network."]):''','''        y = H * 0.545
+        for i, line in enumerate(["Share machines,", "not your network."]):''')
+s=s.replace('''x0=m, baseline=y + hs * 1.06 + H * 0.105)''','''x0=m, baseline=y + hs * 1.06 + H * 0.098)''')
+s=s.replace('''        fy = H - m * 0.95
+        body += f'<rect x="{m}" y="{fy - H * 0.075:.1f}" width="{W - 2 * m}" height="2" fill="{LINE}"/>\'''','''        fy = H - m * 0.92
+        body += f'<rect x="{m}" y="{fy - H * 0.068:.1f}" width="{W - 2 * m}" height="2" fill="{LINE}"/>\'''')
+s=s.replace('cd, cb = constellation(W * 0.40, -H * 0.05, W * 0.62, H * 1.1, seed=5, n=44)','cd, cb = constellation(W * 0.52, H * 0.16, W * 0.40, H * 0.68, seed=5)')
+open('build.py','w').write(s)
+EOF
+cd /home/claude/brand && python3 gen/build.py >/dev/null && python3 - <<'EOF'
+import json
+jobs=json.load(open('tmp/kit-jobs.json'))
+sel=[j for j in jobs if ('D4-shared' in j['in'] or 'C1-weave' in j['in']) and ('og-' in j['out'] or 'banner-x' in j['out'] or 'linkedin' in j['out'])]
+json.dump(sel,open('tmp/sel.json','w'))
+EOF
+node gen/render.js --batch tmp/sel.json
+Output
+
+rendered 6

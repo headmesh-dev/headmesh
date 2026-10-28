@@ -16,7 +16,8 @@
       "!**/playwright-report",
       "!**/test-results",
       "!public/brand",
-      "!brand-reference"
+      "!brand-reference",
+      "!brand-reconstruction"
     ]
   },
   "formatter": {

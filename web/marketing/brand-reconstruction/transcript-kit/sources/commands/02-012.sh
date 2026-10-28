@@ -1,0 +1,1 @@
+for f in src/styles/global.css src/styles/starlight.css src/components/Logo.astro src/assets/logo.svg public/favicon.svg src/components/Header.astro src/components/Footer.astro src/layouts/Base.astro; do echo "=================== $f"; cat "$f"; done

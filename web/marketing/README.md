@@ -13,11 +13,28 @@ The public marketing site, docs and waitlist for Headmesh (plan §12.1): a stati
 | `migrations/`                     | SQLite schema migrations, applied by the service when it starts                                                                                                                     |
 | `nginx/security-headers.conf`     | Template for the CSP and other security headers nginx sends                                                                                                                         |
 | `scripts/csp.mjs`                 | Post-build step that hashes every inline script and style into `build/nginx/security-headers.conf`                                                                                  |
+| `scripts/generate-brand-kit.mjs`  | Regenerates `public/brand/headmesh-v1/` (logos, icons, social art, tokens) from the wordmark and the design references in `brand-reference/`                                        |
 | `tests/server/`, `tests/scripts/` | Vitest: the service against in-memory and on-disk SQLite (including a real socket), and the CSP script                                                                              |
 | `tests/e2e/`                      | Playwright + axe smoke tests against `astro preview`, run under the production headers                                                                                              |
 
-Stack: Astro 7.4, Starlight 0.42, Tailwind CSS 4.3, Fontsource (Inter, JetBrains Mono), zod 4,
+Stack: Astro 7.4, Starlight 0.42, Tailwind CSS 4.3, Fontsource (Bricolage Grotesque, Geist, Geist Mono), zod 4,
 Node 24 (`node:http`, `node:sqlite`, native TypeScript), Biome 2, Vitest 5, Playwright + axe and Lighthouse CI.
+
+## Branding
+
+Marketing pages and Starlight docs share the D4 Shared Leg palette, font imports, heading treatment, focus rings
+and selection colours in `src/styles/brand.css`. Change theme values there so both sites stay in sync.
+`global.css` maps those tokens to Tailwind utilities; `starlight.css` maps them to Starlight's navigation, text,
+cards, asides and surfaces. Both use Bricolage Grotesque for headings, Geist for body text and Geist Mono for code.
+
+The docs header reuses `Logo.astro` and the outlined `Wordmark.astro` through `DocsSiteTitle.astro`, keeping the
+shared-leg gradient and exact lowercase wordmark identical to the marketing header. The theme selection is
+shared through Starlight's `starlight-theme` storage key.
+
+The complete reconstruction lives in `brand-reconstruction/transcript-kit/`. Its `png/index.html` catalog
+contains a PNG for every SVG, including the selected public kit and live-site marks; `png/contact-sheets/`
+and `png/validation.json` provide visual and structural export checks. The original downloaded references
+and rendered marketing/docs pages are in `brand-reference/headmesh-process/`.
 
 ## Develop
 

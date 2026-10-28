@@ -1,0 +1,1 @@
+cd /home/claude/headmesh/web/marketing && sed -n 1,80p tests/e2e/fixtures.ts; echo ----; cat src/components/ThemeToggle.astro; echo ----; sed -n 1,60p src/pages/waitlist.astro; echo; cat src/pages/404.astro | head -40; cat public/_headers; ls node_modules/@fontsource-variable/
