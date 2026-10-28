@@ -68,6 +68,9 @@ check "GET / → 200" test "$(code test.headmesh.dev /)" = 200
 check "GET /docs/ → 200" test "$(code test.headmesh.dev /docs/)" = 200
 check "CSP header is sent" test -n "$(header test.headmesh.dev / content-security-policy)"
 check "test is noindex" grep -q noindex <<<"$(header test.headmesh.dev / x-robots-tag)"
+check "llms.txt is served as UTF-8 text" grep -q 'text/plain; charset=utf-8' <<<"$(header test.headmesh.dev /llms.txt content-type)"
+check "docs Markdown copies are served as text/markdown" grep -q 'text/markdown' <<<"$(header test.headmesh.dev /docs/quickstart.md content-type)"
+check "test's robots.txt disallows everything" grep -qx 'Disallow: /' <<<"$(on curl -ks --resolve test.headmesh.dev:443:127.0.0.1 https://test.headmesh.dev/robots.txt)"
 check "/github redirects to the repo" test "$(header test.headmesh.dev /github location)" = "https://github.com/headmesh-dev/headmesh"
 check "http:// redirects to https://" test "$(on curl -s -o /dev/null -w '%{http_code}' -H 'Host: test.headmesh.dev' http://127.0.0.1/)" = 301
 check "GET /api/waitlist → 405" test "$(code test.headmesh.dev /api/waitlist)" = 405

@@ -1,0 +1,9 @@
+
+    # {{ENV}} must stay out of every index, whatever the site's robots.txt says. Rendered into site.conf.tmpl only for
+    # environments with NOINDEX=1 (deploy/lib/environments.sh).
+    location = /robots.txt {
+        include {{SRV_ROOT}}/{{ENV}}/marketing/current/nginx/security-headers*.conf;
+        {{NOINDEX_HEADER}}
+        default_type "text/plain; charset=utf-8";
+        return 200 "User-agent: *\nDisallow: /\n";
+    }

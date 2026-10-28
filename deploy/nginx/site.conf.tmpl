@@ -32,11 +32,22 @@ server {
     # that adds its own headers, because nginx doesn't merge add_header across levels.
     include {{SRV_ROOT}}/{{ENV}}/marketing/current/nginx/security-headers*.conf;
     {{NOINDEX_HEADER}}
+    charset utf-8;
 
     location / {
         try_files $uri $uri/ =404;
     }
 
+    # Markdown copies of the docs for AI agents (/docs.md, /docs/<page>.md). nginx's MIME table has no .md entry,
+    # so without this browsers would download them.
+    location ~ \.md$ {
+        include {{SRV_ROOT}}/{{ENV}}/marketing/current/nginx/security-headers*.conf;
+        {{NOINDEX_HEADER}}
+        types { }
+        default_type "text/markdown; charset=utf-8";
+        try_files $uri =404;
+    }
+{{ROBOTS_OVERRIDE}}
     location /_astro/ {
         include {{SRV_ROOT}}/{{ENV}}/marketing/current/nginx/security-headers*.conf;
         {{NOINDEX_HEADER}}

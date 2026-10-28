@@ -291,13 +291,17 @@ build_site() {
 
 # render <template> <out> <env>: replace {{KEY}} placeholders (bash replacement, so nginx's own $variables are safe).
 render() {
-  local tmpl="$1" out="$2" env="$3" s extra="" noindex=""
+  local tmpl="$1" out="$2" env="$3" s extra="" noindex="" robots=""
   s="$(<"${tmpl}")"
   if [[ -n "$(hm_env "${env}" EXTRA_HOSTS)" ]]; then
     extra="$(<"${ROOT}/deploy/nginx/extra-hosts.conf.tmpl")"
   fi
-  [[ "$(hm_env "${env}" NOINDEX)" == 1 ]] && noindex='add_header X-Robots-Tag "noindex, nofollow" always;'
+  if [[ "$(hm_env "${env}" NOINDEX)" == 1 ]]; then
+    noindex='add_header X-Robots-Tag "noindex, nofollow" always;'
+    robots="$(<"${ROOT}/deploy/nginx/robots-noindex.conf.tmpl")"
+  fi
   s="${s//\{\{EXTRA_HOSTS_SERVER\}\}/${extra}}"
+  s="${s//\{\{ROBOTS_OVERRIDE\}\}/${robots}}"
   s="${s//\{\{NOINDEX_HEADER\}\}/${noindex}}"
   s="${s//\{\{ENV\}\}/${env}}"
   s="${s//\{\{SITE_HOST\}\}/$(hm_env "${env}" SITE_HOST)}"
