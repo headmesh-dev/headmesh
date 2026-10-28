@@ -41,8 +41,9 @@ const mail = `mailto:${CONTACT_EMAIL}`;
           without identifying you.
         </li>
         <li>
-          <strong>Delivery.</strong> Like any website host, Cloudflare processes request data such as IP addresses to
-          deliver and protect the site.
+          <strong>Delivery.</strong> Requests pass through Cloudflare's network, which protects the site, and reach
+          our server, which logs them briefly for security and troubleshooting. Both see request data such as IP
+          addresses.
         </li>
       </ul>
       <p>
@@ -59,10 +60,14 @@ const mail = `mailto:${CONTACT_EMAIL}`;
       <p>We don't sell your information, use it for advertising or share it with anyone except the providers below.</p>
 
       <h2>Service providers</h2>
-      <p>We rely on two providers, who process data for us under their own security and privacy commitments:</p>
+      <p>We rely on three providers, who process data for us under their own security and privacy commitments:</p>
       <ul>
         <li>
-          <strong>Cloudflare</strong> hosts the site and the waitlist database and runs Turnstile and Web Analytics
+          <strong>Hetzner</strong> runs the server in Germany that hosts the site and stores the waitlist
+          (<a href="https://www.hetzner.com/legal/privacy-policy/">Hetzner privacy policy</a>).
+        </li>
+        <li>
+          <strong>Cloudflare</strong> protects and speeds up the site and runs Turnstile and Web Analytics
           (<a href="https://www.cloudflare.com/privacypolicy/">Cloudflare privacy policy</a>).
         </li>
         <li>
@@ -70,8 +75,8 @@ const mail = `mailto:${CONTACT_EMAIL}`;
         </li>
       </ul>
       <p>
-        These providers may store or process your information outside Canada, including in the United States, where it
-        may be accessible to authorities under local law.
+        These providers store or process your information outside Canada: in the European Union (the server) and the
+        United States (Cloudflare and Resend). There it may be accessible to authorities under local law.
       </p>
 
       <h2>How long we keep it</h2>

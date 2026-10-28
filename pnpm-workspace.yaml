@@ -1,0 +1,15 @@
+# pnpm workspace for the JavaScript parts of the monorepo (the Go module is separate).
+packages:
+  - plugins
+  - web/*
+
+# Install scripts pnpm may run; everything else stays blocked.
+onlyBuiltDependencies:
+  - esbuild
+
+# Match renovate.json: don't resolve versions published less than 3 days ago (minutes).
+minimumReleaseAge: 4320
+
+# `pnpm deploy` copies a package with only its production dependencies (deploy/deploy.sh ships the waitlist service
+# this way).
+injectWorkspacePackages: true

@@ -11,12 +11,12 @@
       "**",
       "!**/dist",
       "!**/.astro",
-      "!**/.wrangler",
+      "!**/build",
       "!**/.lighthouseci",
       "!**/playwright-report",
       "!**/test-results",
-      "!functions/worker-configuration.d.ts",
-      "!pnpm-lock.yaml"
+      "!public/brand",
+      "!brand-reference"
     ]
   },
   "formatter": {

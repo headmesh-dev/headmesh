@@ -1,52 +1,51 @@
 # headmesh.dev
 
-The public marketing site, docs and waitlist for Headmesh (plan §12.1). It's a static Astro site with Starlight
-docs at `/docs`, plus three Cloudflare Pages Functions for the waitlist. It deploys to Cloudflare Pages on its
-own, so marketing changes never touch the product.
+The public marketing site, docs and waitlist for Headmesh (plan §12.1): a static Astro site with Starlight docs at
+`/docs`, and a small Node service for the waitlist. Both run on hm-prod-1 behind nginx and deploy with
+`deploy/deploy.sh --target frontend`, separately from the product, so marketing changes never touch it.
 
-| Path                                   | What it is                                                                                                                                                                          |
-| -------------------------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| `src/pages/`                           | `/`, `/waitlist/` (plus `confirm/` and `unsubscribe/`), `/privacy/`, `/terms/`, the 404 page, OG images (`og/[slug].png.ts`), `apple-touch-icon.png` and `.well-known/security.txt` |
-| `src/content/docs/docs/`               | Starlight pages served at `/docs/` (placeholders that link to the repository docs)                                                                                                  |
-| `functions/api/`                       | Pages Functions: `POST /api/waitlist`, `POST /api/waitlist/confirm`, `POST /api/waitlist/unsubscribe`                                                                               |
-| `server/`                              | The Functions' logic: validation (zod), Turnstile, tokens, email, D1 queries                                                                                                        |
-| `shared/`                              | Facts both sides use: URLs, CASL sender identity, consent wording and version, field limits                                                                                         |
-| `migrations/`                          | D1 schema migrations                                                                                                                                                                |
-| `public/_headers`, `public/_redirects` | Security headers (CSP, HSTS, Referrer-Policy, Permissions-Policy) and the `/github` redirect                                                                                        |
-| `scripts/csp.mjs`                      | Post-build step that writes the SHA-256 hashes of every inline script into the CSP in `dist/_headers`                                                                               |
-| `tests/functions/`, `tests/scripts/`   | Vitest: Functions inside workerd against a real local D1, and the CSP script                                                                                                        |
-| `tests/e2e/`                           | Playwright + axe smoke tests against `astro preview`, run under the production headers                                                                                              |
+| Path                              | What it is                                                                                                                                                                          |
+| --------------------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `src/pages/`                      | `/`, `/waitlist/` (plus `confirm/` and `unsubscribe/`), `/privacy/`, `/terms/`, the 404 page, OG images (`og/[slug].png.ts`), `apple-touch-icon.png` and `.well-known/security.txt` |
+| `src/content/docs/docs/`          | Starlight pages served at `/docs/` (placeholders that link to the repository docs)                                                                                                  |
+| `server/`                         | The waitlist service: `POST /api/waitlist`, `/confirm`, `/unsubscribe`, `/healthz`, `/readyz` on `node:http`, with zod, Turnstile, tokens, email and SQLite (`node:sqlite`)         |
+| `shared/`                         | Facts the site and the service share: URLs, CASL sender identity, consent wording and version, the API contract                                                                     |
+| `migrations/`                     | SQLite schema migrations, applied by the service when it starts                                                                                                                     |
+| `nginx/security-headers.conf`     | Template for the CSP and other security headers nginx sends                                                                                                                         |
+| `scripts/csp.mjs`                 | Post-build step that hashes every inline script and style into `build/nginx/security-headers.conf`                                                                                  |
+| `tests/server/`, `tests/scripts/` | Vitest: the service against in-memory and on-disk SQLite (including a real socket), and the CSP script                                                                              |
+| `tests/e2e/`                      | Playwright + axe smoke tests against `astro preview`, run under the production headers                                                                                              |
 
-Stack: Astro 7.4, Starlight 0.42, Tailwind CSS 4.3, Fontsource (Inter, JetBrains Mono), zod 4, Wrangler 4, Biome 2,
-Vitest 5 with `@cloudflare/vitest-plugin`, Playwright + axe and Lighthouse CI.
+Stack: Astro 7.4, Starlight 0.42, Tailwind CSS 4.3, Fontsource (Inter, JetBrains Mono), zod 4,
+Node 24 (`node:http`, `node:sqlite`, native TypeScript), Biome 2, Vitest 5, Playwright + axe and Lighthouse CI.
 
 ## Develop
 
-Node and pnpm come from the repository's `mise.toml` (`mise install`).
+Node and pnpm come from the repository's `mise.toml` (`mise install`). Install from the repo root, which is a pnpm
+workspace.
 
 ```sh
-pnpm install          # from the repo root once pnpm-workspace.yaml lists web/marketing; until then, here
-pnpm dev              # http://localhost:4321 (pages only, no Functions)
-pnpm build            # astro build + CSP hashing into dist/_headers
+pnpm install          # at the repo root
+pnpm dev              # http://localhost:4321 (pages only)
+pnpm build            # astro build, then CSP hashing into build/nginx/security-headers.conf
 pnpm preview          # serve dist/
 ```
 
-To run the waitlist end to end on your machine (Functions, local D1, Turnstile test keys, email links in the log):
+To run the waitlist end to end (Turnstile test keys, email links printed to the log instead of sent):
 
 ```sh
-cp .dev.vars.example .dev.vars          # then set WAITLIST_SECRET (openssl rand -base64 48)
-pnpm db:migrate:local
-pnpm build && pnpm pages:dev            # wrangler pages dev serves dist/ + functions/ with _headers applied
+cp .env.example .env    # then set WAITLIST_SECRET (openssl rand -base64 48)
+pnpm serve              # http://127.0.0.1:8787; `pnpm dev` doesn't proxy /api, so post to it directly
 ```
 
-| Script              | What it does                                                                                                               |
-| ------------------- | -------------------------------------------------------------------------------------------------------------------------- |
-| `pnpm lint`         | Biome (format + lint), then `astro check` and `tsc` for the Functions                                                      |
-| `pnpm format`       | Biome with fixes applied                                                                                                   |
-| `pnpm test`         | Vitest: `functions` project in workerd (real D1, per-test reset), `scripts` project in Node                                |
-| `pnpm test:e2e`     | Playwright + axe on desktop and mobile, both colour schemes, under the CSP from `dist/_headers` (needs `pnpm build` first) |
-| `pnpm lhci`         | Lighthouse CI on five pages, 3 runs each, ≥ 95 in every category (needs `pnpm build`)                                      |
-| `pnpm types:worker` | Regenerate `functions/worker-configuration.d.ts` after changing `wrangler.toml`                                            |
+| Script          | What it does                                                                                                                        |
+| --------------- | ----------------------------------------------------------------------------------------------------------------------------------- |
+| `pnpm lint`     | Biome (format + lint), then `astro check` and `tsc` for the service                                                                 |
+| `pnpm format`   | Biome with fixes applied                                                                                                            |
+| `pnpm test`     | Vitest: the service (in-memory and file SQLite, real HTTP socket, migrations, config) and the CSP script                            |
+| `pnpm test:e2e` | Playwright + axe on desktop and mobile, both colour schemes, under the headers in `build/nginx/security-headers.conf` (build first) |
+| `pnpm lhci`     | Lighthouse CI on five pages, 3 runs each, ≥ 95 in every category (needs `pnpm build`)                                               |
+| `pnpm serve`    | Run the waitlist service with `.env`                                                                                                |
 
 The e2e tests stub Turnstile and block every third-party request, so they never depend on the network. Set
 `PLAYWRIGHT_BASE_URL` to run them against a deployment instead of `astro preview`.
@@ -56,7 +55,7 @@ The e2e tests stub Turnstile and block every third-party request, so they never 
 1. The form posts JSON to `/api/waitlist`: email, optional use case (≤ 500 characters), the consent checkbox, the
    consent wording version, the Turnstile token, and the source (`?ref=`, `utm_source` or the referring host) and
    `utm_*` parameters.
-2. The Function validates with zod, normalises the email (trim, NFC, lowercase, punycode domain; no Gmail-style
+2. The service validates with zod, normalises the email (trim, NFC, lowercase, punycode domain; no Gmail-style
    rewriting), verifies Turnstile server-side (action must be `waitlist`) and limits each IP to 10 sign-ups an
    hour, keyed on an HMAC of the IP. Raw IPs are never stored.
 3. It upserts the row and sends the double opt-in email through Resend. Repeat sign-ups get the same `202`
@@ -77,109 +76,71 @@ in one click, and unsubscribes take effect immediately. Each row records which c
 `shared/site.ts`, bump `CONSENT_VERSION` too.
 
 **Fail-closed.** Until `SENDER.postalAddress` in `shared/site.ts` is filled in, production builds refuse to run
-and the Function refuses sign-ups with `503` instead of sending email that isn't CASL-compliant.
+and the service refuses sign-ups with `503` instead of sending email that isn't CASL-compliant.
 
-The table (`migrations/0001_create_waitlist.sql`) is `waitlist(id, email UNIQUE, use_case, source, utm,
+The SQLite table (`migrations/0001_create_waitlist.sql`, applied by the service at start) is `waitlist(id, email UNIQUE, use_case, source, utm,
 consent_version, ip_hash, created_at, confirmed_at, unsubscribed_at, confirm_sent_at)`. `confirm_sent_at` is one
 column beyond the plan; it throttles confirmation re-sends. The mailable audience is
 `confirmed_at IS NOT NULL AND unsubscribed_at IS NULL`.
 
-## Configuration
+## Configuration and deploys
 
-Nothing secret lives in the repository. `wrangler.toml` is the source of truth for the Pages project's bindings and
-plain variables. Secrets are set per environment.
+Everything server-side is in [`deploy/`](../../deploy/README.md). Per environment, two files configure this package
+(each has a committed `.example`; the real files are git-ignored and every deploy uploads them, replacing the
+server's copy):
 
-**Build time** (GitHub Actions environment, or `web/marketing/.env` locally):
+- `deploy/env/<env>/build.env`: `PUBLIC_TURNSTILE_SITE_KEY` and `PUBLIC_CF_ANALYTICS_TOKEN`, read by `pnpm build`.
+  Without a site key the build uses Cloudflare's always-pass test key. `deploy.sh` sets `HEADMESH_PRODUCTION=1`
+  for prod, which fails the build while the Turnstile key is the test key or `SENDER.postalAddress` is empty.
+- `deploy/env/<env>/waitlist.env`: the service's settings (`server/config.ts`): `SITE_URL`, `EMAIL_FROM`,
+  `EMAIL_REPLY_TO`, `EMAIL_DELIVERY` (`resend` in prod, `log` in test), `TURNSTILE_SECRET_KEY`, `RESEND_API_KEY`
+  and `WAITLIST_SECRET`. The listen address, port and database path are set per instance on the server.
 
-| Variable                    | Where it comes from                                                                                                                        |
-| --------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------ |
-| `PUBLIC_TURNSTILE_SITE_KEY` | Repository variable `TURNSTILE_SITE_KEY` for production. Without it, the build uses Cloudflare's always-pass test key (local and preview). |
-| `PUBLIC_CF_ANALYTICS_TOKEN` | Repository variable `CF_WEB_ANALYTICS_TOKEN`. Without it, no beacon is rendered.                                                           |
-| `HEADMESH_PRODUCTION=1`     | Set by the production deploy job. Fails the build if the Turnstile key is the test key or the postal address is empty.                     |
+```sh
+deploy/deploy.sh --env test --target frontend          # test.headmesh.dev
+deploy/deploy.sh --env prod --target frontend          # headmesh.dev (asks for confirmation)
+```
 
-**Runtime vars** (`wrangler.toml`): `SITE_URL`, `EMAIL_FROM`, `EMAIL_REPLY_TO` and `EMAIL_DELIVERY`. Production uses
-`resend`. `[env.preview]` uses `log`, so previews never send mail and their links go to
-`wrangler pages deployment tail`.
+The site switches atomically (a symlink, `nginx -t` first); the service runs blue-green, so a deploy never drops a
+sign-up. The service starts before the site, so a new form never posts to an old API.
 
-**Runtime secrets** (Pages project, per environment):
+## One-time setup (Aaryn)
 
-| Secret                 | Production                                                                                   | Preview                                                                                                                  |
-| ---------------------- | -------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------ |
-| `TURNSTILE_SECRET_KEY` | The widget's secret key                                                                      | Cloudflare's test secret `1x0000000000000000000000000000000AA` (it pairs with the test site key previews are built with) |
-| `WAITLIST_SECRET`      | `openssl rand -base64 48`; rotating it invalidates outstanding confirm and unsubscribe links | A different random value                                                                                                 |
-| `RESEND_API_KEY`       | A Resend key with sending access to `mail.headmesh.dev` only                                 | Not needed (`EMAIL_DELIVERY=log`)                                                                                        |
-
-**GitHub** (repository settings): secrets `CLOUDFLARE_API_TOKEN` (an account API token with _Cloudflare Pages:
-Edit_ and _D1: Edit_ only) and `CLOUDFLARE_ACCOUNT_ID`, plus variables `TURNSTILE_SITE_KEY` and
-`CF_WEB_ANALYTICS_TOKEN`. Create the environments `marketing-production` (deployment branch: `main` only) and
-`marketing-preview`. The deploy jobs are skipped until the repository variable `MARKETING_DEPLOY` is `enabled`, so
-CI only lints, tests and builds until setup is finished.
-
-## One-time setup
-
-These steps create Cloudflare and Resend resources and need Aaryn's go-ahead. Run the `wrangler` commands from
-`web/marketing/` after `pnpm exec wrangler login`.
-
-1. **D1 databases**
-
-   ```sh
-   pnpm exec wrangler d1 create headmesh-waitlist
-   pnpm exec wrangler d1 create headmesh-waitlist-preview
-   ```
-
-   Put the two printed `database_id`s into `wrangler.toml` (they're zeros now), then apply the schema with
-   `pnpm exec wrangler d1 migrations apply DB --remote` and the same command with `--env preview`. CI re-applies
-   pending migrations before every deploy.
-2. **Pages project**
-
-   ```sh
-   pnpm exec wrangler pages project create headmesh-marketing --production-branch main
-   ```
-
-   In the dashboard, add the custom domain `headmesh.dev` (DNS is already on Cloudflare). Don't turn on automatic
-   Web Analytics injection; the site renders its own beacon so the CSP stays exact.
-3. **Turnstile.** In the dashboard, add a Turnstile widget (Managed) for hostname `headmesh.dev`. Save the site key
-   as the GitHub variable `TURNSTILE_SITE_KEY`, and the secret with
-   `pnpm exec wrangler pages secret put TURNSTILE_SECRET_KEY --project-name headmesh-marketing`.
-4. **Resend.** Add the domain `mail.headmesh.dev`. Create the SPF, DKIM and bounce (MX) records it lists in
-   Cloudflare DNS and wait for verification. Publish a DMARC record for `headmesh.dev` if there isn't one. Create
-   an API key restricted to sending from that domain and store it with `wrangler pages secret put RESEND_API_KEY`.
-5. **Signing secret.** Run `openssl rand -base64 48 | pnpm exec wrangler pages secret put WAITLIST_SECRET
-   --project-name headmesh-marketing`.
-6. **Preview secrets.** `wrangler pages secret put` only targets production, so set the preview values from the
-   table above under _Settings → Variables and Secrets → Preview_ in the dashboard.
-7. **Web Analytics.** Add the site `headmesh.dev` under _Web Analytics_ with the manual JS snippet. Save its token
-   as the GitHub variable `CF_WEB_ANALYTICS_TOKEN`.
-8. **Rate limiting.** Pages Functions can't use the Workers rate-limit binding the plan names: Wrangler's Pages
-   config doesn't accept `ratelimits`. The Function enforces its own per-IP limit in D1. As an outer layer, add a WAF
-   rate-limiting rule for `POST /api/waitlist*` on the `headmesh.dev` zone, for example 20 requests per 10 minutes
-   per IP.
-9. **CASL sender address.** Fill in `SENDER.postalAddress` in `shared/site.ts`. Production builds fail without it.
-10. **Turn deploys on.** Once steps 1–9 are done, set the repository variable `MARKETING_DEPLOY` to `enabled`.
-11. **Before launch:** have the privacy policy and terms reviewed (they have no governing-law clause yet), and make
-    the GitHub repository public so the `/github` and "Star on GitHub" links work.
+1. **CASL sender address.** Fill in `SENDER.postalAddress` in `shared/site.ts`. Production builds fail without it.
+2. **Turnstile.** In the Cloudflare dashboard, add a Turnstile widget (Managed) for `headmesh.dev`. The site key goes
+   in `deploy/env/prod/build.env`, the secret in `deploy/env/prod/waitlist.env`.
+3. **Resend.** Add the domain `mail.headmesh.dev`, create the SPF, DKIM and bounce (MX) records it lists in
+   Cloudflare DNS, and wait for verification. Publish a DMARC record for `headmesh.dev` if there isn't one. Put an API
+   key restricted to sending from that domain in `deploy/env/prod/waitlist.env`.
+4. **Web Analytics.** Add `headmesh.dev` under _Web Analytics_ with the manual JS snippet (not automatic injection,
+   so the CSP stays exact), and put its token in `deploy/env/prod/build.env`.
+5. **DNS and TLS:** see [`deploy/README.md`](../../deploy/README.md#dns-and-tls).
+6. **Rate limiting.** nginx allows 6 sign-up requests a minute per client (burst 5) and the service caps each IP at
+   10 sign-ups an hour. As an outer layer at the edge, add a Cloudflare WAF rate-limiting rule for
+   `POST /api/waitlist*` on the zone, for example 20 requests per 10 minutes per IP.
+7. **Before launch:** have the privacy policy and terms reviewed (they have no governing-law clause yet), and make
+   the GitHub repository public so the `/github` and "Star on GitHub" links work.
 
 ## Operations
 
-There's no admin route; the waitlist is read with `wrangler d1 execute`. If an admin page is ever added, put it
-behind Cloudflare Access.
+There's no admin route; read the waitlist on the server (as root) with `sqlite3`. The database is
+`/var/lib/headmesh/<env>/waitlist/waitlist.db`, backed up daily to `/var/lib/headmesh/<env>/backups/` (14 kept).
 
 ```sh
-# Sign-up count, the success metric
-pnpm exec wrangler d1 execute DB --remote --command \
-  "SELECT count(*) AS confirmed FROM waitlist WHERE confirmed_at IS NOT NULL AND unsubscribed_at IS NULL"
+db=/var/lib/headmesh/prod/waitlist/waitlist.db
 
-# Export the mailable list
-pnpm exec wrangler d1 execute DB --remote --json --command \
-  "SELECT email, use_case, source, utm, created_at, confirmed_at FROM waitlist
-   WHERE confirmed_at IS NOT NULL AND unsubscribed_at IS NULL ORDER BY created_at"
+# Sign-up count, the success metric
+sudo sqlite3 "$db" "SELECT count(*) AS confirmed FROM waitlist WHERE confirmed_at IS NOT NULL AND unsubscribed_at IS NULL"
+
+# Export the mailable list as CSV
+sudo sqlite3 -header -csv "$db" "SELECT email, use_case, source, utm, created_at, confirmed_at FROM waitlist
+  WHERE confirmed_at IS NOT NULL AND unsubscribed_at IS NULL ORDER BY created_at" > waitlist.csv
 
 # Delete sign-ups that were never confirmed (the privacy policy promises this; run it monthly)
-pnpm exec wrangler d1 execute DB --remote --command \
-  "DELETE FROM waitlist WHERE confirmed_at IS NULL AND created_at < strftime('%Y-%m-%dT%H:%M:%fZ', 'now', '-30 days')"
+sudo sqlite3 "$db" "DELETE FROM waitlist WHERE confirmed_at IS NULL AND created_at < strftime('%Y-%m-%dT%H:%M:%fZ', 'now', '-30 days')"
 
-# Live Function logs (structured JSON, never email addresses)
-pnpm exec wrangler pages deployment tail --project-name headmesh-marketing
+# Live service logs (structured JSON, never email addresses)
+sudo journalctl -fu 'headmesh-waitlist@prod-*'
 ```
 
 `/.well-known/security.txt` gets an `Expires` 330 days after each build, so redeploy at least once every ten
@@ -187,10 +148,12 @@ months.
 
 ## Security headers
 
-`public/_headers` sets a CSP that allows only this origin, the SHA-256 hashes of the few inline scripts (theme
-detection and Starlight's own), Turnstile (`challenges.cloudflare.com`) and the Web Analytics beacon
-(`static.cloudflareinsights.com`, `cloudflareinsights.com`). Stylesheets and bundled scripts ship as files
-(`inlineStylesheets: "never"`, `assetsInlineLimit: 0`), so `style-src` is `'self'` only. Inline style
-_attributes_ are allowed through `style-src-attr` because Starlight sets CSS custom properties that way; they
-can't load resources or run code. The build fails if an inline event handler appears or the header grows past
-Pages' 2,000-character limit. The Functions set their own `no-store`, `nosniff` and `default-src 'none'` headers.
+nginx sends the headers in `build/nginx/security-headers.conf`, generated per build: a CSP that allows only this
+origin, the SHA-256 hashes of the few inline scripts and styles (theme detection and Starlight's own), Turnstile
+(`challenges.cloudflare.com`) and the Web Analytics beacon (`static.cloudflareinsights.com`,
+`cloudflareinsights.com`), plus HSTS, `nosniff`, `X-Frame-Options`, Referrer-Policy, Permissions-Policy and COOP.
+Stylesheets and bundled scripts ship as files (`inlineStylesheets: "never"`, `assetsInlineLimit: 0`). Inline style
+_attributes_ are allowed through `style-src-attr` because Starlight sets CSS custom properties that way; they can't
+load resources or run code. The build fails if an inline event handler appears. The service sets its own
+`no-store`, `nosniff` and `default-src 'none'` headers on API responses. The test environment adds
+`X-Robots-Tag: noindex`.

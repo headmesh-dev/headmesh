@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { CONFIRM_TOKEN_TTL_SECONDS, hashIp, signToken, verifyToken } from "../../server/crypto";
+import { CONFIRM_TOKEN_TTL_SECONDS, hashIp, signToken, verifyToken } from "../../server/crypto.ts";
 
 const SECRET = "unit-test-secret-with-at-least-32-characters";
 const ID = "4f8e2a8c-3b2d-4c1e-9a7f-0123456789ab";

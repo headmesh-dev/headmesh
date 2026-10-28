@@ -1,4 +1,4 @@
-import { SENDER } from "../shared/site";
+import { SENDER } from "../shared/site.ts";
 
 export interface ConfirmationEmail {
   subject: string;

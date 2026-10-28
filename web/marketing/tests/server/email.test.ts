@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { normalizeEmail } from "../../server/email";
+import { normalizeEmail } from "../../server/email.ts";
 
 describe("normalizeEmail", () => {
   it.each([

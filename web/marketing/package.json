@@ -2,50 +2,53 @@
   "name": "@headmesh/marketing",
   "version": "0.0.0",
   "private": true,
-  "description": "headmesh.dev marketing site, docs and waitlist (Astro + Starlight on Cloudflare Pages)",
+  "description": "headmesh.dev: static marketing site and docs (Astro + Starlight), plus the waitlist service (Node + SQLite)",
   "license": "UNLICENSED",
   "type": "module",
   "engines": {
-    "node": ">=24"
+    "node": ">=24.16"
   },
+  "files": [
+    "server",
+    "shared",
+    "migrations",
+    "!server/tsconfig.json"
+  ],
   "scripts": {
     "dev": "astro dev",
     "build": "astro build && node scripts/csp.mjs",
     "preview": "astro preview",
-    "pages:dev": "wrangler pages dev",
-    "check": "astro check && tsc -p functions/tsconfig.json",
+    "serve": "node --env-file-if-exists=.env server/main.ts",
+    "check": "astro check && tsc -p server/tsconfig.json",
     "lint": "biome check . && pnpm run check",
     "format": "biome check --write .",
     "test": "vitest run",
     "test:watch": "vitest",
     "test:e2e": "playwright test",
-    "lhci": "lhci autorun",
-    "types:worker": "wrangler types functions/worker-configuration.d.ts",
-    "db:migrate:local": "wrangler d1 migrations apply DB --local"
+    "lhci": "lhci autorun"
   },
   "dependencies": {
-    "@astrojs/markdown-remark": "^7.3.0",
-    "@astrojs/sitemap": "^3.7.4",
-    "@astrojs/starlight": "^0.42.7",
-    "@fontsource-variable/inter": "^5.3.0",
-    "@fontsource-variable/jetbrains-mono": "^5.3.0",
-    "@fontsource/inter": "^5.3.0",
-    "@resvg/resvg-js": "^2.6.2",
-    "@tailwindcss/vite": "^4.3.3",
-    "astro": "^7.4.2",
-    "satori": "^0.63.2",
-    "tailwindcss": "^4.3.3",
     "zod": "^4.6.7"
   },
   "devDependencies": {
     "@astrojs/check": "^0.9.12",
+    "@astrojs/markdown-remark": "^7.3.0",
+    "@astrojs/sitemap": "^3.7.4",
+    "@astrojs/starlight": "^0.42.7",
     "@axe-core/playwright": "^4.14.0",
     "@biomejs/biome": "2.6.3",
-    "@cloudflare/vitest-plugin": "^1.4.7",
+    "@fontsource-variable/inter": "^5.3.0",
+    "@fontsource-variable/jetbrains-mono": "^5.3.0",
+    "@fontsource/inter": "^5.3.0",
     "@lhci/cli": "^0.15.1",
     "@playwright/test": "1.64.1",
+    "@resvg/resvg-js": "^2.6.2",
+    "@tailwindcss/vite": "^4.3.3",
+    "@types/node": "^24.19.2",
+    "astro": "^7.4.2",
+    "satori": "^0.63.2",
+    "tailwindcss": "^4.3.3",
     "typescript": "^6.0.3",
-    "vitest": "^5.0.5",
-    "wrangler": "^4.152.0"
+    "vitest": "^5.0.5"
   }
 }

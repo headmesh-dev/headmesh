@@ -3,24 +3,20 @@ import AxeBuilder from "@axe-core/playwright";
 import { test as base, expect, type Page } from "@playwright/test";
 
 /**
- * The response headers Cloudflare Pages would send for every page, read from the built dist/_headers. `astro
- * preview` doesn't apply _headers, so the fixture adds them to every same-origin response; that way the tests run
- * under the real CSP and catch anything it would block. upgrade-insecure-requests is dropped because the preview
- * server is plain HTTP.
+ * The security headers nginx sends with every page, read from build/nginx/security-headers.conf (written by
+ * `pnpm build`). `astro preview` doesn't send them, so the fixture adds them to every same-origin response; that way
+ * the tests run under the real CSP and catch anything it would block. upgrade-insecure-requests is dropped because
+ * the preview server is plain HTTP.
  */
 function productionHeaders(): Record<string, string> {
-  const file = readFileSync(new URL("../../dist/_headers", import.meta.url), "utf8");
-  const block = file.split(/\n(?=\S)/).find((section) => section.startsWith("/*\n"));
-  if (!block) throw new Error("dist/_headers has no /* rule; run `pnpm build` first");
+  const file = readFileSync(new URL("../../build/nginx/security-headers.conf", import.meta.url), "utf8");
   const headers: Record<string, string> = {};
-  for (const line of block.split("\n").slice(1)) {
-    const match = /^\s+([\w-]+):\s*(.+)$/.exec(line);
-    if (match?.[1] && match[2]) headers[match[1].toLowerCase()] = match[2];
+  for (const match of file.matchAll(/^add_header\s+([\w-]+)\s+"([^"]*)"\s+always;$/gm)) {
+    if (match[1] && match[2] !== undefined) headers[match[1].toLowerCase()] = match[2];
   }
-  headers["content-security-policy"] = (headers["content-security-policy"] ?? "").replace(
-    /;\s*upgrade-insecure-requests/,
-    "",
-  );
+  if (!headers["content-security-policy"])
+    throw new Error("no CSP in build/nginx/security-headers.conf; run `pnpm build`");
+  headers["content-security-policy"] = headers["content-security-policy"].replace(/;\s*upgrade-insecure-requests/, "");
   return headers;
 }
 

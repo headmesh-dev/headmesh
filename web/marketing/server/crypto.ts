@@ -1,6 +1,9 @@
 // Signed, opaque tokens for the confirm and unsubscribe links, and a keyed hash for IP addresses. All keys are
 // derived from WAITLIST_SECRET with HKDF, one per purpose, so a token minted for one purpose never verifies for
 // another and the IP hash can't be used to forge tokens.
+import type { webcrypto } from "node:crypto";
+
+type CryptoKey = webcrypto.CryptoKey;
 
 export type TokenPurpose = "confirm" | "unsubscribe";
 type KeyPurpose = TokenPurpose | "ip-hash";

@@ -1,4 +1,4 @@
-// Wire contract between the waitlist pages and the Pages Functions under /api/waitlist.
+// Wire contract between the waitlist pages and the waitlist service under /api/waitlist.
 
 export type ApiErrorCode =
   | "invalid_request"

@@ -1,3 +1,0 @@
-# Cloudflare Pages redirects (https://developers.cloudflare.com/pages/configuration/redirects/)
-/github    https://github.com/headmesh-dev/headmesh  302
-/github/   https://github.com/headmesh-dev/headmesh  302

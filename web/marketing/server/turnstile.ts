@@ -1,4 +1,4 @@
-import { TURNSTILE_ACTION } from "../shared/site";
+import { TURNSTILE_ACTION } from "../shared/site.ts";
 
 const SITEVERIFY_URL = "https://challenges.cloudflare.com/turnstile/v0/siteverify";
 

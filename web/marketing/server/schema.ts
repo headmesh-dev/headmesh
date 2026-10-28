@@ -1,7 +1,7 @@
 import { z } from "zod";
-import type { FieldErrors } from "../shared/api";
-import { CONSENT_VERSION, LIMITS, UTM_KEYS } from "../shared/site";
-import { normalizeEmail } from "./email";
+import type { FieldErrors } from "../shared/api.ts";
+import { CONSENT_VERSION, LIMITS, UTM_KEYS } from "../shared/site.ts";
+import { normalizeEmail } from "./email.ts";
 
 export const signupSchema = z.object({
   email: z

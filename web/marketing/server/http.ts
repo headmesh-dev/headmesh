@@ -1,4 +1,4 @@
-import type { ApiErrorCode, ApiResponse, FieldErrors } from "../shared/api";
+import type { ApiErrorCode, ApiResponse, FieldErrors } from "../shared/api.ts";
 
 /** Largest request body any waitlist endpoint accepts. */
 export const MAX_BODY_BYTES = 8 * 1024;
@@ -33,8 +33,11 @@ export function fail(error: ApiErrorCode, fields?: FieldErrors, headers?: Record
 }
 
 export class HttpError extends Error {
-  constructor(readonly response: Response) {
+  readonly response: Response;
+
+  constructor(response: Response) {
     super(`HTTP ${response.status}`);
+    this.response = response;
   }
 }
 

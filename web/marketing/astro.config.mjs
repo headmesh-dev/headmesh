@@ -56,8 +56,8 @@ export default defineConfig({
     inlineStylesheets: "never",
   },
   redirects: {
-    // Cloudflare Pages answers this with a real redirect from public/_redirects; this page is the fallback
-    // for `astro preview` and any host that ignores _redirects.
+    // nginx answers /github with a real 302 (deploy/nginx); this generated page is the fallback for
+    // `astro preview`.
     "/github": REPO_URL,
   },
   env: {

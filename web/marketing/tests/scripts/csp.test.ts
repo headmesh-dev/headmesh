@@ -35,9 +35,9 @@ describe("fillHeaders", () => {
     expect(filled).toContain("style-src 'self';");
   });
 
-  it("refuses templates without placeholders and lines Pages would reject", () => {
-    expect(() => fillHeaders("/*\n  X: y\n", { scriptHashes: [], styleHashes: [] })).toThrow(/missing/);
+  it("refuses templates without placeholders and oversized headers", () => {
+    expect(() => fillHeaders('add_header X "y" always;\n', { scriptHashes: [], styleHashes: [] })).toThrow(/missing/);
     const many = Array.from({ length: MAX_HEADER_LINE / 50 }, (_, i) => `'sha256-${String(i).padStart(44, "0")}'`);
-    expect(() => fillHeaders(template, { scriptHashes: many, styleHashes: [] })).toThrow(/over 2000/);
+    expect(() => fillHeaders(template, { scriptHashes: many, styleHashes: [] })).toThrow(/over 4000/);
   });
 });

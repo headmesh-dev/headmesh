@@ -1,5 +1,5 @@
-// Facts shared by the static site (build time) and the Pages Functions (runtime). Keep this module free of
-// DOM- and Workers-specific APIs so both sides can import it.
+// Facts shared by the static site (build time) and the waitlist service (runtime). Keep this module free of
+// DOM- and Node-specific APIs so both sides can import it.
 
 export const SITE_URL = "https://headmesh.dev";
 export const REPO_URL = "https://github.com/headmesh-dev/headmesh";
@@ -13,7 +13,7 @@ export const XCELSIOR_URL = "https://xcelsior.ca";
  * name the sender and give a mailing address plus one other contact method.
  *
  * `postalAddress` must be filled in before launch. Production builds fail while it is empty (see
- * `astro.config.mjs`), and the waitlist Function refuses sign-ups rather than send non-compliant email.
+ * `astro.config.mjs`), and the waitlist service refuses sign-ups rather than send non-compliant email.
  */
 export interface Sender {
   readonly legalName: string;
@@ -42,7 +42,7 @@ export const CONSENT_TEXT =
 /** Turnstile action name. The Function rejects tokens minted for any other action. */
 export const TURNSTILE_ACTION = "waitlist";
 
-/** Limits enforced by both the form (maxlength) and the Function (zod). */
+/** Limits enforced by both the form (maxlength) and the service (zod). */
 export const LIMITS = {
   email: 254,
   useCase: 500,

@@ -2,10 +2,10 @@
   "$schema": "https://json.schemastore.org/tsconfig",
   "compilerOptions": {
     "target": "ES2024",
-    "module": "ES2022",
-    "moduleResolution": "Bundler",
+    "module": "NodeNext",
+    "moduleResolution": "NodeNext",
     "lib": ["ES2024"],
-    "types": ["@cloudflare/vitest-plugin/types"],
+    "types": ["node"],
     "strict": true,
     "noUncheckedIndexedAccess": true,
     "exactOptionalPropertyTypes": true,
@@ -13,8 +13,10 @@
     "noFallthroughCasesInSwitch": true,
     "isolatedModules": true,
     "verbatimModuleSyntax": true,
+    "erasableSyntaxOnly": true,
+    "allowImportingTsExtensions": true,
     "skipLibCheck": true,
     "noEmit": true
   },
-  "include": ["./**/*.ts", "../server/**/*.ts", "../shared/**/*.ts", "../tests/functions/**/*.ts"]
+  "include": ["./**/*.ts", "../shared/**/*.ts", "../tests/server/**/*.ts"]
 }
