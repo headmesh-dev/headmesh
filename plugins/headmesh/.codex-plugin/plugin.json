@@ -37,6 +37,8 @@
     "defaultPrompt": [
       "Check my Headmesh sandbox status and report anything unhealthy.",
       "Run the Headmesh sandbox acceptance checks and summarise the results."
-    ]
+    ],
+    "brandColor": "#3CEFB4",
+    "logo": "./assets/logo.png"
   }
 }

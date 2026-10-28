@@ -63,3 +63,6 @@ openai:
     defaultPrompt:
       - Check my Headmesh sandbox status and report anything unhealthy.
       - Run the Headmesh sandbox acceptance checks and summarise the results.
+    # The D4 app icon (web/marketing/public/brand/headmesh-v1/icons/icon-512.png) and --hm-mint from its tokens.css.
+    brandColor: "#3CEFB4"
+    logo: ./assets/logo.png
