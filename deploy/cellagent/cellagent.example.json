@@ -3,7 +3,7 @@
   "mode": "observe",
   "state_dir": "/var/lib/headmesh-cellagent",
   "headscale_socket": "/var/run/headscale/headscale.sock",
-  "headscale_http": "http://127.0.0.1:8080",
+  "headscale_http": "http://127.0.0.1:8443",
   "server_url": "https://api.headmesh.dev",
   "client_cert": "/etc/headmesh/cellagent.crt",
   "client_key": "/etc/headmesh/cellagent.key",
