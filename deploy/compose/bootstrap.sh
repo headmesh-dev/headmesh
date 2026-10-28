@@ -250,12 +250,20 @@ wireguard_tools() {
 # outer layer. The table is separate from Docker's and Tailscale's, so loading
 # it never flushes their rules.
 host_firewall() {
-  [[ -n "${SSH_ALLOW}" ]] || die "set HM_SSH_ALLOW (for example 203.0.113.7/32)"
-  local cidr elements=""
-  for cidr in ${SSH_ALLOW}; do
-    [[ "${cidr}" =~ ^[0-9]{1,3}(\.[0-9]{1,3}){3}/[0-9]{1,2}$ ]] || die "bad IPv4 CIDR: ${cidr}"
-    elements+="${elements:+, }${cidr}"
-  done
+  [[ -n "${SSH_ALLOW}" ]] || die "set HM_SSH_ALLOW to IPv4 CIDRs, or to 'none' once the tailnet and break-glass paths work"
+  local cidr elements="" ssh_set="" ssh_rule=""
+  if [[ "${SSH_ALLOW}" != "none" ]]; then
+    for cidr in ${SSH_ALLOW}; do
+      [[ "${cidr}" =~ ^[0-9]{1,3}(\.[0-9]{1,3}){3}/[0-9]{1,2}$ ]] || die "bad IPv4 CIDR: ${cidr}"
+      elements+="${elements:+, }${cidr}"
+    done
+    ssh_set="  set ssh_allow_v4 {
+    type ipv4_addr
+    flags interval
+    elements = { ${elements} }
+  }"
+    ssh_rule="    tcp dport 22 ip saddr @ssh_allow_v4 accept"
+  fi
   dpkg-query -W -f='${Status}' nftables 2>/dev/null | grep -q 'install ok installed' \
     || apt-get install -y --no-install-recommends nftables >/dev/null
 
@@ -265,11 +273,7 @@ host_firewall() {
 table inet ${FW_TABLE}
 delete table inet ${FW_TABLE}
 table inet ${FW_TABLE} {
-  set ssh_allow_v4 {
-    type ipv4_addr
-    flags interval
-    elements = { ${elements} }
-  }
+${ssh_set}
   chain input {
     type filter hook input priority filter; policy drop;
     ct state invalid drop
@@ -283,7 +287,7 @@ table inet ${FW_TABLE} {
     # DHCP and DHCPv6 replies are not tracked as established.
     udp sport 67 udp dport 68 accept
     udp sport 547 udp dport 546 accept
-    tcp dport 22 ip saddr @ssh_allow_v4 accept
+${ssh_rule}
     tcp dport { 80, 443 } accept
     udp dport { 3478, 41641, 51820 } accept
   }
@@ -317,7 +321,7 @@ EOF
     /usr/bin/systemctl stop headmesh-host-firewall.service
   systemctl enable headmesh-host-firewall.service >/dev/null 2>&1
   systemctl restart headmesh-host-firewall.service
-  log "firewall loaded (SSH from: ${elements}); rollback in 180 s unless confirm-firewall runs"
+  log "firewall loaded (public SSH from: ${elements:-nowhere; tailnet and break-glass only}); rollback in 180 s unless confirm-firewall runs"
 }
 
 ubuntu_pro() {
