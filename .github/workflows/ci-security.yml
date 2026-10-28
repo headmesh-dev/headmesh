@@ -1,0 +1,67 @@
+name: ci-security
+
+# Plan §3.3 and §15: workflow security (zizmor, actionlint), secrets across the whole history (gitleaks) and known
+# vulnerabilities in every lockfile (osv-scanner). Each tool runs from a digest-pinned image; findings fail the job.
+
+on:
+  pull_request:
+  push:
+    branches: [main]
+  schedule:
+    - cron: "17 6 * * 1"
+  workflow_dispatch:
+
+permissions: {}
+
+concurrency:
+  group: ci-security-${{ github.ref }}
+  cancel-in-progress: true
+
+env:
+  ZIZMOR_IMAGE: ghcr.io/zizmorcore/zizmor:1.31.1@sha256:42d409dbb851d4c5d35a058cf042b828bea1e3f2884378c526eb0974780e18d9
+  ACTIONLINT_IMAGE: rhysd/actionlint:1.7.12@sha256:b1934ee5f1c509618f2508e6eb47ee0d3520686341fec936f3b79331f9315667
+  GITLEAKS_IMAGE: zricethezav/gitleaks:v8.30.1@sha256:c00b6bd0aeb3071cbcb79009cb16a60dd9e0a7c60e2be9ab65d25e6bc8abbb7f
+  OSV_SCANNER_IMAGE: ghcr.io/google/osv-scanner:v2.7.0@sha256:4f3b7e2c64b9d38a5febc5a7e4a3dfef1d1362f726dea7a2ef4762b46469fcd0
+
+jobs:
+  workflows:
+    name: zizmor + actionlint
+    runs-on: ubuntu-26.04
+    permissions:
+      contents: read
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - name: zizmor (medium and above)
+        run: docker run --rm -v "$PWD:/repo:ro" "$ZIZMOR_IMAGE" --offline --no-progress --min-severity=medium /repo/.github/workflows
+      - name: actionlint
+        run: docker run --rm -v "$PWD:/repo:ro" -w /repo "$ACTIONLINT_IMAGE" -shellcheck= -config-file .github/actionlint.yaml
+
+  secrets:
+    name: gitleaks (full history)
+    runs-on: ubuntu-26.04
+    permissions:
+      contents: read
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          fetch-depth: 0
+          persist-credentials: false
+      - name: gitleaks
+        run: docker run --rm -v "$PWD:/repo" -w /repo "$GITLEAKS_IMAGE" git --redact --no-banner --exit-code 1 .
+
+  dependencies:
+    name: osv-scanner
+    runs-on: ubuntu-26.04
+    permissions:
+      contents: read
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - name: osv-scanner (Go modules and the pnpm lockfile)
+        run: docker run --rm -v "$PWD:/src:ro" "$OSV_SCANNER_IMAGE" scan source --recursive --config /src/osv-scanner.toml /src

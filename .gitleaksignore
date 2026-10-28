@@ -1,0 +1,6 @@
+# Test fixtures, not secrets: a fake PEM block containing "abc", and the sample key the redaction test feeds to
+# gitleaks to check that it gets masked. New findings still fail the scan (ci-security.yml).
+0ef549c32597547399c5eb4fad6fc224362371c8:sandbox/cmd/headmesh-sandbox/main_test.go:private-key:25
+4c4db7d121d505507e0ce4b8941baee176a5bb63:sandbox/sandboxd/redact/redact_test.go:generic-api-key:43
+sandbox/cmd/headmesh-sandbox/main_test.go:private-key:25
+sandbox/sandboxd/redact/redact_test.go:generic-api-key:43
