@@ -372,6 +372,32 @@ func TestOnboardingAndAccessLifecycle(t *testing.T) {
 		t.Fatalf("revocation not enforced: %v", revoked)
 	}
 
+	// --- Expiry sweep: a grant that lapsed while nothing was running is audited exactly once -----------------
+	gpuID, _ := store.UUID(gpu["id"].(string))
+	platID, _ := store.UUID(plat.OrgID)
+	ownOrg, _ := store.UUID(own.OrgID)
+	srcJSON, _ := json.Marshal(store.SelectorJSON{Kind: "all"})
+	if err := st.Tx(ctx, store.Scope{System: true}, func(q *dbq.Queries, _ pgx.Tx) error {
+		_, err := q.CreateGrant(ctx, dbq.CreateGrantParams{
+			GrantorOrgID: ownOrg, GranteeOrgID: platID, Src: srcJSON,
+			DstDeviceID: gpuID, Ports: []string{"tcp:22"}, StartsAt: time.Now().Add(-2 * time.Hour), ExpiresAt: time.Now().Add(-time.Hour),
+		})
+		return err
+	}); err != nil {
+		t.Fatal(err)
+	}
+	if n, err := svc.SweepExpiredGrants(ctx); err != nil || n != 1 {
+		t.Fatalf("first sweep audited %d (%v), want 1", n, err)
+	}
+	if n, err := svc.SweepExpiredGrants(ctx); err != nil || n != 0 {
+		t.Fatalf("second sweep audited %d (%v), want 0", n, err)
+	}
+	gateCtx, gateCancel := context.WithTimeout(ctx, 20*time.Second)
+	defer gateCancel()
+	if err := svc.AwaitCellsCurrent(gateCtx, hub, quiet); err != nil {
+		t.Fatalf("recovery gate: %v", err)
+	}
+
 	// --- Audit ----------------------------------------------------------------------------------------------
 	ownID, _ := store.UUID(own.OrgID)
 	err = st.Tx(ctx, store.Scope{System: true}, func(q *dbq.Queries, _ pgx.Tx) error {

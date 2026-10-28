@@ -11,3 +11,6 @@ SELECT * FROM cells WHERE id = $1;
 
 -- name: TouchCell :exec
 UPDATE cells SET last_seen_at = now(), headscale_version = $2 WHERE id = $1;
+
+-- name: ListCells :many
+SELECT * FROM cells ORDER BY name;

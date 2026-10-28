@@ -2,9 +2,11 @@ package main
 
 import (
 	"errors"
+	"fmt"
 	"log/slog"
 	"os"
 	"strings"
+	"time"
 )
 
 // config is read from the environment so secrets can come from systemd credentials or Docker secrets files.
@@ -19,6 +21,8 @@ type config struct {
 	PublicURL         string // HEADMESH_PUBLIC_URL, e.g. https://api.headmesh.dev
 	InstallURL        string // HEADMESH_INSTALL_URL, e.g. https://get.headmesh.dev
 	TrustForwardedFor bool   // HEADMESH_TRUST_FORWARDED_FOR=true when every request comes through Caddy
+	// HEADMESH_RECOVERY_TIMEOUT: how long startup waits for enforce-mode cells to confirm a current policy.
+	RecoveryTimeout time.Duration
 }
 
 func env(key, def string) string {
@@ -40,6 +44,14 @@ func loadConfig() (config, error) {
 		PublicURL:         strings.TrimRight(env("HEADMESH_PUBLIC_URL", "https://api.headmesh.dev"), "/"),
 		InstallURL:        env("HEADMESH_INSTALL_URL", "https://get.headmesh.dev"),
 		TrustForwardedFor: os.Getenv("HEADMESH_TRUST_FORWARDED_FOR") == "true",
+		RecoveryTimeout:   5 * time.Minute,
+	}
+	if v := os.Getenv("HEADMESH_RECOVERY_TIMEOUT"); v != "" {
+		d, err := time.ParseDuration(v)
+		if err != nil {
+			return c, fmt.Errorf("HEADMESH_RECOVERY_TIMEOUT: %w", err)
+		}
+		c.RecoveryTimeout = d
 	}
 	if c.DatabaseURL == "" {
 		return c, errors.New("HEADMESH_DATABASE_URL is required")

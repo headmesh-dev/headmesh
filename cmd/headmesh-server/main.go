@@ -154,13 +154,30 @@ func serve(ctx context.Context, logger *slog.Logger) error {
 	}()
 
 	errc := make(chan error, 2)
-	go func() {
-		logger.Info("api listening", "addr", cfg.Listen)
-		errc <- apiServer.ListenAndServe()
-	}()
+	// Cells first: recovery needs them connected before the public API opens.
 	go func() {
 		logger.Info("cell endpoint listening", "addr", cfg.CellListen)
 		errc <- cellServer.ListenAndServeTLS(cfg.TLSCertFile, cfg.TLSKeyFile)
+	}()
+
+	// Recovery gate (plan §13.4): audit grants that expired while nothing was running, and wait until every
+	// enforce-mode cell has applied a policy compiled now, before accepting any API request. A cell that stays
+	// down past the timeout does not hold every other tenant hostage; it gets the current policy on reconnect.
+	if n, err := svc.SweepExpiredGrants(ctx); err != nil {
+		logger.Error("recovery: expiry sweep failed", "error", err)
+	} else if n > 0 {
+		logger.Warn("recovery: grants expired while the control plane was down", "count", n)
+	}
+	gateCtx, gateCancel := context.WithTimeout(ctx, cfg.RecoveryTimeout)
+	if err := svc.AwaitCellsCurrent(gateCtx, hub, logger); err != nil {
+		logger.Error("recovery: opening the API with stale cells", "error", err)
+	}
+	gateCancel()
+	go sweepLoop(ctx, svc, logger)
+
+	go func() {
+		logger.Info("api listening", "addr", cfg.Listen)
+		errc <- apiServer.ListenAndServe()
 	}()
 	select {
 	case err = <-errc:
@@ -175,6 +192,22 @@ func serve(ctx context.Context, logger *slog.Logger) error {
 		return nil
 	}
 	return err
+}
+
+// sweepLoop audits grant expiries every 30 seconds.
+func sweepLoop(ctx context.Context, svc *service.Service, logger *slog.Logger) {
+	t := time.NewTicker(30 * time.Second)
+	defer t.Stop()
+	for {
+		select {
+		case <-ctx.Done():
+			return
+		case <-t.C:
+			if _, err := svc.SweepExpiredGrants(ctx); err != nil {
+				logger.Error("expiry sweep", "error", err)
+			}
+		}
+	}
 }
 
 // authenticateCell maps the verified client certificate to a cell name. The CA only issues certificates whose

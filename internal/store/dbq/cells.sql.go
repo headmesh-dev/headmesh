@@ -94,6 +94,42 @@ func (q *Queries) GetCellByName(ctx context.Context, name string) (Cell, error) 
 	return i, err
 }
 
+const listCells = `-- name: ListCells :many
+SELECT id, name, server_url, base_domain, mode, headscale_version, agent_cert_fingerprint, max_nodes, max_orgs, last_seen_at, created_at FROM cells ORDER BY name
+`
+
+func (q *Queries) ListCells(ctx context.Context) ([]Cell, error) {
+	rows, err := q.db.Query(ctx, listCells)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	items := []Cell{}
+	for rows.Next() {
+		var i Cell
+		if err := rows.Scan(
+			&i.ID,
+			&i.Name,
+			&i.ServerUrl,
+			&i.BaseDomain,
+			&i.Mode,
+			&i.HeadscaleVersion,
+			&i.AgentCertFingerprint,
+			&i.MaxNodes,
+			&i.MaxOrgs,
+			&i.LastSeenAt,
+			&i.CreatedAt,
+		); err != nil {
+			return nil, err
+		}
+		items = append(items, i)
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
+}
+
 const touchCell = `-- name: TouchCell :exec
 UPDATE cells SET last_seen_at = now(), headscale_version = $2 WHERE id = $1
 `

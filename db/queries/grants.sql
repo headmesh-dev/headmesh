@@ -36,3 +36,15 @@ ORDER BY expires_at;
 -- name: ListGrantsForOrg :many
 SELECT * FROM grants WHERE (grantor_org_id = $1 OR grantee_org_id = $1) AND revoked_at IS NULL AND expires_at > now()
 ORDER BY expires_at;
+
+-- name: ClaimExpiredGrants :many
+-- Expired, never-revoked grants whose expiry has not been audited yet. SKIP LOCKED lets several server instances
+-- sweep concurrently without double-auditing.
+SELECT * FROM grants
+WHERE revoked_at IS NULL AND expiry_audited_at IS NULL AND expires_at <= $1
+ORDER BY expires_at
+LIMIT $2
+FOR UPDATE SKIP LOCKED;
+
+-- name: MarkGrantExpiryAudited :exec
+UPDATE grants SET expiry_audited_at = $2 WHERE id = $1;

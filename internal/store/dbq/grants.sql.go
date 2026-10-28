@@ -12,11 +12,62 @@ import (
 	"github.com/jackc/pgx/v5/pgtype"
 )
 
+const claimExpiredGrants = `-- name: ClaimExpiredGrants :many
+SELECT id, grantor_org_id, grantee_org_id, src, dst_device_id, ports, starts_at, expires_at, reason, external_ref, created_by, created_at, revoked_at, revoked_by, expiry_audited_at FROM grants
+WHERE revoked_at IS NULL AND expiry_audited_at IS NULL AND expires_at <= $1
+ORDER BY expires_at
+LIMIT $2
+FOR UPDATE SKIP LOCKED
+`
+
+type ClaimExpiredGrantsParams struct {
+	ExpiresAt time.Time
+	Limit     int32
+}
+
+// Expired, never-revoked grants whose expiry has not been audited yet. SKIP LOCKED lets several server instances
+// sweep concurrently without double-auditing.
+func (q *Queries) ClaimExpiredGrants(ctx context.Context, arg ClaimExpiredGrantsParams) ([]Grant, error) {
+	rows, err := q.db.Query(ctx, claimExpiredGrants, arg.ExpiresAt, arg.Limit)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	items := []Grant{}
+	for rows.Next() {
+		var i Grant
+		if err := rows.Scan(
+			&i.ID,
+			&i.GrantorOrgID,
+			&i.GranteeOrgID,
+			&i.Src,
+			&i.DstDeviceID,
+			&i.Ports,
+			&i.StartsAt,
+			&i.ExpiresAt,
+			&i.Reason,
+			&i.ExternalRef,
+			&i.CreatedBy,
+			&i.CreatedAt,
+			&i.RevokedAt,
+			&i.RevokedBy,
+			&i.ExpiryAuditedAt,
+		); err != nil {
+			return nil, err
+		}
+		items = append(items, i)
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
+}
+
 const createGrant = `-- name: CreateGrant :one
 INSERT INTO grants (grantor_org_id, grantee_org_id, src, dst_device_id, ports, starts_at, expires_at, reason, external_ref, created_by)
 VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10)
 ON CONFLICT (grantor_org_id, external_ref) WHERE external_ref IS NOT NULL DO NOTHING
-RETURNING id, grantor_org_id, grantee_org_id, src, dst_device_id, ports, starts_at, expires_at, reason, external_ref, created_by, created_at, revoked_at, revoked_by
+RETURNING id, grantor_org_id, grantee_org_id, src, dst_device_id, ports, starts_at, expires_at, reason, external_ref, created_by, created_at, revoked_at, revoked_by, expiry_audited_at
 `
 
 type CreateGrantParams struct {
@@ -62,6 +113,7 @@ func (q *Queries) CreateGrant(ctx context.Context, arg CreateGrantParams) (Grant
 		&i.CreatedAt,
 		&i.RevokedAt,
 		&i.RevokedBy,
+		&i.ExpiryAuditedAt,
 	)
 	return i, err
 }
@@ -69,7 +121,7 @@ func (q *Queries) CreateGrant(ctx context.Context, arg CreateGrantParams) (Grant
 const extendGrant = `-- name: ExtendGrant :one
 UPDATE grants SET expires_at = $2
 WHERE id = $1 AND revoked_at IS NULL AND $2 > expires_at
-RETURNING id, grantor_org_id, grantee_org_id, src, dst_device_id, ports, starts_at, expires_at, reason, external_ref, created_by, created_at, revoked_at, revoked_by
+RETURNING id, grantor_org_id, grantee_org_id, src, dst_device_id, ports, starts_at, expires_at, reason, external_ref, created_by, created_at, revoked_at, revoked_by, expiry_audited_at
 `
 
 type ExtendGrantParams struct {
@@ -95,12 +147,13 @@ func (q *Queries) ExtendGrant(ctx context.Context, arg ExtendGrantParams) (Grant
 		&i.CreatedAt,
 		&i.RevokedAt,
 		&i.RevokedBy,
+		&i.ExpiryAuditedAt,
 	)
 	return i, err
 }
 
 const getGrant = `-- name: GetGrant :one
-SELECT id, grantor_org_id, grantee_org_id, src, dst_device_id, ports, starts_at, expires_at, reason, external_ref, created_by, created_at, revoked_at, revoked_by FROM grants WHERE id = $1
+SELECT id, grantor_org_id, grantee_org_id, src, dst_device_id, ports, starts_at, expires_at, reason, external_ref, created_by, created_at, revoked_at, revoked_by, expiry_audited_at FROM grants WHERE id = $1
 `
 
 func (q *Queries) GetGrant(ctx context.Context, id pgtype.UUID) (Grant, error) {
@@ -121,12 +174,13 @@ func (q *Queries) GetGrant(ctx context.Context, id pgtype.UUID) (Grant, error) {
 		&i.CreatedAt,
 		&i.RevokedAt,
 		&i.RevokedBy,
+		&i.ExpiryAuditedAt,
 	)
 	return i, err
 }
 
 const getGrantByExternalRef = `-- name: GetGrantByExternalRef :one
-SELECT id, grantor_org_id, grantee_org_id, src, dst_device_id, ports, starts_at, expires_at, reason, external_ref, created_by, created_at, revoked_at, revoked_by FROM grants WHERE grantor_org_id = $1 AND external_ref = $2
+SELECT id, grantor_org_id, grantee_org_id, src, dst_device_id, ports, starts_at, expires_at, reason, external_ref, created_by, created_at, revoked_at, revoked_by, expiry_audited_at FROM grants WHERE grantor_org_id = $1 AND external_ref = $2
 `
 
 type GetGrantByExternalRefParams struct {
@@ -152,12 +206,13 @@ func (q *Queries) GetGrantByExternalRef(ctx context.Context, arg GetGrantByExter
 		&i.CreatedAt,
 		&i.RevokedAt,
 		&i.RevokedBy,
+		&i.ExpiryAuditedAt,
 	)
 	return i, err
 }
 
 const listGrantsForOrg = `-- name: ListGrantsForOrg :many
-SELECT id, grantor_org_id, grantee_org_id, src, dst_device_id, ports, starts_at, expires_at, reason, external_ref, created_by, created_at, revoked_at, revoked_by FROM grants WHERE (grantor_org_id = $1 OR grantee_org_id = $1) AND revoked_at IS NULL AND expires_at > now()
+SELECT id, grantor_org_id, grantee_org_id, src, dst_device_id, ports, starts_at, expires_at, reason, external_ref, created_by, created_at, revoked_at, revoked_by, expiry_audited_at FROM grants WHERE (grantor_org_id = $1 OR grantee_org_id = $1) AND revoked_at IS NULL AND expires_at > now()
 ORDER BY expires_at
 `
 
@@ -185,6 +240,7 @@ func (q *Queries) ListGrantsForOrg(ctx context.Context, grantorOrgID pgtype.UUID
 			&i.CreatedAt,
 			&i.RevokedAt,
 			&i.RevokedBy,
+			&i.ExpiryAuditedAt,
 		); err != nil {
 			return nil, err
 		}
@@ -197,7 +253,7 @@ func (q *Queries) ListGrantsForOrg(ctx context.Context, grantorOrgID pgtype.UUID
 }
 
 const listGrantsInCell = `-- name: ListGrantsInCell :many
-SELECT g.id, g.grantor_org_id, g.grantee_org_id, g.src, g.dst_device_id, g.ports, g.starts_at, g.expires_at, g.reason, g.external_ref, g.created_by, g.created_at, g.revoked_at, g.revoked_by FROM grants g JOIN orgs o ON o.id = g.grantor_org_id
+SELECT g.id, g.grantor_org_id, g.grantee_org_id, g.src, g.dst_device_id, g.ports, g.starts_at, g.expires_at, g.reason, g.external_ref, g.created_by, g.created_at, g.revoked_at, g.revoked_by, g.expiry_audited_at FROM grants g JOIN orgs o ON o.id = g.grantor_org_id
 WHERE o.cell_id = $1 AND g.revoked_at IS NULL AND g.expires_at > $2 AND g.starts_at <= $3
 ORDER BY g.id
 `
@@ -233,6 +289,7 @@ func (q *Queries) ListGrantsInCell(ctx context.Context, arg ListGrantsInCellPara
 			&i.CreatedAt,
 			&i.RevokedAt,
 			&i.RevokedBy,
+			&i.ExpiryAuditedAt,
 		); err != nil {
 			return nil, err
 		}
@@ -245,7 +302,7 @@ func (q *Queries) ListGrantsInCell(ctx context.Context, arg ListGrantsInCellPara
 }
 
 const listOverdueGrants = `-- name: ListOverdueGrants :many
-SELECT id, grantor_org_id, grantee_org_id, src, dst_device_id, ports, starts_at, expires_at, reason, external_ref, created_by, created_at, revoked_at, revoked_by FROM grants
+SELECT id, grantor_org_id, grantee_org_id, src, dst_device_id, ports, starts_at, expires_at, reason, external_ref, created_by, created_at, revoked_at, revoked_by, expiry_audited_at FROM grants
 WHERE revoked_at IS NULL AND expires_at <= $1 AND expires_at > $2
 ORDER BY expires_at
 `
@@ -280,6 +337,7 @@ func (q *Queries) ListOverdueGrants(ctx context.Context, arg ListOverdueGrantsPa
 			&i.CreatedAt,
 			&i.RevokedAt,
 			&i.RevokedBy,
+			&i.ExpiryAuditedAt,
 		); err != nil {
 			return nil, err
 		}
@@ -291,10 +349,24 @@ func (q *Queries) ListOverdueGrants(ctx context.Context, arg ListOverdueGrantsPa
 	return items, nil
 }
 
+const markGrantExpiryAudited = `-- name: MarkGrantExpiryAudited :exec
+UPDATE grants SET expiry_audited_at = $2 WHERE id = $1
+`
+
+type MarkGrantExpiryAuditedParams struct {
+	ID              pgtype.UUID
+	ExpiryAuditedAt *time.Time
+}
+
+func (q *Queries) MarkGrantExpiryAudited(ctx context.Context, arg MarkGrantExpiryAuditedParams) error {
+	_, err := q.db.Exec(ctx, markGrantExpiryAudited, arg.ID, arg.ExpiryAuditedAt)
+	return err
+}
+
 const revokeGrant = `-- name: RevokeGrant :one
 UPDATE grants SET revoked_at = now(), revoked_by = $2
 WHERE id = $1 AND revoked_at IS NULL
-RETURNING id, grantor_org_id, grantee_org_id, src, dst_device_id, ports, starts_at, expires_at, reason, external_ref, created_by, created_at, revoked_at, revoked_by
+RETURNING id, grantor_org_id, grantee_org_id, src, dst_device_id, ports, starts_at, expires_at, reason, external_ref, created_by, created_at, revoked_at, revoked_by, expiry_audited_at
 `
 
 type RevokeGrantParams struct {
@@ -320,6 +392,7 @@ func (q *Queries) RevokeGrant(ctx context.Context, arg RevokeGrantParams) (Grant
 		&i.CreatedAt,
 		&i.RevokedAt,
 		&i.RevokedBy,
+		&i.ExpiryAuditedAt,
 	)
 	return i, err
 }

@@ -13,6 +13,9 @@ import (
 type Querier interface {
 	AdvanceChainHead(ctx context.Context, arg AdvanceChainHeadParams) error
 	AttachDeviceNode(ctx context.Context, arg AttachDeviceNodeParams) (Device, error)
+	// Expired, never-revoked grants whose expiry has not been audited yet. SKIP LOCKED lets several server instances
+	// sweep concurrently without double-auditing.
+	ClaimExpiredGrants(ctx context.Context, arg ClaimExpiredGrantsParams) ([]Grant, error)
 	CompleteEnrollment(ctx context.Context, arg CompleteEnrollmentParams) (Enrollment, error)
 	// Atomically spends one use of a live token. No row means invalid, revoked, expired or used up.
 	ConsumeEnrollmentToken(ctx context.Context, tokenHash []byte) (EnrollmentToken, error)
@@ -47,6 +50,7 @@ type Querier interface {
 	ListAPIKeys(ctx context.Context, orgID pgtype.UUID) ([]ApiKey, error)
 	ListAuditEvents(ctx context.Context, arg ListAuditEventsParams) ([]AuditEvent, error)
 	ListAuditEventsForChain(ctx context.Context, arg ListAuditEventsForChainParams) ([]AuditEvent, error)
+	ListCells(ctx context.Context) ([]Cell, error)
 	ListChildOrgs(ctx context.Context, parentOrgID pgtype.UUID) ([]Org, error)
 	ListDevicesByOrg(ctx context.Context, orgID pgtype.UUID) ([]Device, error)
 	ListDevicesInCell(ctx context.Context, cellID pgtype.UUID) ([]Device, error)
@@ -61,6 +65,7 @@ type Querier interface {
 	ListRulesInCell(ctx context.Context, cellID pgtype.UUID) ([]Rule, error)
 	LockChainHead(ctx context.Context, chainKey pgtype.UUID) (LockChainHeadRow, error)
 	MarkEnrollmentMinted(ctx context.Context, arg MarkEnrollmentMintedParams) (Enrollment, error)
+	MarkGrantExpiryAudited(ctx context.Context, arg MarkGrantExpiryAuditedParams) error
 	MarkPolicyRevision(ctx context.Context, arg MarkPolicyRevisionParams) error
 	NextPolicyRevision(ctx context.Context, cellID pgtype.UUID) (int64, error)
 	RenameDeviceGivenName(ctx context.Context, arg RenameDeviceGivenNameParams) error

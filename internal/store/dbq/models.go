@@ -136,20 +136,21 @@ type EnrollmentToken struct {
 }
 
 type Grant struct {
-	ID           pgtype.UUID
-	GrantorOrgID pgtype.UUID
-	GranteeOrgID pgtype.UUID
-	Src          []byte
-	DstDeviceID  pgtype.UUID
-	Ports        []string
-	StartsAt     time.Time
-	ExpiresAt    time.Time
-	Reason       *string
-	ExternalRef  *string
-	CreatedBy    pgtype.UUID
-	CreatedAt    time.Time
-	RevokedAt    *time.Time
-	RevokedBy    pgtype.UUID
+	ID              pgtype.UUID
+	GrantorOrgID    pgtype.UUID
+	GranteeOrgID    pgtype.UUID
+	Src             []byte
+	DstDeviceID     pgtype.UUID
+	Ports           []string
+	StartsAt        time.Time
+	ExpiresAt       time.Time
+	Reason          *string
+	ExternalRef     *string
+	CreatedBy       pgtype.UUID
+	CreatedAt       time.Time
+	RevokedAt       *time.Time
+	RevokedBy       pgtype.UUID
+	ExpiryAuditedAt *time.Time
 }
 
 type IdempotencyKey struct {
