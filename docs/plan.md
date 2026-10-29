@@ -190,7 +190,7 @@ headmesh/
 - **CI security:**
   - Every action pinned by SHA; `permissions: {}` by default.
   - zizmor (Actions security lint), actionlint, gitleaks, govulncheck, osv-scanner, trivy on images, CodeQL, OpenSSF Scorecard.
-  - Renovate with `minimumReleaseAge: 3 days` and Docker digest pinning.
+  - Renovate with Docker digest pinning; new stable releases are adopted without a waiting period (ADR 0010, 2026-10-29).
 - **Go code:** contexts with deadlines on all I/O; no panics in request paths; errors wrapped with `%w`; every handler declares a required permission. A test fails if any route lacks one, mirroring Xcelsior's guard tests.
 - **Branch protection:** rulesets block force-push and deletion on `main`. Note: private repos on a Free org can't enforce rulesets (decision gate §19).
 - **Package discipline (every session, every track):**
@@ -1213,7 +1213,7 @@ volumes: { hm-cache-mise: {}, hm-cache-uv: {}, hm-cache-npm: {}, hm-cache-pnpm: 
   | Runner secret | Privilege split (T-1) |
 
 - **Supply chain:**
-  - Pinned digests and SHAs; Renovate with a 3-day minimum release age.
+  - Pinned digests and SHAs; Renovate brings new stable releases as they ship.
   - cosign keyless signing; SLSA provenance attestations; syft SBOMs.
   - govulncheck, osv-scanner, trivy, CodeQL, zizmor, gitleaks, Scorecard.
   - `SECURITY.md` with private vulnerability reporting; `/.well-known/security.txt` on headmesh.dev.
