@@ -124,6 +124,12 @@ Until a real certificate exists, the bootstrap installs a self-signed placeholde
    renews it; the renewal hook runs `deployctl tls-renewed`, which reloads nginx (after `nginx -t`) and the backends.
 3. Switch the zone's SSL mode to Full (strict).
 
+**Cloudflare error 525** means the handshake itself failed. The usual cause here is that the hostname's vhost isn't
+enabled: `headmesh.conf`'s default server refuses the handshake for any name no vhost serves, so a bootstrapped server
+whose environment was never deployed (or whose last nginx change was rolled back) answers every request that way.
+`deploy/deploy.sh --env prod --status` shows, per hostname, whether the vhost is enabled and what certificate nginx
+presents for it. A certificate Cloudflare doesn't trust is a 526, not a 525.
+
 **Cell endpoints are not public.** nginx passes the TLS of ports 7443 (prod) and 7444 (test) straight through to the
 live backend colour, which checks the cell agent's client certificate. The host firewall only admits TCP 80 and 443
 publicly, so cells reach these ports over loopback (hs1 on this server) or the tailnet (the xcelsior cell on
