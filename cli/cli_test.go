@@ -393,3 +393,35 @@ func TestAuditExportAndVerifyFile(t *testing.T) {
 		t.Fatalf("a tampered file: %q, %v", out, err)
 	}
 }
+
+// TestRuleSetKeepsUnchangedFieldsAndSendsIfMatch: `rule set` changes only the flags given and names the version it
+// read, so a concurrent change is refused by the server instead of overwritten.
+func TestRuleSetKeepsUnchangedFieldsAndSendsIfMatch(t *testing.T) {
+	var put map[string]any
+	var ifMatch string
+	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		w.Header().Set("Content-Type", "application/json")
+		switch {
+		case r.Method == http.MethodGet && r.URL.Path == "/v1/rules/r1":
+			_, _ = w.Write([]byte(`{"id":"r1","src":{"kind":"role","role":"ops"},"dst":{"kind":"all"},"ports":["tcp:22"],"version":3}`))
+		case r.Method == http.MethodPut && r.URL.Path == "/v1/rules/r1":
+			ifMatch = r.Header.Get("If-Match")
+			_ = json.NewDecoder(r.Body).Decode(&put)
+			_, _ = w.Write([]byte(`{"id":"r1","src":{"kind":"role","role":"ops"},"dst":{"kind":"all"},"ports":["tcp:2222"],"version":4,"enforced":true}`))
+		default:
+			w.WriteHeader(http.StatusNotFound)
+		}
+	}))
+	defer srv.Close()
+	env := map[string]string{"HEADMESH_API_KEY": "hmk_test", "HEADMESH_SERVER": srv.URL}
+	out, err := run(t, Deps{Getenv: func(k string) string { return env[k] }}, "rule", "set", "r1", "--port", "tcp:2222")
+	if err != nil || !strings.Contains(out, "Rule r1 (version 4): role:ops → all on tcp:2222 (enforced: true)") {
+		t.Fatalf("output %q, %v", out, err)
+	}
+	if ifMatch != `"3"` {
+		t.Fatalf("If-Match = %q, want the version read", ifMatch)
+	}
+	if put["src"].(map[string]any)["role"] != "ops" || put["dst"].(map[string]any)["kind"] != "all" || put["ports"].([]any)[0] != "tcp:2222" {
+		t.Fatalf("PUT body: %v", put)
+	}
+}

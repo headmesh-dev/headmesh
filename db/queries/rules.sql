@@ -20,3 +20,9 @@ SELECT pr.* FROM platform_rules pr JOIN orgs o ON o.id = pr.org_id WHERE o.cell_
 
 -- name: GetRule :one
 SELECT * FROM rules WHERE id = $1;
+
+-- name: UpdateRule :one
+-- Optimistic concurrency: the update only applies to the version the caller read.
+UPDATE rules SET src = $3, dst = $4, ports = $5, starts_at = $6, expires_at = $7, version = version + 1, updated_at = now()
+WHERE id = $1 AND org_id = $2 AND version = $8
+RETURNING *;

@@ -20,13 +20,15 @@ type Hub interface {
 
 // Errors returned to callers; the API maps them to HTTP status codes.
 var (
-	ErrNotFound      = errors.New("not found")
-	ErrUnauthorized  = errors.New("unauthorized")
-	ErrForbidden     = errors.New("forbidden")
-	ErrInvalid       = errors.New("invalid request")
-	ErrConflict      = errors.New("conflict")
-	ErrUnavailable   = errors.New("cell unavailable")
-	ErrTokenRejected = errors.New("enrollment token is invalid, expired, revoked or used up")
+	ErrNotFound     = errors.New("not found")
+	ErrUnauthorized = errors.New("unauthorized")
+	ErrForbidden    = errors.New("forbidden")
+	ErrInvalid      = errors.New("invalid request")
+	ErrConflict     = errors.New("conflict")
+	// ErrPreconditionFailed: the resource changed since the version the caller named (If-Match).
+	ErrPreconditionFailed = errors.New("precondition failed")
+	ErrUnavailable        = errors.New("cell unavailable")
+	ErrTokenRejected      = errors.New("enrollment token is invalid, expired, revoked or used up")
 )
 
 // Principal is an authenticated API caller acting for one org.

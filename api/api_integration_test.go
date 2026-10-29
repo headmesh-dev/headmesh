@@ -140,6 +140,13 @@ type client struct {
 
 func (c client) do(method, path, key string, body any, out any) int {
 	c.t.Helper()
+	code, _ := c.doHeaders(method, path, key, nil, body, out)
+	return code
+}
+
+// doHeaders is do with request headers in and response headers out.
+func (c client) doHeaders(method, path, key string, headers map[string]string, body any, out any) (int, http.Header) {
+	c.t.Helper()
 	var r io.Reader
 	if body != nil {
 		b, err := json.Marshal(body)
@@ -156,6 +163,9 @@ func (c client) do(method, path, key string, body any, out any) int {
 	if key != "" {
 		req.Header.Set("Authorization", "Bearer "+key)
 	}
+	for k, v := range headers {
+		req.Header.Set(k, v)
+	}
 	resp, err := http.DefaultClient.Do(req)
 	if err != nil {
 		c.t.Fatal(err)
@@ -170,7 +180,7 @@ func (c client) do(method, path, key string, body any, out any) int {
 	if resp.StatusCode >= 500 {
 		c.t.Logf("%s %s -> %d %s", method, path, resp.StatusCode, raw)
 	}
-	return resp.StatusCode
+	return resp.StatusCode, resp.Header
 }
 
 func TestOnboardingAndAccessLifecycle(t *testing.T) {
@@ -470,11 +480,29 @@ func TestOnboardingAndAccessLifecycle(t *testing.T) {
 	if code := c.do("POST", "/v1/rules", reader.Key, ruleReq, nil); code != http.StatusForbidden {
 		t.Fatalf("rules:read created a rule: %d", code)
 	}
+	// Update with If-Match: the version read is the version replaced, and a stale ETag is refused.
+	code, hdr := c.doHeaders("GET", "/v1/rules/"+ruleID, own.AdminKey.Key, nil, nil, nil)
+	if code != http.StatusOK || hdr.Get("ETag") != `"1"` {
+		t.Fatalf("get rule: %d, ETag %q", code, hdr.Get("ETag"))
+	}
+	moved := map[string]any{"src": ruleReq["src"], "dst": ruleReq["dst"], "ports": []string{"tcp:2223"}}
+	var updated map[string]any
+	code, hdr = c.doHeaders("PUT", "/v1/rules/"+ruleID, own.AdminKey.Key, map[string]string{"If-Match": `"1"`}, moved, &updated)
+	if code != http.StatusOK || hdr.Get("ETag") != `"2"` || updated["enforced"] != true ||
+		!strings.Contains(hs.livePolicy(), `"tcp:2223"`) || strings.Contains(hs.livePolicy(), `"tcp:2222"`) {
+		t.Fatalf("update rule: %d, ETag %q, %v", code, hdr.Get("ETag"), updated)
+	}
+	if code, _ := c.doHeaders("PUT", "/v1/rules/"+ruleID, own.AdminKey.Key, map[string]string{"If-Match": `"1"`}, ruleReq, nil); code != http.StatusPreconditionFailed {
+		t.Fatalf("a stale If-Match must be refused: %d", code)
+	}
+	if code := c.do("PUT", "/v1/rules/"+ruleID, plat.AdminKey.Key, moved, nil); code != http.StatusNotFound {
+		t.Fatalf("another org updated the rule: %d", code)
+	}
 	var deleted map[string]any
 	if code := c.do("DELETE", "/v1/rules/"+ruleID, own.AdminKey.Key, nil, &deleted); code != http.StatusOK {
 		t.Fatalf("delete rule: %d", code)
 	}
-	if deleted["enforced"] != true || strings.Contains(hs.livePolicy(), `"tcp:2222"`) {
+	if deleted["enforced"] != true || strings.Contains(hs.livePolicy(), `"tcp:2223"`) {
 		t.Fatalf("rule deletion not enforced: %v", deleted)
 	}
 	if code := c.do("GET", "/v1/rules/"+ruleID, own.AdminKey.Key, nil, nil); code != http.StatusNotFound {

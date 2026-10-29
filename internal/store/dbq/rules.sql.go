@@ -224,3 +224,49 @@ func (q *Queries) ListRulesInCell(ctx context.Context, cellID pgtype.UUID) ([]Ru
 	}
 	return items, nil
 }
+
+const updateRule = `-- name: UpdateRule :one
+UPDATE rules SET src = $3, dst = $4, ports = $5, starts_at = $6, expires_at = $7, version = version + 1, updated_at = now()
+WHERE id = $1 AND org_id = $2 AND version = $8
+RETURNING id, org_id, src, dst, ports, starts_at, expires_at, version, created_by, created_at, updated_at
+`
+
+type UpdateRuleParams struct {
+	ID        pgtype.UUID
+	OrgID     pgtype.UUID
+	Src       []byte
+	Dst       []byte
+	Ports     []string
+	StartsAt  *time.Time
+	ExpiresAt *time.Time
+	Version   int32
+}
+
+// Optimistic concurrency: the update only applies to the version the caller read.
+func (q *Queries) UpdateRule(ctx context.Context, arg UpdateRuleParams) (Rule, error) {
+	row := q.db.QueryRow(ctx, updateRule,
+		arg.ID,
+		arg.OrgID,
+		arg.Src,
+		arg.Dst,
+		arg.Ports,
+		arg.StartsAt,
+		arg.ExpiresAt,
+		arg.Version,
+	)
+	var i Rule
+	err := row.Scan(
+		&i.ID,
+		&i.OrgID,
+		&i.Src,
+		&i.Dst,
+		&i.Ports,
+		&i.StartsAt,
+		&i.ExpiresAt,
+		&i.Version,
+		&i.CreatedBy,
+		&i.CreatedAt,
+		&i.UpdatedAt,
+	)
+	return i, err
+}

@@ -3,6 +3,8 @@ package api
 import (
 	"context"
 	"net/http"
+	"strconv"
+	"strings"
 	"time"
 
 	"github.com/danielgtaylor/huma/v2"
@@ -23,6 +25,22 @@ type ruleBody struct {
 	Enforced  bool               `json:"enforced,omitempty" doc:"on create and delete: true when the cell confirmed the resulting policy is live"`
 }
 
+// ruleETag is a rule's version as a strong ETag.
+func ruleETag(r *service.Rule) string { return `"` + strconv.Itoa(int(r.Version)) + `"` }
+
+// parseIfMatch reads an If-Match header naming one rule version. Empty and * match any version (0).
+func parseIfMatch(v string) (int32, error) {
+	v = strings.TrimSpace(v)
+	if v == "" || v == "*" {
+		return 0, nil
+	}
+	n, err := strconv.ParseInt(strings.Trim(strings.TrimPrefix(v, "W/"), `"`), 10, 32)
+	if err != nil || n < 1 {
+		return 0, huma.Error412PreconditionFailed("If-Match must be one ETag returned for this rule, for example \"3\"")
+	}
+	return int32(n), nil
+}
+
 func toRuleBody(r *service.Rule) ruleBody {
 	return ruleBody{
 		ID: r.ID, Src: r.Src, Dst: r.Dst, Ports: r.Ports, StartsAt: r.StartsAt, ExpiresAt: r.ExpiresAt,
@@ -41,7 +59,10 @@ func (h *handlers) registerRules(a huma.API) {
 			ExpiresAt *time.Time         `json:"expires_at,omitempty" doc:"omit for a standing rule"`
 		}
 	}
-	type ruleOut struct{ Body ruleBody }
+	type ruleOut struct {
+		ETag string `header:"ETag" doc:"the rule's version; send it as If-Match to update"`
+		Body ruleBody
+	}
 	huma.Register(a, huma.Operation{
 		OperationID: "create-rule", Method: http.MethodPost, Path: "/v1/rules",
 		Summary: "Let devices in your org reach other devices in your org", Tags: []string{"rules"},
@@ -57,7 +78,7 @@ func (h *handlers) registerRules(a huma.API) {
 		if err != nil {
 			return nil, h.fail(err)
 		}
-		return &ruleOut{Body: toRuleBody(r)}, nil
+		return &ruleOut{ETag: ruleETag(r), Body: toRuleBody(r)}, nil
 	})
 
 	type rulesOut struct {
@@ -88,6 +109,7 @@ func (h *handlers) registerRules(a huma.API) {
 	type ruleIDIn struct {
 		ID string `path:"id" format:"uuid"`
 	}
+	type ruleDeletedOut struct{ Body ruleBody }
 	huma.Register(a, huma.Operation{
 		OperationID: "get-rule", Method: http.MethodGet, Path: "/v1/rules/{id}", Summary: "One of your org's rules",
 		Tags: []string{"rules"}, Security: bearer,
@@ -100,14 +122,41 @@ func (h *handlers) registerRules(a huma.API) {
 		if err != nil {
 			return nil, h.fail(err)
 		}
-		return &ruleOut{Body: toRuleBody(r)}, nil
+		return &ruleOut{ETag: ruleETag(r), Body: toRuleBody(r)}, nil
+	})
+
+	type ruleUpdateIn struct {
+		ID      string `path:"id" format:"uuid"`
+		IfMatch string `header:"If-Match" doc:"the ETag you read; the update is refused with 412 if the rule changed since"`
+		ruleIn
+	}
+	huma.Register(a, huma.Operation{
+		OperationID: "update-rule", Method: http.MethodPut, Path: "/v1/rules/{id}",
+		Summary: "Replace a rule's selectors, ports and times; returns once the cell enforces the change",
+		Tags:    []string{"rules"}, Security: bearer,
+	}, func(ctx context.Context, in *ruleUpdateIn) (*ruleOut, error) {
+		p, err := h.principal(ctx)
+		if err != nil {
+			return nil, err
+		}
+		version, err := parseIfMatch(in.IfMatch)
+		if err != nil {
+			return nil, err
+		}
+		r, err := h.svc.UpdateRule(ctx, p, in.ID, service.RuleRequest{
+			Src: in.Body.Src, Dst: in.Body.Dst, Ports: in.Body.Ports, StartsAt: in.Body.StartsAt, ExpiresAt: in.Body.ExpiresAt,
+		}, version)
+		if err != nil {
+			return nil, h.fail(err)
+		}
+		return &ruleOut{ETag: ruleETag(r), Body: toRuleBody(r)}, nil
 	})
 
 	huma.Register(a, huma.Operation{
 		OperationID: "delete-rule", Method: http.MethodDelete, Path: "/v1/rules/{id}",
 		Summary: "Delete a rule; returns the deleted rule once the cell enforces the change", Tags: []string{"rules"},
 		Security: bearer,
-	}, func(ctx context.Context, in *ruleIDIn) (*ruleOut, error) {
+	}, func(ctx context.Context, in *ruleIDIn) (*ruleDeletedOut, error) {
 		p, err := h.principal(ctx)
 		if err != nil {
 			return nil, err
@@ -116,6 +165,6 @@ func (h *handlers) registerRules(a huma.API) {
 		if err != nil {
 			return nil, h.fail(err)
 		}
-		return &ruleOut{Body: toRuleBody(r)}, nil
+		return &ruleDeletedOut{Body: toRuleBody(r)}, nil
 	})
 }

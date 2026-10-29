@@ -301,6 +301,57 @@ separate tailscaled (own state, socket, port and interface) alongside it. Creati
 	ruleAdd.Flags().StringSliceVar(&rulePorts, "port", nil, "port to open, e.g. tcp:22, udp:5000-5100 or * (repeatable)")
 	ruleAdd.Flags().DurationVar(&ruleFor, "for", 0, "remove the access after this long (default: until deleted)")
 	rule.AddCommand(ruleAdd)
+	var setFrom, setTo string
+	var setPorts []string
+	var setFor time.Duration
+	var setForever bool
+	ruleSet := &cobra.Command{
+		Use: "set ID", Short: "Change a rule; flags you leave out keep their current value", Args: cobra.ExactArgs(1),
+		Example: "  headmesh rule set <id> --port tcp:22 --port tcp:2222\n  headmesh rule set <id> --for 2h",
+		RunE: func(cmd *cobra.Command, args []string) error {
+			cur, err := client().Rule(cmd.Context(), args[0])
+			if err != nil {
+				return err
+			}
+			src, dst, ports, expires := cur.Src, cur.Dst, cur.Ports, cur.ExpiresAt
+			if setFrom != "" {
+				if src, err = ParseSelector(setFrom); err != nil {
+					return fmt.Errorf("--from: %w", err)
+				}
+			}
+			if setTo != "" {
+				if dst, err = ParseSelector(setTo); err != nil {
+					return fmt.Errorf("--to: %w", err)
+				}
+			}
+			if len(setPorts) > 0 {
+				ports = setPorts
+			}
+			switch {
+			case setForever:
+				expires = nil
+			case setFor > 0:
+				t := time.Now().Add(setFor).UTC()
+				expires = &t
+			}
+			// The version read above goes back as If-Match, so a change made in between is refused, not overwritten.
+			r, err := client().UpdateRule(cmd.Context(), cur.ID, cur.Version, src, dst, ports, cur.StartsAt, expires)
+			if err != nil {
+				return err
+			}
+			return print(cmd.OutOrStdout(), r, func(w io.Writer) {
+				_, _ = fmt.Fprintf(w, "Rule %s (version %d): %s → %s on %s (enforced: %v)\n", r.ID, r.Version, r.Src, r.Dst,
+					strings.Join(r.Ports, ","), r.Enforced)
+			})
+		},
+	}
+	ruleSet.Flags().StringVar(&setFrom, "from", "", "new source: all, users, role:NAME or device:ID")
+	ruleSet.Flags().StringVar(&setTo, "to", "", "new destination, in the same form")
+	ruleSet.Flags().StringSliceVar(&setPorts, "port", nil, "replace the ports (repeatable)")
+	ruleSet.Flags().DurationVar(&setFor, "for", 0, "expire this long from now")
+	ruleSet.Flags().BoolVar(&setForever, "forever", false, "remove the expiry")
+	ruleSet.MarkFlagsMutuallyExclusive("for", "forever")
+	rule.AddCommand(ruleSet)
 	rule.AddCommand(&cobra.Command{
 		Use: "ls", Short: "List your org's rules", Args: cobra.NoArgs,
 		RunE: func(cmd *cobra.Command, _ []string) error {

@@ -40,6 +40,11 @@ func (e *APIError) Error() string {
 var ErrNoAPIKey = errors.New("this command needs an API key: set HEADMESH_API_KEY")
 
 func (c *Client) do(ctx context.Context, method, path string, auth bool, in, out any) error {
+	return c.doHeaders(ctx, method, path, auth, nil, in, out)
+}
+
+// doHeaders is do with extra request headers, such as If-Match.
+func (c *Client) doHeaders(ctx context.Context, method, path string, auth bool, headers map[string]string, in, out any) error {
 	if auth && c.APIKey == "" {
 		return ErrNoAPIKey
 	}
@@ -64,6 +69,9 @@ func (c *Client) do(ctx context.Context, method, path string, auth bool, in, out
 	}
 	if auth {
 		req.Header.Set("Authorization", "Bearer "+c.APIKey)
+	}
+	for k, v := range headers {
+		req.Header.Set(k, v)
 	}
 	hc := c.HTTP
 	if hc == nil {
@@ -259,6 +267,22 @@ func (c *Client) Rules(ctx context.Context) ([]Rule, error) {
 	}
 	err := c.do(ctx, http.MethodGet, "/v1/rules", true, nil, &out)
 	return out.Rules, err
+}
+
+// Rule returns one of your org's rules.
+func (c *Client) Rule(ctx context.Context, id string) (*Rule, error) {
+	var out Rule
+	err := c.do(ctx, http.MethodGet, "/v1/rules/"+url.PathEscape(id), true, nil, &out)
+	return &out, err
+}
+
+// UpdateRule replaces a rule, but only if it is still at version (sent as If-Match).
+func (c *Client) UpdateRule(ctx context.Context, id string, version int, src, dst Selector, ports []string, starts, expires *time.Time) (*Rule, error) {
+	var out Rule
+	err := c.doHeaders(ctx, http.MethodPut, "/v1/rules/"+url.PathEscape(id), true,
+		map[string]string{"If-Match": fmt.Sprintf("%q", fmt.Sprint(version))},
+		map[string]any{"src": src, "dst": dst, "ports": ports, "starts_at": starts, "expires_at": expires}, &out)
+	return &out, err
 }
 
 // DeleteRule deletes a rule and returns it once the change is enforced.

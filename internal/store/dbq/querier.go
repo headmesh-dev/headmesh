@@ -78,6 +78,8 @@ type Querier interface {
 	SyncDeviceFromNode(ctx context.Context, arg SyncDeviceFromNodeParams) error
 	TouchAPIKey(ctx context.Context, id pgtype.UUID) error
 	TouchCell(ctx context.Context, arg TouchCellParams) error
+	// Optimistic concurrency: the update only applies to the version the caller read.
+	UpdateRule(ctx context.Context, arg UpdateRuleParams) (Rule, error)
 }
 
 var _ Querier = (*Queries)(nil)

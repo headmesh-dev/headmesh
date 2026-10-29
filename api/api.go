@@ -119,6 +119,8 @@ func (h *handlers) fail(err error) error {
 		return huma.Error403Forbidden(err.Error())
 	case errors.Is(err, service.ErrConflict):
 		return huma.Error409Conflict(err.Error())
+	case errors.Is(err, service.ErrPreconditionFailed):
+		return huma.Error412PreconditionFailed(err.Error())
 	case errors.Is(err, service.ErrUnavailable):
 		h.log.Warn("cell unavailable", "error", err)
 		return huma.Error503ServiceUnavailable("the network's control server is temporarily unavailable; retry shortly")

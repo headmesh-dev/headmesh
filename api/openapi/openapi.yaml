@@ -669,6 +669,45 @@ components:
         - dst
         - ports
       type: object
+    RuleUpdateInBody:
+      additionalProperties: false
+      properties:
+        $schema:
+          description: A URL to the JSON Schema for this object.
+          examples:
+            - https://example.com/schemas/RuleUpdateInBody.json
+          format: uri
+          readOnly: true
+          type: string
+        dst:
+          $ref: "#/components/schemas/SelectorJSON"
+          description: devices they may reach, in the same form
+        expires_at:
+          description: omit for a standing rule
+          format: date-time
+          type: string
+        ports:
+          description: proto:port, proto:lo-hi, or * for every port
+          examples:
+            - - tcp:22
+          items:
+            type: string
+          maxItems: 32
+          minItems: 1
+          type:
+            - array
+            - "null"
+        src:
+          $ref: "#/components/schemas/SelectorJSON"
+          description: "devices that may connect: {kind: all|users|role|device}"
+        starts_at:
+          format: date-time
+          type: string
+      required:
+        - src
+        - dst
+        - ports
+      type: object
     RulesOutBody:
       additionalProperties: false
       properties:
@@ -1217,6 +1256,11 @@ paths:
               schema:
                 $ref: "#/components/schemas/RuleBody"
           description: Created
+          headers:
+            ETag:
+              schema:
+                description: the rule's version; send it as If-Match to update
+                type: string
         default:
           content:
             application/problem+json:
@@ -1272,6 +1316,11 @@ paths:
               schema:
                 $ref: "#/components/schemas/RuleBody"
           description: OK
+          headers:
+            ETag:
+              schema:
+                description: the rule's version; send it as If-Match to update
+                type: string
         default:
           content:
             application/problem+json:
@@ -1281,5 +1330,49 @@ paths:
       security:
         - bearer: []
       summary: One of your org's rules
+      tags:
+        - rules
+    put:
+      operationId: update-rule
+      parameters:
+        - in: path
+          name: id
+          required: true
+          schema:
+            format: uuid
+            type: string
+        - description: the ETag you read; the update is refused with 412 if the rule changed since
+          in: header
+          name: If-Match
+          schema:
+            description: the ETag you read; the update is refused with 412 if the rule changed since
+            type: string
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/RuleUpdateInBody"
+        required: true
+      responses:
+        "200":
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/RuleBody"
+          description: OK
+          headers:
+            ETag:
+              schema:
+                description: the rule's version; send it as If-Match to update
+                type: string
+        default:
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/ErrorModel"
+          description: Error
+      security:
+        - bearer: []
+      summary: Replace a rule's selectors, ports and times; returns once the cell enforces the change
       tags:
         - rules
