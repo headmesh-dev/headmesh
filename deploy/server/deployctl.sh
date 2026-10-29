@@ -563,13 +563,33 @@ cmd_prune() {
   done
 }
 
+# tls_probe <host>: a TLS handshake with nginx on loopback, sending <host> as SNI the way Cloudflare does. Prints the
+# certificate's issuer and expiry, or says the handshake failed: headmesh.conf's default server refuses names no
+# enabled vhost serves, and Cloudflare reports that as error 525.
+tls_probe() {
+  local host="$1" pem issuer expiry state=valid
+  pem="$(timeout 5 openssl s_client -connect 127.0.0.1:443 -servername "${host}" </dev/null 2>/dev/null | openssl x509 2>/dev/null || true)"
+  if [[ -z "${pem}" ]]; then
+    echo "handshake FAILED (no enabled vhost serves this name; Cloudflare shows 525)"
+    return 0
+  fi
+  issuer="$(openssl x509 -noout -issuer <<<"${pem}" | sed 's/^issuer= *//')"
+  expiry="$(openssl x509 -noout -enddate <<<"${pem}" | sed 's/^notAfter=//')"
+  openssl x509 -noout -checkend 0 <<<"${pem}" >/dev/null || state=EXPIRED
+  printf '%s, expires %s (%s)\n' "${issuer}" "${expiry}" "${state}"
+}
+
 cmd_status() {
-  local env service colour unit url
+  local env service colour unit url host
   local -a envs=("$@")
   [[ ${#envs[@]} -gt 0 ]] || envs=("${HM_ENVS[@]}")
   for env in "${envs[@]}"; do
     require_env "${env}"
     printf '== %s (%s, %s)\n' "${env}" "$(hm_env "${env}" SITE_HOST)" "$(hm_env "${env}" API_HOST)"
+    printf '   vhost      %s\n' "$([[ -L "/etc/nginx/sites-enabled/headmesh-${env}.conf" ]] && echo enabled || echo 'NOT ENABLED (run a deploy for this environment)')"
+    for host in $(hm_env "${env}" SITE_HOST) $(hm_env "${env}" EXTRA_HOSTS) $(hm_env "${env}" API_HOST); do
+      printf '   tls        %-24s %s\n' "${host}" "$(tls_probe "${host}")"
+    done
     printf '   marketing  live: %s  previous: %s\n' "$(state_get "${env}" marketing.active)" "$(state_get "${env}" marketing.previous)"
     for service in "${HM_SERVICES[@]}"; do
       colour="$(state_get "${env}" "${service}.active")"
