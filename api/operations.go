@@ -54,6 +54,7 @@ func toGrantBody(g *service.Grant) grantBody {
 func (h *handlers) register(a huma.API) {
 	h.registerAudit(a)
 	h.registerRules(a)
+	h.registerAccess(a)
 	type meOut struct {
 		Body struct {
 			Org    string   `json:"org" doc:"short id of the key's org"`

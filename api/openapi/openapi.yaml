@@ -1,5 +1,21 @@
 components:
   schemas:
+    AccessReasonBody:
+      additionalProperties: false
+      properties:
+        id:
+          description: the rule, grant or platform rule; empty for the template and for your platform's own rules
+          type: string
+        kind:
+          enum:
+            - template
+            - rule
+            - grant
+            - platform_rule
+          type: string
+      required:
+        - kind
+      type: object
     AuditEventBody:
       additionalProperties: false
       properties:
@@ -46,6 +62,35 @@ components:
         - target_id
         - data
         - hash
+      type: object
+    CheckOutBody:
+      additionalProperties: false
+      properties:
+        $schema:
+          description: A URL to the JSON Schema for this object.
+          examples:
+            - https://example.com/schemas/CheckOutBody.json
+          format: uri
+          readOnly: true
+          type: string
+        allowed:
+          type: boolean
+        because:
+          description: every entry that allows the connection on its own
+          items:
+            $ref: "#/components/schemas/AccessReasonBody"
+          type:
+            - array
+            - "null"
+        detail:
+          description: why it is refused
+          type: string
+        port:
+          type: string
+      required:
+        - allowed
+        - port
+        - because
       type: object
     CompleteInBody:
       additionalProperties: false
@@ -709,6 +754,57 @@ info:
   version: "1"
 openapi: 3.1.0
 paths:
+  /v1/access-check:
+    get:
+      description: One of the two devices must be in your org. A device in another org that nothing lets through gets the same answer as one that doesn't exist.
+      operationId: check-access
+      parameters:
+        - description: device that would open the connection
+          explode: false
+          in: query
+          name: src
+          required: true
+          schema:
+            description: device that would open the connection
+            format: uuid
+            type: string
+        - description: device it would connect to
+          explode: false
+          in: query
+          name: dst
+          required: true
+          schema:
+            description: device it would connect to
+            format: uuid
+            type: string
+        - description: one proto:port
+          explode: false
+          in: query
+          name: port
+          required: true
+          schema:
+            description: one proto:port
+            examples:
+              - tcp:22
+            type: string
+      responses:
+        "200":
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/CheckOutBody"
+          description: OK
+        default:
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/ErrorModel"
+          description: Error
+      security:
+        - bearer: []
+      summary: Whether one device may connect to another on a port, and what allows it
+      tags:
+        - rules
   /v1/api-keys:
     post:
       operationId: create-api-key

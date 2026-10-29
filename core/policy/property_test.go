@@ -303,3 +303,42 @@ func TestTimelineRevisionsMatchPointInTimeCompiles(t *testing.T) {
 		}
 	})
 }
+
+// TestExplainAgreesWithThePolicy: Explain gives the compiled policy's answer for every pair of devices, and when a
+// connection is allowed it names at least one entry that allows it on its own (and none when it isn't).
+func TestExplainAgreesWithThePolicy(t *testing.T) {
+	rapid.Check(t, func(t *rapid.T) {
+		s := genSnapshot(t)
+		if len(s.Devices) < 2 {
+			return
+		}
+		at := t0.Add(time.Duration(rapid.IntRange(-60, 60).Draw(t, "at")) * time.Minute)
+		c, err := Compile(s, at, Options{Canaries: -1})
+		if err != nil {
+			t.Fatalf("Compile: %v", err)
+		}
+		a := rapid.SampledFrom(s.Devices).Draw(t, "src")
+		b := rapid.SampledFrom(s.Devices).Draw(t, "dst")
+		if a.Short == b.Short {
+			return
+		}
+		p := rapid.SampledFrom(probes).Draw(t, "probe")
+		e, err := Explain(s, at, a.Short, b.Short, p.proto, p.port)
+		if err != nil {
+			t.Fatalf("Explain: %v", err)
+		}
+		want := c.Document.Allows(a, b, p.proto, p.port)
+		if e.Allowed != want {
+			t.Fatalf("%s -> %s %s:%d: explain=%v policy=%v", a.Short, b.Short, p.proto, p.port, e.Allowed, want)
+		}
+		if e.Allowed != (len(e.Because) > 0) {
+			t.Fatalf("%s -> %s %s:%d: allowed=%v with reasons %+v", a.Short, b.Short, p.proto, p.port, e.Allowed, e.Because)
+		}
+		for _, r := range e.Because {
+			// A reason for a cross-org connection is never the template or a rule: those stay inside one org.
+			if a.Org != b.Org && (r.Kind == ReasonTemplate || r.Kind == ReasonRule) {
+				t.Fatalf("%s(%s) -> %s(%s) explained by %+v", a.Short, a.Org, b.Short, b.Org, r)
+			}
+		}
+	})
+}

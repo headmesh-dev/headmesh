@@ -268,6 +268,25 @@ func (c *Client) DeleteRule(ctx context.Context, id string) (*Rule, error) {
 	return &out, err
 }
 
+// AccessCheck mirrors the API's access check.
+type AccessCheck struct {
+	Allowed bool   `json:"allowed"`
+	Port    string `json:"port"`
+	Because []struct {
+		Kind string `json:"kind"`
+		ID   string `json:"id,omitempty"`
+	} `json:"because"`
+	Detail string `json:"detail,omitempty"`
+}
+
+// CheckAccess asks whether device src may connect to device dst on port (for example tcp:22).
+func (c *Client) CheckAccess(ctx context.Context, src, dst, port string) (*AccessCheck, error) {
+	var out AccessCheck
+	q := url.Values{"src": {src}, "dst": {dst}, "port": {port}}
+	err := c.do(ctx, http.MethodGet, "/v1/access-check?"+q.Encode(), true, nil, &out)
+	return &out, err
+}
+
 // AuditEvent mirrors one entry of the API's audit log.
 type AuditEvent struct {
 	ID         int64           `json:"id"`

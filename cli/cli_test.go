@@ -291,3 +291,26 @@ func TestRuleAddSendsSelectorsAndPorts(t *testing.T) {
 		t.Fatal("a bad selector was accepted")
 	}
 }
+
+func TestAccessCheckPrintsTheAnswerAndItsReasons(t *testing.T) {
+	for _, tc := range []struct{ body, want string }{
+		{`{"allowed":true,"port":"tcp:22","because":[{"kind":"rule","id":"r1"},{"kind":"template"}]}`, "Allowed on tcp:22 by rule r1, template"},
+		{`{"allowed":false,"port":"tcp:22","because":[],"detail":"src device is quarantined"}`, "Not allowed on tcp:22: src device is quarantined"},
+	} {
+		srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+			q := r.URL.Query()
+			if r.URL.Path != "/v1/access-check" || q.Get("src") != "a" || q.Get("dst") != "b" || q.Get("port") != "tcp:22" {
+				w.WriteHeader(http.StatusNotFound)
+				return
+			}
+			w.Header().Set("Content-Type", "application/json")
+			_, _ = w.Write([]byte(tc.body))
+		}))
+		env := map[string]string{"HEADMESH_API_KEY": "hmk_test", "HEADMESH_SERVER": srv.URL}
+		out, err := run(t, Deps{Getenv: func(k string) string { return env[k] }}, "access", "check", "a", "b", "tcp:22")
+		srv.Close()
+		if err != nil || !strings.Contains(out, tc.want) {
+			t.Fatalf("output %q (%v), want %q", out, err, tc.want)
+		}
+	}
+}

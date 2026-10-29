@@ -308,7 +308,6 @@ func TestOnboardingAndAccessLifecycle(t *testing.T) {
 		t.Fatalf("given name = %v", gpu["given_name"])
 	}
 	gw, _ := enroll(plat.AdminKey.Key, "gateway", "gateway", "100.64.0.10")
-	_ = gw
 
 	// The cell declared each device's tags before its key existed.
 	hs.mu.Lock()
@@ -373,7 +372,7 @@ func TestOnboardingAndAccessLifecycle(t *testing.T) {
 	}
 
 	// --- Rules: access inside one org ------------------------------------------------------------------------
-	enroll(own.AdminKey.Key, "ops", "laptop", "100.64.0.21")
+	laptop, _ := enroll(own.AdminKey.Key, "ops", "laptop", "100.64.0.21")
 	ruleReq := map[string]any{
 		"src":   map[string]string{"kind": "role", "role": "ops"},
 		"dst":   map[string]string{"kind": "device", "device": gpu["id"].(string)},
@@ -387,6 +386,56 @@ func TestOnboardingAndAccessLifecycle(t *testing.T) {
 		t.Fatalf("rule not enforced: %v", rule)
 	}
 	ruleID := rule["id"].(string)
+
+	// --- Access check: the answer and what gives it, without revealing other orgs' devices -------------------
+	type accessOut struct {
+		Allowed bool `json:"allowed"`
+		Because []struct {
+			Kind string `json:"kind"`
+			ID   string `json:"id"`
+		} `json:"because"`
+		Detail string `json:"detail"`
+	}
+	check := func(key, src, dst, port string) (accessOut, int) {
+		t.Helper()
+		var out accessOut
+		code := c.do("GET", "/v1/access-check?src="+src+"&dst="+dst+"&port="+port, key, nil, &out)
+		return out, code
+	}
+	if a, code := check(own.AdminKey.Key, laptop["id"].(string), gpu["id"].(string), "tcp:2222"); code != http.StatusOK ||
+		!a.Allowed || len(a.Because) != 1 || a.Because[0].Kind != "rule" || a.Because[0].ID != ruleID {
+		t.Fatalf("laptop → gpu tcp:2222: %d %+v", code, a)
+	}
+	if a, code := check(own.AdminKey.Key, laptop["id"].(string), gpu["id"].(string), "tcp:22"); code != http.StatusOK || a.Allowed || a.Detail == "" {
+		t.Fatalf("laptop → gpu tcp:22 should be refused: %d %+v", code, a)
+	}
+	var g3 map[string]any
+	grant3 := map[string]any{
+		"grantee_org": plat.OrgShort, "src": map[string]string{"kind": "role", "role": "gateway"},
+		"dst_device_id": gpu["id"], "ports": []string{"tcp:10443"}, "expires_at": time.Now().Add(time.Hour),
+		"external_ref": "rental-3",
+	}
+	if code := c.do("POST", "/v1/grants", own.AdminKey.Key, grant3, &g3); code != http.StatusCreated {
+		t.Fatalf("create grant 3: %d", code)
+	}
+	if a, code := check(plat.AdminKey.Key, gw["id"].(string), gpu["id"].(string), "tcp:10443"); code != http.StatusOK ||
+		!a.Allowed || len(a.Because) != 1 || a.Because[0].Kind != "grant" || a.Because[0].ID != g3["id"] {
+		t.Fatalf("grantee's gateway → gpu tcp:10443: %d %+v", code, a)
+	}
+	refused, _ := check(plat.AdminKey.Key, gw["id"].(string), laptop["id"].(string), "tcp:10443")
+	missing, code := check(plat.AdminKey.Key, gw["id"].(string), "0193f0c4-0000-7000-8000-000000000001", "tcp:10443")
+	if code != http.StatusOK || refused.Allowed || missing.Allowed || refused.Detail != missing.Detail {
+		t.Fatalf("an unknown device must read like another org's refused device: %+v vs %+v", missing, refused)
+	}
+	if _, code := check(plat.AdminKey.Key, laptop["id"].(string), gpu["id"].(string), "tcp:2222"); code != http.StatusNotFound {
+		t.Fatalf("checking two devices of another org: %d", code)
+	}
+	if _, code := check(own.AdminKey.Key, laptop["id"].(string), gpu["id"].(string), "tcp:1-2"); code != http.StatusUnprocessableEntity {
+		t.Fatalf("a port range: %d", code)
+	}
+	if code := c.do("POST", "/v1/grants/"+g3["id"].(string)+"/revoke", own.AdminKey.Key, nil, nil); code != http.StatusOK {
+		t.Fatalf("revoke grant 3: %d", code)
+	}
 	// Another org can't see the rule, delete it, or aim a rule of its own at a device it doesn't own.
 	var rules struct {
 		Rules []map[string]any `json:"rules"`

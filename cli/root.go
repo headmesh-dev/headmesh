@@ -336,6 +336,35 @@ separate tailscaled (own state, socket, port and interface) alongside it. Creati
 	})
 	root.AddCommand(rule)
 
+	// access ---------------------------------------------------------------------------------------------
+	access := &cobra.Command{Use: "access", Short: "Check what your network lets through"}
+	access.AddCommand(&cobra.Command{
+		Use: "check SRC DST PORT", Short: "Whether device SRC may connect to device DST on PORT, and why",
+		Example: "  headmesh access check <laptop id> <gpu id> tcp:22", Args: cobra.ExactArgs(3),
+		RunE: func(cmd *cobra.Command, args []string) error {
+			c, err := client().CheckAccess(cmd.Context(), args[0], args[1], args[2])
+			if err != nil {
+				return err
+			}
+			return print(cmd.OutOrStdout(), c, func(w io.Writer) {
+				if !c.Allowed {
+					_, _ = fmt.Fprintf(w, "Not allowed on %s: %s\n", c.Port, c.Detail)
+					return
+				}
+				reasons := make([]string, 0, len(c.Because))
+				for _, r := range c.Because {
+					if r.ID != "" {
+						reasons = append(reasons, r.Kind+" "+r.ID)
+					} else {
+						reasons = append(reasons, r.Kind)
+					}
+				}
+				_, _ = fmt.Fprintf(w, "Allowed on %s by %s\n", c.Port, strings.Join(reasons, ", "))
+			})
+		},
+	})
+	root.AddCommand(access)
+
 	// audit ----------------------------------------------------------------------------------------------
 	audit := &cobra.Command{Use: "audit", Short: "Read and verify your org's tamper-evident audit log"}
 	var after int64
