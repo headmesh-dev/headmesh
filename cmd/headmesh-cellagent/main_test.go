@@ -1,6 +1,7 @@
 package main
 
 import (
+	"context"
 	"crypto/ecdsa"
 	"crypto/elliptic"
 	"crypto/rand"
@@ -8,10 +9,15 @@ import (
 	"crypto/x509"
 	"crypto/x509/pkix"
 	"encoding/pem"
+	"io"
+	"log/slog"
 	"math/big"
 	"net"
+	"net/http"
+	"net/http/httptest"
 	"os"
 	"path/filepath"
+	"strconv"
 	"testing"
 	"time"
 )
@@ -113,5 +119,31 @@ func TestLoadConfigAcceptsServerName(t *testing.T) {
 	}
 	if cfg.ServerName != "api.headmesh.dev" {
 		t.Fatalf("server_name = %q", cfg.ServerName)
+	}
+}
+
+// Headscale 0.29 refuses /key below capability version 113, which left the Noise fingerprint empty.
+func TestHeadscaleIdentityUsesASupportedCapabilityVersion(t *testing.T) {
+	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		switch r.URL.Path {
+		case "/version":
+			_, _ = io.WriteString(w, `{"version":"v0.29.6"}`)
+		case "/key":
+			if v, _ := strconv.Atoi(r.URL.Query().Get("v")); v < 113 {
+				http.Error(w, "unsupported client version", http.StatusBadRequest)
+				return
+			}
+			_, _ = io.WriteString(w, `{"legacyPublicKey":"mkey:00","publicKey":"mkey:abc"}`)
+		default:
+			http.NotFound(w, r)
+		}
+	}))
+	t.Cleanup(srv.Close)
+	ver, noise := headscaleIdentity(context.Background(), srv.URL, slog.New(slog.DiscardHandler))
+	if ver != "v0.29.6" {
+		t.Fatalf("version = %q", ver)
+	}
+	if len(noise) != 64 {
+		t.Fatalf("noise fingerprint = %q, want a SHA-256", noise)
 	}
 }

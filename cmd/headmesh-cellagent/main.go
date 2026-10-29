@@ -207,6 +207,10 @@ func serverTLS(cfg config) (*tls.Config, error) {
 	return tlsCfg, nil
 }
 
+// noiseKeyCapVer is the Tailscale capability version the agent sends to /key. Headscale answers "unsupported client
+// version" below its minimum (113 for 0.29), so keep this near the pinned release's.
+const noiseKeyCapVer = 130
+
 // headscaleIdentity reads Headscale's version and Noise public key from its local HTTP listener. The key
 // fingerprint lets the server notice if this cell has silently become a different tailnet (for example after an
 // empty standby was promoted). Failures are logged, not fatal.
@@ -239,7 +243,7 @@ func headscaleIdentity(ctx context.Context, base string, logger *slog.Logger) (v
 	var k struct {
 		PublicKey string `json:"publicKey"`
 	}
-	if b := get("/key?v=109"); b != nil && json.Unmarshal(b, &k) == nil && k.PublicKey != "" {
+	if b := get(fmt.Sprintf("/key?v=%d", noiseKeyCapVer)); b != nil && json.Unmarshal(b, &k) == nil && k.PublicKey != "" {
 		sum := sha256.Sum256([]byte(k.PublicKey))
 		noiseSHA = hex.EncodeToString(sum[:])
 	}

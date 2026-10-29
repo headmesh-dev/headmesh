@@ -176,6 +176,7 @@ check "the cell agent is running" on systemctl is-active --quiet headmesh-cellag
 check "…as its own user" test "$(unit_user headmesh-cellagent)" = headmesh-cellagent
 check "the agent reached the backend (cells.last_seen_at)" test "$(seen)" -gt 0
 check "…and reported Headscale's version" grep -q '0.29.6' <<<"$(psql_su -d headmesh_prod -c "select headscale_version from cells where name = 'hs1'")"
+check "…and Headscale's Noise key fingerprint" grep -qE '^[0-9a-f]{64}$' <<<"$(psql_su -d headmesh_prod -c "select data->>'noise_public_key_sha256' from audit_events where action = 'cell.connected' order by id desc limit 1")"
 check "the certificate renewal timer is on" on systemctl is-enabled --quiet headmesh-cellcert@prod.timer
 on /usr/local/lib/headmesh/deployctl.sh cell-agent prod 2>&1 | tee -a "${ENVDIR}/deploy.log" | sed 's/^/    /'
 check "running the step again changes nothing" grep -q 'cell hs1: agent unchanged and running' "${ENVDIR}/deploy.log"
