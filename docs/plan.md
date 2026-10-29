@@ -834,6 +834,8 @@ volumes: { hm-cache-mise: {}, hm-cache-uv: {}, hm-cache-npm: {}, hm-cache-pnpm: 
 - **Cell protocol:** `cell.v1.CellService/Sync` (Connect, mTLS).
 - **Ops endpoints:** `/healthz`, `/readyz` (false in recovery mode until overdue revocations are done), `/metrics` (separate listener), `/openapi.json`, docs UI.
 
+**Status 2026-10-29:** live under `/v1` with the org taken from the API key rather than an `{org}` path segment: `me`, enrollment tokens, `enroll` and `complete`, `devices` (list), grants (create, list, revoke), API keys (create), audit events (list, verify) and **rules** (create, list, get, delete; scopes `rules:read` and `rules:write`; create and delete wait until the cell enforces the change). The CLI has `headmesh rule add|ls|rm`. Still to build: orgs and members, services, rule update with `If-Match` and `rules:preview`, the access check, webhooks, sandboxes and the event stream.
+
 ### 9.9 Authentication and authorization
 - **Users:** email magic link (Resend), **passkeys** (go-webauthn) and GitHub/Google OIDC sign-in (zitadel/oidc RP). Per-org enterprise OIDC comes later.
 - **Sessions:**

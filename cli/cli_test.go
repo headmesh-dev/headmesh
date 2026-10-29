@@ -236,3 +236,58 @@ func TestAuditVerifyFailsOnABrokenChain(t *testing.T) {
 		})
 	}
 }
+
+func TestParseSelector(t *testing.T) {
+	for in, want := range map[string]Selector{
+		"all": {Kind: "all"}, "users": {Kind: "users"}, "role:gpu-host": {Kind: "role", Role: "gpu-host"},
+		"device:0193f0c4-0000-7000-8000-000000000001": {Kind: "device", Device: "0193f0c4-0000-7000-8000-000000000001"},
+	} {
+		got, err := ParseSelector(in)
+		if err != nil || got != want {
+			t.Fatalf("ParseSelector(%q) = %+v, %v", in, got, err)
+		}
+		if got.String() != in {
+			t.Fatalf("%+v renders as %q, want %q", got, got.String(), in)
+		}
+	}
+	for _, bad := range []string{"", "role:", "device", "all:x", "everyone"} {
+		if _, err := ParseSelector(bad); err == nil {
+			t.Fatalf("ParseSelector(%q) accepted", bad)
+		}
+	}
+}
+
+// TestRuleAddSendsSelectorsAndPorts: `headmesh rule add` turns its flags into the API's rule body.
+func TestRuleAddSendsSelectorsAndPorts(t *testing.T) {
+	var got map[string]any
+	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		if r.Method != http.MethodPost || r.URL.Path != "/v1/rules" || r.Header.Get("Authorization") != "Bearer hmk_test" {
+			w.WriteHeader(http.StatusNotFound)
+			return
+		}
+		_ = json.NewDecoder(r.Body).Decode(&got)
+		w.Header().Set("Content-Type", "application/json")
+		w.WriteHeader(http.StatusCreated)
+		_, _ = w.Write([]byte(`{"id":"r1","src":{"kind":"role","role":"ops"},"dst":{"kind":"all"},"ports":["tcp:22"],"enforced":true}`))
+	}))
+	defer srv.Close()
+	env := map[string]string{"HEADMESH_API_KEY": "hmk_test", "HEADMESH_SERVER": srv.URL}
+	out, err := run(t, Deps{Getenv: func(k string) string { return env[k] }},
+		"rule", "add", "--from", "role:ops", "--to", "all", "--port", "tcp:22", "--for", "2h")
+	if err != nil {
+		t.Fatal(err)
+	}
+	if !strings.Contains(out, "Rule r1: role:ops → all on tcp:22 (enforced: true)") {
+		t.Fatalf("output %q", out)
+	}
+	src, _ := got["src"].(map[string]any)
+	if src["kind"] != "role" || src["role"] != "ops" || got["dst"].(map[string]any)["kind"] != "all" {
+		t.Fatalf("selectors sent: %v", got)
+	}
+	if exp, _ := got["expires_at"].(string); exp == "" {
+		t.Fatalf("--for didn't set expires_at: %v", got)
+	}
+	if _, err := run(t, Deps{Getenv: func(k string) string { return env[k] }}, "rule", "add", "--from", "everyone", "--to", "all", "--port", "tcp:22"); err == nil {
+		t.Fatal("a bad selector was accepted")
+	}
+}

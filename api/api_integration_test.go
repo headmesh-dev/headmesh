@@ -372,6 +372,65 @@ func TestOnboardingAndAccessLifecycle(t *testing.T) {
 		t.Fatalf("revocation not enforced: %v", revoked)
 	}
 
+	// --- Rules: access inside one org ------------------------------------------------------------------------
+	enroll(own.AdminKey.Key, "ops", "laptop", "100.64.0.21")
+	ruleReq := map[string]any{
+		"src":   map[string]string{"kind": "role", "role": "ops"},
+		"dst":   map[string]string{"kind": "device", "device": gpu["id"].(string)},
+		"ports": []string{"TCP:2222"},
+	}
+	var rule map[string]any
+	if code := c.do("POST", "/v1/rules", own.AdminKey.Key, ruleReq, &rule); code != http.StatusCreated {
+		t.Fatalf("create rule: %d", code)
+	}
+	if rule["enforced"] != true || rule["ports"].([]any)[0] != "tcp:2222" || !strings.Contains(hs.livePolicy(), `"tcp:2222"`) {
+		t.Fatalf("rule not enforced: %v", rule)
+	}
+	ruleID := rule["id"].(string)
+	// Another org can't see the rule, delete it, or aim a rule of its own at a device it doesn't own.
+	var rules struct {
+		Rules []map[string]any `json:"rules"`
+	}
+	if code := c.do("GET", "/v1/rules", plat.AdminKey.Key, nil, &rules); code != http.StatusOK || len(rules.Rules) != 0 {
+		t.Fatalf("the platform org lists %d rules (%d)", len(rules.Rules), code)
+	}
+	if code := c.do("GET", "/v1/rules/"+ruleID, plat.AdminKey.Key, nil, nil); code != http.StatusNotFound {
+		t.Fatalf("another org read the rule: %d", code)
+	}
+	if code := c.do("DELETE", "/v1/rules/"+ruleID, plat.AdminKey.Key, nil, nil); code != http.StatusNotFound {
+		t.Fatalf("another org deleted the rule: %d", code)
+	}
+	reach := map[string]any{
+		"src": map[string]string{"kind": "all"}, "dst": map[string]string{"kind": "device", "device": gpu["id"].(string)},
+		"ports": []string{"tcp:22"},
+	}
+	if code := c.do("POST", "/v1/rules", plat.AdminKey.Key, reach, nil); code != http.StatusUnprocessableEntity {
+		t.Fatalf("a rule aimed at another org's device: %d", code)
+	}
+	// rules:read lists but can't write.
+	var reader struct {
+		Key string `json:"key"`
+	}
+	if code := c.do("POST", "/v1/api-keys", own.AdminKey.Key, map[string]any{"name": "rules reader", "scopes": []string{"rules:read"}}, &reader); code != http.StatusCreated {
+		t.Fatalf("create rules:read key: %d", code)
+	}
+	if code := c.do("GET", "/v1/rules", reader.Key, nil, &rules); code != http.StatusOK || len(rules.Rules) != 1 || rules.Rules[0]["id"] != ruleID {
+		t.Fatalf("rules:read list: %d, %v", code, rules.Rules)
+	}
+	if code := c.do("POST", "/v1/rules", reader.Key, ruleReq, nil); code != http.StatusForbidden {
+		t.Fatalf("rules:read created a rule: %d", code)
+	}
+	var deleted map[string]any
+	if code := c.do("DELETE", "/v1/rules/"+ruleID, own.AdminKey.Key, nil, &deleted); code != http.StatusOK {
+		t.Fatalf("delete rule: %d", code)
+	}
+	if deleted["enforced"] != true || strings.Contains(hs.livePolicy(), `"tcp:2222"`) {
+		t.Fatalf("rule deletion not enforced: %v", deleted)
+	}
+	if code := c.do("GET", "/v1/rules/"+ruleID, own.AdminKey.Key, nil, nil); code != http.StatusNotFound {
+		t.Fatalf("deleted rule still readable: %d", code)
+	}
+
 	// --- Expiry sweep: a grant that lapsed while nothing was running is audited exactly once -----------------
 	gpuID, _ := store.UUID(gpu["id"].(string))
 	platID, _ := store.UUID(plat.OrgID)

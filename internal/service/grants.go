@@ -153,12 +153,18 @@ func (s *Service) CreateGrant(ctx context.Context, p Principal, req GrantRequest
 }
 
 func validateGranteeSelector(ctx context.Context, q *dbq.Queries, grantee dbq.Org, sel store.SelectorJSON) error {
+	return validateSelector(ctx, q, grantee, "src", "the grantee org", sel)
+}
+
+// validateSelector checks that sel names devices of org. side ("src", "dst") and whose ("your org") only shape
+// the error messages.
+func validateSelector(ctx context.Context, q *dbq.Queries, org dbq.Org, side, whose string, sel store.SelectorJSON) error {
 	switch sel.Kind {
 	case "all":
 		return nil
 	case "users":
-		if len(grantee.HeadscaleUsers) == 0 {
-			return fmt.Errorf("%w: grantee org has no personal devices", ErrInvalid)
+		if len(org.HeadscaleUsers) == 0 {
+			return fmt.Errorf("%w: %s has no personal devices", ErrInvalid, whose)
 		}
 		return nil
 	case "role":
@@ -169,15 +175,15 @@ func validateGranteeSelector(ctx context.Context, q *dbq.Queries, grantee dbq.Or
 	case "device":
 		id, err := store.UUID(sel.Device)
 		if err != nil {
-			return fmt.Errorf("%w: src device", ErrInvalid)
+			return fmt.Errorf("%w: %s device", ErrInvalid, side)
 		}
 		d, err := q.GetDevice(ctx, id)
-		if err != nil || d.OrgID != grantee.ID {
-			return fmt.Errorf("%w: src device is not in the grantee org", ErrInvalid)
+		if err != nil || d.OrgID != org.ID || d.State == "removed" {
+			return fmt.Errorf("%w: %s device is not a device of %s", ErrInvalid, side, whose)
 		}
 		return nil
 	default:
-		return fmt.Errorf("%w: src.kind must be all, users, role or device", ErrInvalid)
+		return fmt.Errorf("%w: %s.kind must be all, users, role or device", ErrInvalid, side)
 	}
 }
 

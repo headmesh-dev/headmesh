@@ -484,6 +484,109 @@ components:
         - org
         - scopes
       type: object
+    RuleBody:
+      additionalProperties: false
+      properties:
+        $schema:
+          description: A URL to the JSON Schema for this object.
+          examples:
+            - https://example.com/schemas/RuleBody.json
+          format: uri
+          readOnly: true
+          type: string
+        created_at:
+          format: date-time
+          type: string
+        dst:
+          $ref: "#/components/schemas/SelectorJSON"
+        enforced:
+          description: "on create and delete: true when the cell confirmed the resulting policy is live"
+          type: boolean
+        expires_at:
+          format: date-time
+          type: string
+        id:
+          type: string
+        ports:
+          items:
+            type: string
+          type:
+            - array
+            - "null"
+        src:
+          $ref: "#/components/schemas/SelectorJSON"
+        starts_at:
+          format: date-time
+          type: string
+        version:
+          format: int32
+          type: integer
+      required:
+        - id
+        - src
+        - dst
+        - ports
+        - version
+        - created_at
+      type: object
+    RuleInBody:
+      additionalProperties: false
+      properties:
+        $schema:
+          description: A URL to the JSON Schema for this object.
+          examples:
+            - https://example.com/schemas/RuleInBody.json
+          format: uri
+          readOnly: true
+          type: string
+        dst:
+          $ref: "#/components/schemas/SelectorJSON"
+          description: devices they may reach, in the same form
+        expires_at:
+          description: omit for a standing rule
+          format: date-time
+          type: string
+        ports:
+          description: proto:port, proto:lo-hi, or * for every port
+          examples:
+            - - tcp:22
+          items:
+            type: string
+          maxItems: 32
+          minItems: 1
+          type:
+            - array
+            - "null"
+        src:
+          $ref: "#/components/schemas/SelectorJSON"
+          description: "devices that may connect: {kind: all|users|role|device}"
+        starts_at:
+          format: date-time
+          type: string
+      required:
+        - src
+        - dst
+        - ports
+      type: object
+    RulesOutBody:
+      additionalProperties: false
+      properties:
+        $schema:
+          description: A URL to the JSON Schema for this object.
+          examples:
+            - https://example.com/schemas/RulesOutBody.json
+          format: uri
+          readOnly: true
+          type: string
+        rules:
+          items:
+            $ref: "#/components/schemas/RuleBody"
+          type:
+            - array
+            - "null"
+      required:
+        - rules
+      type: object
     SelectorJSON:
       additionalProperties: false
       properties:
@@ -894,3 +997,105 @@ paths:
       summary: Describe the calling API key
       tags:
         - account
+  /v1/rules:
+    get:
+      operationId: list-rules
+      responses:
+        "200":
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/RulesOutBody"
+          description: OK
+        default:
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/ErrorModel"
+          description: Error
+      security:
+        - bearer: []
+      summary: Your org's rules, oldest first
+      tags:
+        - rules
+    post:
+      operationId: create-rule
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/RuleInBody"
+        required: true
+      responses:
+        "201":
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/RuleBody"
+          description: Created
+        default:
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/ErrorModel"
+          description: Error
+      security:
+        - bearer: []
+      summary: Let devices in your org reach other devices in your org
+      tags:
+        - rules
+  /v1/rules/{id}:
+    delete:
+      operationId: delete-rule
+      parameters:
+        - in: path
+          name: id
+          required: true
+          schema:
+            format: uuid
+            type: string
+      responses:
+        "200":
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/RuleBody"
+          description: OK
+        default:
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/ErrorModel"
+          description: Error
+      security:
+        - bearer: []
+      summary: Delete a rule; returns the deleted rule once the cell enforces the change
+      tags:
+        - rules
+    get:
+      operationId: get-rule
+      parameters:
+        - in: path
+          name: id
+          required: true
+          schema:
+            format: uuid
+            type: string
+      responses:
+        "200":
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/RuleBody"
+          description: OK
+        default:
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/ErrorModel"
+          description: Error
+      security:
+        - bearer: []
+      summary: One of your org's rules
+      tags:
+        - rules

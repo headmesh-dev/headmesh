@@ -17,3 +17,6 @@ INSERT INTO platform_rules (org_id, src, dst, ports) VALUES ($1, $2, $3, $4) RET
 
 -- name: ListPlatformRulesInCell :many
 SELECT pr.* FROM platform_rules pr JOIN orgs o ON o.id = pr.org_id WHERE o.cell_id = $1 ORDER BY pr.id;
+
+-- name: GetRule :one
+SELECT * FROM rules WHERE id = $1;

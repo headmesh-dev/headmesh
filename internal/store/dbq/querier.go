@@ -44,6 +44,7 @@ type Querier interface {
 	GetOrg(ctx context.Context, id pgtype.UUID) (Org, error)
 	GetOrgByShortID(ctx context.Context, shortID string) (Org, error)
 	GetOrgBySlug(ctx context.Context, slug string) (Org, error)
+	GetRule(ctx context.Context, id pgtype.UUID) (Rule, error)
 	InitChainHead(ctx context.Context, arg InitChainHeadParams) error
 	InsertAuditEvent(ctx context.Context, arg InsertAuditEventParams) (int64, error)
 	InsertPolicyRevision(ctx context.Context, arg InsertPolicyRevisionParams) error

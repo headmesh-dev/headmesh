@@ -46,6 +46,8 @@ const (
 	ScopeGrantsRead   = "grants:read"
 	ScopeAPIKeysWrite = "apikeys:write"
 	ScopeAuditRead    = "audit:read"
+	ScopeRulesRead    = "rules:read"
+	ScopeRulesWrite   = "rules:write"
 )
 
 // Can reports whether the principal holds scope (admin implies every scope).

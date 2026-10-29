@@ -43,7 +43,7 @@ func NewRoot(version string, deps Deps) *cobra.Command {
 	root := &cobra.Command{
 		Use:           "headmesh",
 		Short:         "Share machines, not your network",
-		Long:          "headmesh joins machines to Headmesh networks and manages devices, invites and time-limited grants.",
+		Long:          "headmesh joins machines to Headmesh networks and manages devices, invites, rules and time-limited grants.",
 		SilenceUsage:  true,
 		SilenceErrors: true,
 	}
@@ -260,6 +260,81 @@ separate tailscaled (own state, socket, port and interface) alongside it. Creati
 		},
 	})
 	root.AddCommand(grant)
+
+	// rules ----------------------------------------------------------------------------------------------
+	rule := &cobra.Command{Use: "rule", Short: "Manage access between devices in your own org"}
+	var ruleFrom, ruleTo string
+	var rulePorts []string
+	var ruleFor time.Duration
+	ruleAdd := &cobra.Command{
+		Use: "add", Short: "Let devices in your org reach other devices in your org", Args: cobra.NoArgs,
+		Example: "  headmesh rule add --from role:ops --to role:gpu-host --port tcp:22\n" +
+			"  headmesh rule add --from device:<id> --to all --port '*' --for 4h",
+		RunE: func(cmd *cobra.Command, _ []string) error {
+			if ruleFrom == "" || ruleTo == "" || len(rulePorts) == 0 {
+				return errors.New("--from, --to and --port are required")
+			}
+			src, err := ParseSelector(ruleFrom)
+			if err != nil {
+				return fmt.Errorf("--from: %w", err)
+			}
+			dst, err := ParseSelector(ruleTo)
+			if err != nil {
+				return fmt.Errorf("--to: %w", err)
+			}
+			var expires *time.Time
+			if ruleFor > 0 {
+				t := time.Now().Add(ruleFor).UTC()
+				expires = &t
+			}
+			r, err := client().CreateRule(cmd.Context(), src, dst, rulePorts, expires)
+			if err != nil {
+				return err
+			}
+			return print(cmd.OutOrStdout(), r, func(w io.Writer) {
+				_, _ = fmt.Fprintf(w, "Rule %s: %s → %s on %s (enforced: %v)\n", r.ID, r.Src, r.Dst, strings.Join(r.Ports, ","), r.Enforced)
+			})
+		},
+	}
+	ruleAdd.Flags().StringVar(&ruleFrom, "from", "", "devices that may connect: all, users, role:NAME or device:ID")
+	ruleAdd.Flags().StringVar(&ruleTo, "to", "", "devices they may reach, in the same form")
+	ruleAdd.Flags().StringSliceVar(&rulePorts, "port", nil, "port to open, e.g. tcp:22, udp:5000-5100 or * (repeatable)")
+	ruleAdd.Flags().DurationVar(&ruleFor, "for", 0, "remove the access after this long (default: until deleted)")
+	rule.AddCommand(ruleAdd)
+	rule.AddCommand(&cobra.Command{
+		Use: "ls", Short: "List your org's rules", Args: cobra.NoArgs,
+		RunE: func(cmd *cobra.Command, _ []string) error {
+			rs, err := client().Rules(cmd.Context())
+			if err != nil {
+				return err
+			}
+			return print(cmd.OutOrStdout(), rs, func(w io.Writer) {
+				tw := tabwriter.NewWriter(w, 0, 2, 2, ' ', 0)
+				_, _ = fmt.Fprintln(tw, "ID\tFROM\tTO\tPORTS\tEXPIRES")
+				for _, r := range rs {
+					expires := "never"
+					if r.ExpiresAt != nil {
+						expires = r.ExpiresAt.Local().Format(time.RFC1123)
+					}
+					_, _ = fmt.Fprintf(tw, "%s\t%s\t%s\t%s\t%s\n", r.ID, r.Src, r.Dst, strings.Join(r.Ports, ","), expires)
+				}
+				_ = tw.Flush()
+			})
+		},
+	})
+	rule.AddCommand(&cobra.Command{
+		Use: "rm ID", Short: "Delete a rule (returns once enforced)", Args: cobra.ExactArgs(1),
+		RunE: func(cmd *cobra.Command, args []string) error {
+			r, err := client().DeleteRule(cmd.Context(), args[0])
+			if err != nil {
+				return err
+			}
+			return print(cmd.OutOrStdout(), r, func(w io.Writer) {
+				_, _ = fmt.Fprintf(w, "Deleted %s (enforced: %v)\n", r.ID, r.Enforced)
+			})
+		},
+	})
+	root.AddCommand(rule)
 
 	// audit ----------------------------------------------------------------------------------------------
 	audit := &cobra.Command{Use: "audit", Short: "Read and verify your org's tamper-evident audit log"}

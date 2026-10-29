@@ -9,6 +9,7 @@ import (
 	"fmt"
 	"io"
 	"net/http"
+	"net/url"
 	"strings"
 	"time"
 )
@@ -192,6 +193,78 @@ func (c *Client) Grants(ctx context.Context) ([]Grant, error) {
 func (c *Client) RevokeGrant(ctx context.Context, id string) (*Grant, error) {
 	var out Grant
 	err := c.do(ctx, http.MethodPost, "/v1/grants/"+id+"/revoke", true, nil, &out)
+	return &out, err
+}
+
+// Selector mirrors the API's rule and grant selectors.
+type Selector struct {
+	Kind   string `json:"kind"`
+	Role   string `json:"role,omitempty"`
+	Device string `json:"device,omitempty"`
+}
+
+// String renders a selector the way the CLI's flags take it: all, users, role:NAME or device:ID.
+func (s Selector) String() string {
+	switch s.Kind {
+	case "role":
+		return "role:" + s.Role
+	case "device":
+		return "device:" + s.Device
+	default:
+		return s.Kind
+	}
+}
+
+// ParseSelector reads all, users, role:NAME or device:ID.
+func ParseSelector(v string) (Selector, error) {
+	kind, arg, _ := strings.Cut(v, ":")
+	switch {
+	case (kind == "all" || kind == "users") && arg == "":
+		return Selector{Kind: kind}, nil
+	case kind == "role" && arg != "":
+		return Selector{Kind: "role", Role: arg}, nil
+	case kind == "device" && arg != "":
+		return Selector{Kind: "device", Device: arg}, nil
+	default:
+		return Selector{}, fmt.Errorf("selector %q: want all, users, role:NAME or device:ID", v)
+	}
+}
+
+// Rule mirrors the API's rule body.
+type Rule struct {
+	ID        string     `json:"id"`
+	Src       Selector   `json:"src"`
+	Dst       Selector   `json:"dst"`
+	Ports     []string   `json:"ports"`
+	StartsAt  *time.Time `json:"starts_at,omitempty"`
+	ExpiresAt *time.Time `json:"expires_at,omitempty"`
+	Version   int        `json:"version"`
+	CreatedAt time.Time  `json:"created_at"`
+	Enforced  bool       `json:"enforced,omitempty"`
+}
+
+// CreateRule lets devices in your org reach other devices in your org.
+func (c *Client) CreateRule(ctx context.Context, src, dst Selector, ports []string, expires *time.Time) (*Rule, error) {
+	var out Rule
+	err := c.do(ctx, http.MethodPost, "/v1/rules", true, map[string]any{
+		"src": src, "dst": dst, "ports": ports, "expires_at": expires,
+	}, &out)
+	return &out, err
+}
+
+// Rules lists your org's rules.
+func (c *Client) Rules(ctx context.Context) ([]Rule, error) {
+	var out struct {
+		Rules []Rule `json:"rules"`
+	}
+	err := c.do(ctx, http.MethodGet, "/v1/rules", true, nil, &out)
+	return out.Rules, err
+}
+
+// DeleteRule deletes a rule and returns it once the change is enforced.
+func (c *Client) DeleteRule(ctx context.Context, id string) (*Rule, error) {
+	var out Rule
+	err := c.do(ctx, http.MethodDelete, "/v1/rules/"+url.PathEscape(id), true, nil, &out)
 	return &out, err
 }
 

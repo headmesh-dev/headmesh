@@ -99,6 +99,29 @@ func (q *Queries) DeleteRule(ctx context.Context, arg DeleteRuleParams) error {
 	return err
 }
 
+const getRule = `-- name: GetRule :one
+SELECT id, org_id, src, dst, ports, starts_at, expires_at, version, created_by, created_at, updated_at FROM rules WHERE id = $1
+`
+
+func (q *Queries) GetRule(ctx context.Context, id pgtype.UUID) (Rule, error) {
+	row := q.db.QueryRow(ctx, getRule, id)
+	var i Rule
+	err := row.Scan(
+		&i.ID,
+		&i.OrgID,
+		&i.Src,
+		&i.Dst,
+		&i.Ports,
+		&i.StartsAt,
+		&i.ExpiresAt,
+		&i.Version,
+		&i.CreatedBy,
+		&i.CreatedAt,
+		&i.UpdatedAt,
+	)
+	return i, err
+}
+
 const listPlatformRulesInCell = `-- name: ListPlatformRulesInCell :many
 SELECT pr.id, pr.org_id, pr.src, pr.dst, pr.ports, pr.created_at FROM platform_rules pr JOIN orgs o ON o.id = pr.org_id WHERE o.cell_id = $1 ORDER BY pr.id
 `

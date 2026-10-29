@@ -15,7 +15,10 @@ import (
 	"github.com/headmesh-dev/headmesh/internal/store/dbq"
 )
 
-var knownScopes = []string{ScopeAdmin, ScopeDevicesRead, ScopeEnrollWrite, ScopeGrantsRead, ScopeGrantsWrite, ScopeAPIKeysWrite, ScopeAuditRead}
+var knownScopes = []string{
+	ScopeAdmin, ScopeDevicesRead, ScopeEnrollWrite, ScopeGrantsRead, ScopeGrantsWrite, ScopeAPIKeysWrite, ScopeAuditRead,
+	ScopeRulesRead, ScopeRulesWrite,
+}
 
 // Authenticate resolves an API key to a principal. Lookup runs in the system scope because the key is what
 // establishes the tenant scope; nothing else is read there.
