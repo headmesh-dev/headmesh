@@ -265,7 +265,7 @@ Upgrade prod-hetzner to Ubuntu 26.04.1 (done 2026-10-27; ADR 0009). The runbook 
 
 ### 5.8 hm-prod-1: firewall and bootstrap (server created 2026-10-27; approved)
 
-hm-prod-1 was bootstrapped with `deploy/compose/bootstrap.sh` (admin user, key-only SSH, host nftables firewall with a dead-man rollback, Docker, Tailscale, Ubuntu Pro), joined the tailnet as a tagged node that can reach nothing, got break-glass WireGuard (`deploy/breakglass/`), and had public SSH closed (2026-10-28). Open: the Hetzner Cloud Firewall as an outer layer, and bringing the server under OpenTofu once the project API token exists. Addresses and status details are in the internal ops notes.
+hm-prod-1 was bootstrapped with `deploy/compose/bootstrap.sh` (admin user, key-only SSH, host nftables firewall with a dead-man rollback, Docker, Tailscale, Ubuntu Pro), joined the tailnet as a tagged node that can reach nothing, got break-glass WireGuard (`deploy/breakglass/`), and had public SSH closed (2026-10-28). The Hetzner Cloud Firewall `hm-prod-1-fw` is applied as the outer layer (2026-10-29): inbound TCP 80/443, UDP 3478/41641/51820 and ICMP only; tailnet and break-glass SSH verified afterwards. Open: bringing the server and firewall under OpenTofu, which waits for the R2 state bucket (§13.2). Addresses and status details are in the internal ops notes.
 
 ---
 
