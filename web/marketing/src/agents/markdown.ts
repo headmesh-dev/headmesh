@@ -108,7 +108,7 @@ ${docs}
 - [Implementation plan](${blob("docs/plan.md")}): architecture, milestones and the security model
 - [Architecture decision records](${REPO_URL}/tree/main/docs/adr)
 - [Licensing](${blob("LICENSING.md")})
-- [Security policy](${blob("SECURITY.md")})
+- [Security policy](${blob(".github/SECURITY.md")})
 
 ## Optional
 

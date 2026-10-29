@@ -38,9 +38,7 @@ for (const { path, heading } of PAGES) {
 test("home page carries the launch copy and both calls to action", async ({ page, problems }) => {
   await page.goto("/");
   await expect(page).toHaveTitle("Headmesh");
-  await expect(
-    page.getByText("Headmesh builds on Headscale and WireGuard to give teams, renters and AI agents"),
-  ).toBeVisible();
+  await expect(page.getByText("Give teams, renters and AI agents exactly the machines they need")).toBeVisible();
   await expect(
     page.getByRole("heading", { name: "Give your AI agents a real machine, not a toy sandbox." }),
   ).toBeVisible();

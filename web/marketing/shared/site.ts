@@ -4,7 +4,7 @@
 export const SITE_URL = "https://headmesh.dev";
 export const REPO_URL = "https://github.com/headmesh-dev/headmesh";
 export const CONTACT_EMAIL = "hello@headmesh.dev";
-/** Matches SECURITY.md at the repository root. */
+/** Matches .github/SECURITY.md. */
 export const SECURITY_EMAIL = "security@headmesh.dev";
 export const XCELSIOR_URL = "https://xcelsior.ca";
 
@@ -33,11 +33,10 @@ export const SENDER: Sender = {
  * Version of the consent wording shown next to the waitlist checkbox. Change the version whenever the wording
  * changes so each stored consent record points at the exact text the person agreed to.
  */
-export const CONSENT_VERSION = "2026-10-27";
+export const CONSENT_VERSION = "2026-10-29";
 
-export const CONSENT_TEXT =
-  "Yes, email me about Headmesh: early-access invitations and occasional product updates. " +
-  "I can unsubscribe at any time.";
+export const CONSENT_TEXT = "Email me Headmesh early-access invites and updates. I can unsubscribe anytime.";
+("I can unsubscribe at any time.");
 
 /** Turnstile action name. The Function rejects tokens minted for any other action. */
 export const TURNSTILE_ACTION = "waitlist";

@@ -16,13 +16,12 @@ const senderLine = [SENDER.legalName, SENDER.postalAddress].filter(Boolean).join
       <p class="eyebrow">Early access</p>
       <h1 class="mt-4 text-4xl font-bold tracking-tight text-balance sm:text-5xl">Join the waitlist</h1>
       <p class="mt-5 max-w-lg text-lg leading-relaxed text-muted">
-        Headmesh is in early development. Leave your email and we'll invite you as soon as there's something to try.
-        Tell us what you'd use it for and we'll prioritise it.
+        Headmesh is in early development. Join to hear first when there's something to run.
       </p>
       <ul class="mt-8 space-y-3 text-muted">
-        <li class="flex gap-3"><span class="text-accent" aria-hidden="true">→</span>No spam: early-access invites and the occasional update.</li>
-        <li class="flex gap-3"><span class="text-accent" aria-hidden="true">→</span>You confirm by email first, and every message has a one-click unsubscribe.</li>
-        <li class="flex gap-3"><span class="text-accent" aria-hidden="true">→</span>We never sell or share your email.</li>
+        <li class="flex gap-3"><span class="text-accent" aria-hidden="true">→</span>First invites when the early release opens.</li>
+        <li class="flex gap-3"><span class="text-accent" aria-hidden="true">→</span>Your use case shapes what ships first.</li>
+        <li class="flex gap-3"><span class="text-accent" aria-hidden="true">→</span>Release notes as each piece lands: the CLI, the agent sandbox, the hosted mesh.</li>
       </ul>
     </div>
 
@@ -73,11 +72,10 @@ const senderLine = [SENDER.legalName, SENDER.postalAddress].filter(Boolean).join
             <label for="consent" class="text-sm leading-relaxed">{CONSENT_TEXT}</label>
           </div>
           <p id="consent-error" class="mt-1.5 hidden text-sm text-danger" data-error-for="consent"></p>
+          <!-- CASL s. 10(2): who asks (name, mailing address), a contact method, and withdrawal (in CONSENT_TEXT). -->
           <p id="consent-sender" class="mt-3 text-xs leading-relaxed text-muted">
-            Consent is requested by {senderLine} (<a class="underline underline-offset-2" href={`mailto:${CONTACT_EMAIL}`}
-              >{CONTACT_EMAIL}</a
-            >). We'll send a confirmation email first. You can withdraw consent at any time with the unsubscribe link in
-            every email or by writing to us. See the <a class="underline underline-offset-2" href="/privacy/">privacy policy</a>.
+            From {senderLine} · <a class="underline underline-offset-2" href={`mailto:${CONTACT_EMAIL}`}>{CONTACT_EMAIL}</a> ·
+            <a class="underline underline-offset-2" href="/privacy/">Privacy</a>
           </p>
         </div>
 
@@ -113,7 +111,7 @@ const senderLine = [SENDER.legalName, SENDER.postalAddress].filter(Boolean).join
         <h2 class="text-2xl font-bold tracking-tight">Check your inbox</h2>
         <p class="mt-3 leading-relaxed text-muted">
           We've sent a confirmation link to <strong class="text-fg" data-success-email></strong>. Open it to confirm your
-          spot. If it hasn't arrived in a few minutes, check your spam folder.
+          spot. Nothing after a few minutes? Check spam.
         </p>
       </div>
     </div>

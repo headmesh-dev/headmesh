@@ -9,27 +9,27 @@ const features: { icon: IconName; title: string; body: string }[] = [
   {
     icon: "link",
     title: "One-click onboarding",
-    body: "Invite a device, teammate or GPU with a single link or command. It joins the right network with the right permissions.",
+    body: "Invite a device, teammate or GPU with one link. It lands on the right network with the right access.",
   },
   {
     icon: "layers",
     title: "True multi-tenancy",
-    body: "Isolated workspaces with their own members, devices and rules. Other tenants' machines aren't just blocked, they're invisible.",
+    body: "Each workspace has its own members, devices and rules. Other tenants aren't just blocked. They're invisible.",
   },
   {
     icon: "clock",
     title: "Temporary access",
-    body: "Grant one machine or service for a set time. When the time is up, access revokes itself.",
+    body: "Grant one machine or port for a set time. Access ends on its own.",
   },
   {
     icon: "bot",
     title: "Agent sandboxes",
-    body: "Let cloud AI agents work on your real files and private services safely, in a scoped or full-access mode.",
+    body: "Cloud AI agents work on your real files and private services, scoped to what you allow.",
   },
   {
     icon: "server",
     title: "Yours to run",
-    body: "Open source and self-hostable, with no closed control server between you and your machines.",
+    body: "Open source and self-hostable. No closed control server between you and your machines.",
   },
 ];
 
@@ -37,34 +37,34 @@ const agentPoints: { icon: IconName; title: string; body: string }[] = [
   {
     icon: "shield",
     title: "Scoped by default",
-    body: "Agents see the folders you mount and the services you grant. Nothing else on your network is reachable.",
+    body: "Agents see the folders you mount and the services you grant. Nothing else.",
   },
   {
     icon: "key",
     title: "Full access only on purpose",
-    body: "Full-access mode is opt-in, time-limited and refuses to start without a recent backup. When it expires, the sandbox drops back to scoped mode.",
+    body: "Opt-in, time-limited and blocked without a fresh backup. Then it drops back to scoped.",
   },
   {
     icon: "eye",
     title: "Its own identity",
-    body: "The sandbox joins your mesh as a separate device with its own rules, never borrowing your workstation's access.",
+    body: "The sandbox joins your mesh as its own device with its own rules. It never borrows yours.",
   },
   {
     icon: "check",
     title: "Works with the agents you use",
-    body: "Reach it over MCP, SSH or a remote session from Claude Code, Codex and any MCP client.",
+    body: "Connect from Claude Code, Codex or any MCP client, over MCP, SSH or a remote session.",
   },
 ];
 
 const parts = [
-  { name: "WireGuard", body: "Every connection is end-to-end encrypted with modern, audited cryptography." },
+  { name: "WireGuard", body: "End-to-end encryption with modern, audited cryptography." },
   {
     name: "Headscale",
-    body: "The open-source control server does the coordination. Headmesh drives it; it doesn't fork it.",
+    body: "The open-source control server. Headmesh drives it; it doesn't fork it.",
   },
   {
     name: "Tailscale clients",
-    body: "Devices run the standard, open-source Tailscale client on every major platform.",
+    body: "The standard open-source client, on every major platform.",
   },
 ];
 ---
@@ -88,8 +88,8 @@ const parts = [
           Share machines, not your network.
         </h1>
         <p class="mt-6 max-w-xl text-lg leading-relaxed text-muted">
-          Headmesh builds on Headscale and WireGuard to give teams, renters and AI agents secure access to exactly the
-          machines they need, and nothing else.
+          Give teams, renters and AI agents exactly the machines they need, and nothing else. Open source, built on
+          Headscale and WireGuard.
         </p>
         <div class="mt-9 flex flex-wrap gap-3">
           <a href="/waitlist/" class="btn btn-primary">
@@ -118,8 +118,8 @@ const parts = [
           Tailscale-style networking, built for sharing.
         </h2>
         <p class="mt-4 text-lg leading-relaxed text-muted">
-          Headscale gives one organisation an open control server. Headmesh adds what you need to share machines
-          between people and organisations who don't fully trust each other: owners, renters, teammates and AI agents.
+          Headscale runs one organisation's mesh. Headmesh lets many share it safely: owners, renters, teammates and AI
+          agents who don't fully trust each other.
         </p>
       </div>
       <ul class="mt-12 grid gap-5 sm:grid-cols-2 lg:grid-cols-6">
@@ -147,9 +147,8 @@ const parts = [
           Give your AI agents a real machine, not a toy sandbox.
         </h2>
         <p class="mt-5 text-lg leading-relaxed text-muted">
-          Cloud agents can't join a private mesh on their own. Headmesh runs a persistent sandbox on your hardware that
-          joins the mesh itself, so agents can work on your real files and private services without your network being
-          opened up to them.
+          Cloud agents can't join your private network. Headmesh gives them a persistent sandbox on your hardware that
+          can, so they work on real files and private services while the rest of your network stays closed.
         </p>
       </div>
       <ul class="grid gap-x-8 gap-y-9 sm:grid-cols-2">
@@ -174,9 +173,8 @@ const parts = [
       <p class="eyebrow">First customer</p>
       <h2 id="proof-heading" class="mt-4 text-3xl font-bold tracking-tight sm:text-4xl">Built for Xcelsior Compute</h2>
       <p class="mt-5 max-w-3xl text-lg leading-relaxed text-muted">
-        Xcelsior Compute, a GPU marketplace, is the first production user of Headmesh. GPU owners and renters connect
-        through it without exposing anyone's home network: a renter reaches the one machine they rented, for as long as
-        the rental lasts, and nothing else.
+        Headmesh is built for Xcelsior Compute's GPU marketplace. A renter reaches the one machine they rented, only while
+        the rental lasts. The owner's home network stays closed.
       </p>
       <a
         href={XCELSIOR_URL}
