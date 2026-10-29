@@ -52,8 +52,9 @@ type config struct {
 	ServerURL       string                `json:"server_url"`
 	ClientCert      string                `json:"client_cert"`
 	ClientKey       string                `json:"client_key"`
-	ServerCA        string                `json:"server_ca,omitempty"` // empty: system roots
-	ServerKeys      []string              `json:"server_keys"`         // base64 Ed25519 public keys
+	ServerCA        string                `json:"server_ca,omitempty"`   // empty: system roots
+	ServerName      string                `json:"server_name,omitempty"` // empty: server_url's host
+	ServerKeys      []string              `json:"server_keys"`           // base64 Ed25519 public keys
 	ProtectedNodes  []uint64              `json:"protected_nodes"`
 	Invariants      []cellagent.Invariant `json:"invariants"`
 }
@@ -173,11 +174,25 @@ func run(args []string) int {
 
 // serverClient builds an mTLS HTTP/2 Connect client for the Headmesh server.
 func serverClient(cfg config) (cellv1connect.CellServiceClient, error) {
+	tlsCfg, err := serverTLS(cfg)
+	if err != nil {
+		return nil, err
+	}
+	httpClient := &http.Client{Transport: &http.Transport{
+		TLSClientConfig: tlsCfg, ForceAttemptHTTP2: true, IdleConnTimeout: 90 * time.Second,
+		TLSHandshakeTimeout: 10 * time.Second, ResponseHeaderTimeout: 30 * time.Second,
+	}}
+	return cellv1connect.NewCellServiceClient(connect.NewClient(connecthttp.NewTransport(httpClient, cfg.ServerURL))), nil
+}
+
+// serverTLS is the agent's side of the mTLS handshake. server_name lets an agent dial an address (loopback on the
+// server's own host, or a tailnet IP) and still verify the certificate issued for the server's public name.
+func serverTLS(cfg config) (*tls.Config, error) {
 	cert, err := tls.LoadX509KeyPair(cfg.ClientCert, cfg.ClientKey)
 	if err != nil {
 		return nil, fmt.Errorf("load client certificate: %w", err)
 	}
-	tlsCfg := &tls.Config{MinVersion: tls.VersionTLS13, Certificates: []tls.Certificate{cert}}
+	tlsCfg := &tls.Config{MinVersion: tls.VersionTLS13, Certificates: []tls.Certificate{cert}, ServerName: cfg.ServerName}
 	if cfg.ServerCA != "" {
 		pem, err := os.ReadFile(cfg.ServerCA)
 		if err != nil {
@@ -189,11 +204,7 @@ func serverClient(cfg config) (cellv1connect.CellServiceClient, error) {
 		}
 		tlsCfg.RootCAs = pool
 	}
-	httpClient := &http.Client{Transport: &http.Transport{
-		TLSClientConfig: tlsCfg, ForceAttemptHTTP2: true, IdleConnTimeout: 90 * time.Second,
-		TLSHandshakeTimeout: 10 * time.Second, ResponseHeaderTimeout: 30 * time.Second,
-	}}
-	return cellv1connect.NewCellServiceClient(connect.NewClient(connecthttp.NewTransport(httpClient, cfg.ServerURL))), nil
+	return tlsCfg, nil
 }
 
 // headscaleIdentity reads Headscale's version and Noise public key from its local HTTP listener. The key
