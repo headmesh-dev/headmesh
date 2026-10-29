@@ -154,8 +154,8 @@ headmesh/
     install/                 # install.sh served at get.headmesh.dev
     secrets/                 # sops+age encrypted
   test/e2e/                  # tenant isolation suite, revocation latency
-  mise.toml  .golangci.yml  biome.json  pnpm-workspace.yaml  renovate.json  .github/workflows/
-  LICENSE (decision gate §19)  SECURITY.md  CONTRIBUTING.md  CODEOWNERS
+  mise.toml  .golangci.yml  pnpm-workspace.yaml  .github/ (workflows/, renovate.json, SECURITY.md, CONTRIBUTING.md)
+  LICENSE  LICENSING.md  AGENTS.md  CODEOWNERS
 ```
 
 ### 3.2 Pinned toolchain and libraries (latest stable as of 2026-10-26)

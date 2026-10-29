@@ -1,4 +1,5 @@
 # Cell protocol: Connect (server) + Connect client in the agent.
+# Run from the repository root: buf generate --template proto/buf.gen.yaml (paths are relative to the root).
 version: v2
 managed:
   enabled: true

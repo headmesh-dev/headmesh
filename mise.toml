@@ -15,7 +15,7 @@ CGO_ENABLED = "0"
 
 [tasks.generate]
 description = "Regenerate protobuf stubs and sqlc queries"
-run = ["buf generate", "buf generate --template buf.gen.headscale.yaml", "sqlc generate"]
+run = ["buf generate --template proto/buf.gen.yaml", "buf generate --template proto/buf.gen.headscale.yaml", "sqlc generate -f db/sqlc.yaml"]
 
 [tasks.lint]
 description = "Lint Go code"

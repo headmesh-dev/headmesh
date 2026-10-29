@@ -1,12 +1,13 @@
+# sqlc (mise run generate): paths are relative to this file.
 version: "2"
 sql:
   - engine: postgresql
-    schema: db/migrations
-    queries: db/queries
+    schema: migrations
+    queries: queries
     gen:
       go:
         package: dbq
-        out: internal/store/dbq
+        out: ../internal/store/dbq
         sql_package: pgx/v5
         emit_json_tags: false
         emit_interface: true

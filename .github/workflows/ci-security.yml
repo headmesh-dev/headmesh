@@ -84,4 +84,4 @@ jobs:
         with:
           persist-credentials: false
       - name: osv-scanner (Go modules and the pnpm lockfile)
-        run: docker run --rm -v "$PWD:/src:ro" "$OSV_SCANNER_IMAGE" scan source --recursive --config /src/osv-scanner.toml /src
+        run: docker run --rm -v "$PWD:/src:ro" "$OSV_SCANNER_IMAGE" scan source --recursive --config /src/.github/osv-scanner.toml /src

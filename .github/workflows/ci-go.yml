@@ -11,7 +11,6 @@ on:
       - proto/**
       - db/**
       - buf*.yaml
-      - sqlc.yaml
       - .golangci.yml
       - api/openapi/**
       - .github/workflows/ci-go.yml
@@ -52,9 +51,9 @@ jobs:
         run: buf lint
       - name: Regenerate and diff
         run: |
-          buf generate
-          buf generate --template buf.gen.headscale.yaml
-          sqlc generate
+          buf generate --template proto/buf.gen.yaml
+          buf generate --template proto/buf.gen.headscale.yaml
+          sqlc generate -f db/sqlc.yaml
           git diff --exit-code -- gen internal/store/dbq
 
   openapi:
