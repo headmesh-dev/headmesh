@@ -1,5 +1,52 @@
 components:
   schemas:
+    AuditEventBody:
+      additionalProperties: false
+      properties:
+        action:
+          examples:
+            - grant.revoked
+          type: string
+        actor_id:
+          type: string
+        actor_type:
+          enum:
+            - user
+            - api_key
+            - system
+            - cell
+            - platform
+          type: string
+        data: {}
+        hash:
+          description: hex SHA-256 link in the org's hash chain
+          type: string
+        id:
+          description: position in the org's log; pass the last one you saw as after
+          format: int64
+          type: integer
+        ip:
+          type: string
+        occurred_at:
+          format: date-time
+          type: string
+        request_id:
+          type: string
+        target_id:
+          type: string
+        target_type:
+          type: string
+      required:
+        - id
+        - occurred_at
+        - actor_type
+        - actor_id
+        - action
+        - target_type
+        - target_id
+        - data
+        - hash
+      type: object
     CompleteInBody:
       additionalProperties: false
       properties:
@@ -390,6 +437,30 @@ components:
         - prefix
         - scopes
       type: object
+    ListOutBody:
+      additionalProperties: false
+      properties:
+        $schema:
+          description: A URL to the JSON Schema for this object.
+          examples:
+            - https://example.com/schemas/ListOutBody.json
+          format: uri
+          readOnly: true
+          type: string
+        events:
+          items:
+            $ref: "#/components/schemas/AuditEventBody"
+          type:
+            - array
+            - "null"
+        next_after:
+          description: pass as after for the next page; equals after when there are no more
+          format: int64
+          type: integer
+      required:
+        - events
+        - next_after
+      type: object
     MeOutBody:
       additionalProperties: false
       properties:
@@ -501,6 +572,29 @@ components:
         - commands
         - expires_at
       type: object
+    VerifyOutBody:
+      additionalProperties: false
+      properties:
+        $schema:
+          description: A URL to the JSON Schema for this object.
+          examples:
+            - https://example.com/schemas/VerifyOutBody.json
+          format: uri
+          readOnly: true
+          type: string
+        checked:
+          description: events verified before the first problem (all of them when verified)
+          format: int64
+          type: integer
+        problem:
+          description: the first event that failed verification
+          type: string
+        verified:
+          type: boolean
+      required:
+        - verified
+        - checked
+      type: object
   securitySchemes:
     bearer:
       description: API key (hmk_…)
@@ -539,6 +633,67 @@ paths:
       summary: Create an API key
       tags:
         - account
+  /v1/audit-events:
+    get:
+      operationId: list-audit-events
+      parameters:
+        - description: return events after this id (0 for the start)
+          explode: false
+          in: query
+          name: after
+          schema:
+            description: return events after this id (0 for the start)
+            format: int64
+            minimum: 0
+            type: integer
+        - explode: false
+          in: query
+          name: limit
+          schema:
+            default: 100
+            format: int32
+            maximum: 500
+            minimum: 1
+            type: integer
+      responses:
+        "200":
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ListOutBody"
+          description: OK
+        default:
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/ErrorModel"
+          description: Error
+      security:
+        - bearer: []
+      summary: Your org's audit log, oldest first
+      tags:
+        - audit
+  /v1/audit-events/verify:
+    get:
+      operationId: verify-audit-events
+      responses:
+        "200":
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/VerifyOutBody"
+          description: OK
+        default:
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/ErrorModel"
+          description: Error
+      security:
+        - bearer: []
+      summary: Recompute your org's audit hash chain and report whether it is intact
+      tags:
+        - audit
   /v1/devices:
     get:
       operationId: list-devices

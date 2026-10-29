@@ -410,4 +410,56 @@ func TestOnboardingAndAccessLifecycle(t *testing.T) {
 	if err != nil {
 		t.Fatalf("audit: %v", err)
 	}
+
+	// --- Audit over the API: pages, isolation, verification and the read scope ---------------------------------
+	type auditPage struct {
+		Events []struct {
+			ID     int64  `json:"id"`
+			Action string `json:"action"`
+			Hash   string `json:"hash"`
+		} `json:"events"`
+		NextAfter int64 `json:"next_after"`
+	}
+	var p1, p2 auditPage
+	if code := c.do("GET", "/v1/audit-events?limit=2", own.AdminKey.Key, nil, &p1); code != http.StatusOK || len(p1.Events) != 2 {
+		t.Fatalf("audit page 1: %d with %d events", code, len(p1.Events))
+	}
+	if code := c.do("GET", fmt.Sprintf("/v1/audit-events?after=%d", p1.NextAfter), own.AdminKey.Key, nil, &p2); code != http.StatusOK ||
+		len(p2.Events) < 3 || p2.Events[0].ID <= p1.NextAfter {
+		t.Fatalf("audit page 2: %d, %+v", code, p2)
+	}
+	ownIDs := map[int64]bool{}
+	for _, e := range append(p1.Events, p2.Events...) {
+		ownIDs[e.ID] = true
+		if len(e.Hash) != 64 {
+			t.Fatalf("event %d has hash %q", e.ID, e.Hash)
+		}
+	}
+	var platPage auditPage
+	if code := c.do("GET", "/v1/audit-events?limit=500", plat.AdminKey.Key, nil, &platPage); code != http.StatusOK || len(platPage.Events) == 0 {
+		t.Fatalf("platform audit: %d with %d events", code, len(platPage.Events))
+	}
+	for _, e := range platPage.Events {
+		if ownIDs[e.ID] {
+			t.Fatalf("the platform org can read the owner org's audit event %d (%s)", e.ID, e.Action)
+		}
+	}
+	var verified struct {
+		Verified bool   `json:"verified"`
+		Checked  int    `json:"checked"`
+		Problem  string `json:"problem"`
+	}
+	if code := c.do("GET", "/v1/audit-events/verify", own.AdminKey.Key, nil, &verified); code != http.StatusOK ||
+		!verified.Verified || verified.Checked != len(ownIDs) {
+		t.Fatalf("audit verify: %d, %+v (want %d events)", code, verified, len(ownIDs))
+	}
+	var narrow struct {
+		Key string `json:"key"`
+	}
+	if code := c.do("POST", "/v1/api-keys", own.AdminKey.Key, map[string]any{"name": "devices only", "scopes": []string{"devices:read"}}, &narrow); code != http.StatusCreated {
+		t.Fatalf("create devices-only key: %d", code)
+	}
+	if code := c.do("GET", "/v1/audit-events", narrow.Key, nil, nil); code != http.StatusForbidden {
+		t.Fatalf("a key without audit:read read the audit log: %d", code)
+	}
 }

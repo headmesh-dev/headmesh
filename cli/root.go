@@ -260,8 +260,63 @@ separate tailscaled (own state, socket, port and interface) alongside it. Creati
 		},
 	})
 	root.AddCommand(grant)
+
+	// audit ----------------------------------------------------------------------------------------------
+	audit := &cobra.Command{Use: "audit", Short: "Read and verify your org's tamper-evident audit log"}
+	var after int64
+	var limit int
+	tail := &cobra.Command{
+		Use: "tail", Short: "List audit events, oldest first (page with --after)", Args: cobra.NoArgs,
+		RunE: func(cmd *cobra.Command, _ []string) error {
+			events, next, err := client().AuditEvents(cmd.Context(), after, limit)
+			if err != nil {
+				return err
+			}
+			return print(cmd.OutOrStdout(), events, func(w io.Writer) {
+				tw := tabwriter.NewWriter(w, 0, 2, 2, ' ', 0)
+				_, _ = fmt.Fprintln(tw, "ID\tTIME\tACTOR\tACTION\tTARGET")
+				for _, e := range events {
+					_, _ = fmt.Fprintf(tw, "%d\t%s\t%s:%s\t%s\t%s:%s\n", e.ID, e.OccurredAt.Format(time.RFC3339), e.ActorType, e.ActorID,
+						e.Action, e.TargetType, e.TargetID)
+				}
+				_ = tw.Flush()
+				if len(events) == limit {
+					_, _ = fmt.Fprintf(w, "More: headmesh audit tail --after %d\n", next)
+				}
+			})
+		},
+	}
+	tail.Flags().Int64Var(&after, "after", 0, "show events after this id")
+	tail.Flags().IntVar(&limit, "limit", 100, "events per page (1-500)")
+	audit.AddCommand(tail)
+	audit.AddCommand(&cobra.Command{
+		Use: "verify", Short: "Check that the audit log's hash chain is intact", Args: cobra.NoArgs,
+		RunE: func(cmd *cobra.Command, _ []string) error {
+			v, err := client().VerifyAudit(cmd.Context())
+			if err != nil {
+				return err
+			}
+			if err := print(cmd.OutOrStdout(), v, func(w io.Writer) {
+				if v.Verified {
+					_, _ = fmt.Fprintf(w, "Audit log intact: %d events verified\n", v.Checked)
+				} else {
+					_, _ = fmt.Fprintf(w, "Audit log BROKEN after %d events: %s\n", v.Checked, v.Problem)
+				}
+			}); err != nil {
+				return err
+			}
+			if !v.Verified {
+				return errAuditBroken
+			}
+			return nil
+		},
+	})
+	root.AddCommand(audit)
 	return root
 }
+
+// errAuditBroken makes `headmesh audit verify` exit non-zero when the chain doesn't verify.
+var errAuditBroken = errors.New("audit chain verification failed")
 
 // parseInvite accepts a raw token or a join URL (https://api.headmesh.dev/join/hmj_…) and returns the token and,
 // for URLs, the API base URL.

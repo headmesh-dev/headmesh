@@ -194,3 +194,40 @@ func (c *Client) RevokeGrant(ctx context.Context, id string) (*Grant, error) {
 	err := c.do(ctx, http.MethodPost, "/v1/grants/"+id+"/revoke", true, nil, &out)
 	return &out, err
 }
+
+// AuditEvent mirrors one entry of the API's audit log.
+type AuditEvent struct {
+	ID         int64           `json:"id"`
+	OccurredAt time.Time       `json:"occurred_at"`
+	ActorType  string          `json:"actor_type"`
+	ActorID    string          `json:"actor_id"`
+	Action     string          `json:"action"`
+	TargetType string          `json:"target_type"`
+	TargetID   string          `json:"target_id"`
+	Data       json.RawMessage `json:"data"`
+	Hash       string          `json:"hash"`
+}
+
+// AuditEvents returns up to limit audit events after the given id, and the id to pass for the next page.
+func (c *Client) AuditEvents(ctx context.Context, after int64, limit int) ([]AuditEvent, int64, error) {
+	var out struct {
+		Events    []AuditEvent `json:"events"`
+		NextAfter int64        `json:"next_after"`
+	}
+	err := c.do(ctx, http.MethodGet, fmt.Sprintf("/v1/audit-events?after=%d&limit=%d", after, limit), true, nil, &out)
+	return out.Events, out.NextAfter, err
+}
+
+// AuditVerification mirrors the API's chain verification result.
+type AuditVerification struct {
+	Verified bool   `json:"verified"`
+	Checked  int    `json:"checked"`
+	Problem  string `json:"problem,omitempty"`
+}
+
+// VerifyAudit asks the server to recompute the org's audit hash chain.
+func (c *Client) VerifyAudit(ctx context.Context) (*AuditVerification, error) {
+	var out AuditVerification
+	err := c.do(ctx, http.MethodGet, "/v1/audit-events/verify", true, nil, &out)
+	return &out, err
+}

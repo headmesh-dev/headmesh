@@ -202,3 +202,37 @@ func TestCommandsNeedAnAPIKey(t *testing.T) {
 		t.Fatalf("want ErrNoAPIKey, got %v", err)
 	}
 }
+
+// TestAuditVerifyFailsOnABrokenChain: `headmesh audit verify` must exit non-zero when the server reports a broken
+// chain, so scripts and cron jobs notice.
+func TestAuditVerifyFailsOnABrokenChain(t *testing.T) {
+	for _, tc := range []struct {
+		name    string
+		body    string
+		wantErr bool
+		want    string
+	}{
+		{"intact", `{"verified":true,"checked":12}`, false, "Audit log intact: 12 events verified"},
+		{"broken", `{"verified":false,"checked":3,"problem":"audit chain broken: event 4 content does not match its hash"}`, true, "BROKEN after 3 events"},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+				if r.URL.Path != "/v1/audit-events/verify" || r.Header.Get("Authorization") != "Bearer hmk_test" {
+					w.WriteHeader(http.StatusNotFound)
+					return
+				}
+				w.Header().Set("Content-Type", "application/json")
+				_, _ = w.Write([]byte(tc.body))
+			}))
+			defer srv.Close()
+			env := map[string]string{"HEADMESH_API_KEY": "hmk_test", "HEADMESH_SERVER": srv.URL}
+			out, err := run(t, Deps{Getenv: func(k string) string { return env[k] }}, "audit", "verify")
+			if (err != nil) != tc.wantErr {
+				t.Fatalf("err = %v, want error %v", err, tc.wantErr)
+			}
+			if !strings.Contains(out, tc.want) {
+				t.Fatalf("output %q lacks %q", out, tc.want)
+			}
+		})
+	}
+}
