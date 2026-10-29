@@ -53,7 +53,7 @@ jobs:
           persist-credentials: false
       - name: No tracked internal documents
         run: |
-          found="$(git ls-files 'docs/internal/*' 'docs/*prod-hetzner*' 'deploy/env/*.env' 'deploy/env/*/*.env' '.env')"
+          found="$(git ls-files ':(glob)docs/internal/**' ':(glob)docs/*prod-hetzner*' ':(glob)deploy/env/*.env' ':(glob)deploy/env/*/*.env' ':(glob).env')"
           if [ -n "$found" ]; then
             printf '::error::These files must not be tracked (keep them in docs/internal/ or the git-ignored env files):\n%s\n' "$found"
             exit 1
