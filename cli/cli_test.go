@@ -5,9 +5,11 @@ import (
 	"context"
 	"encoding/json"
 	"errors"
+	"fmt"
 	"net/http"
 	"net/http/httptest"
 	"os"
+	"path/filepath"
 	"strings"
 	"sync"
 	"testing"
@@ -312,5 +314,82 @@ func TestAccessCheckPrintsTheAnswerAndItsReasons(t *testing.T) {
 		if err != nil || !strings.Contains(out, tc.want) {
 			t.Fatalf("output %q (%v), want %q", out, err, tc.want)
 		}
+	}
+}
+
+// chain builds n linked export lines for one org, starting at the genesis hash.
+func chain(t *testing.T, org string, n int) [][]byte {
+	t.Helper()
+	prev := auditGenesis(org)
+	var out [][]byte
+	for i := 1; i <= n; i++ {
+		e := auditLine{
+			ID: int64(i * 10), OrgID: org, OccurredAt: "2026-10-29T12:00:00.123456Z", ActorType: "api_key",
+			ActorID: "k1", Action: "rule.created", TargetType: "rule", TargetID: fmt.Sprint(i),
+			Data: json.RawMessage(`{"ports":["tcp:22"],"b":1.50,"a":"<x>"}`), PrevHash: prev,
+		}
+		h, err := auditEventHash(e)
+		if err != nil {
+			t.Fatal(err)
+		}
+		e.Hash, prev = h, h
+		b, _ := json.Marshal(e)
+		out = append(out, b)
+	}
+	return out
+}
+
+func TestVerifyAuditExport(t *testing.T) {
+	const org = "0193f0c4-0000-7000-8000-0000000000aa"
+	lines := chain(t, org, 4)
+	join := func(ls ...[]byte) *bytes.Reader { return bytes.NewReader(bytes.Join(ls, []byte("\n"))) }
+
+	v, err := VerifyAuditExport(join(lines...))
+	if err != nil || v.Checked != 4 || !v.FromGenesis || v.FirstID != 10 || v.LastID != 40 {
+		t.Fatalf("whole log: %+v, %v", v, err)
+	}
+	if v, err := VerifyAuditExport(join(lines[2:]...)); err != nil || v.FromGenesis || v.Checked != 2 {
+		t.Fatalf("a file starting mid-log: %+v, %v", v, err)
+	}
+	for name, r := range map[string]*bytes.Reader{
+		"missing line": join(lines[0], lines[2], lines[3]),
+		"reordered":    join(lines[0], lines[2], lines[1], lines[3]),
+		"other org":    join(lines[0], chain(t, "0193f0c4-0000-7000-8000-0000000000bb", 2)[1]),
+		"edited data":  join(lines[0], bytes.Replace(lines[1], []byte(`tcp:22`), []byte(`tcp:23`), 1)),
+		"empty":        join(),
+	} {
+		if _, err := VerifyAuditExport(r); !errors.Is(err, errAuditFileBroken) {
+			t.Fatalf("%s: err = %v", name, err)
+		}
+	}
+}
+
+func TestAuditExportAndVerifyFile(t *testing.T) {
+	const org = "0193f0c4-0000-7000-8000-0000000000aa"
+	body := bytes.Join(chain(t, org, 3), []byte("\n"))
+	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		if r.URL.Path != "/v1/audit-events/export" || r.URL.Query().Get("after") != "0" {
+			w.WriteHeader(http.StatusNotFound)
+			return
+		}
+		w.Header().Set("Content-Type", "application/x-ndjson")
+		_, _ = w.Write(body)
+	}))
+	defer srv.Close()
+	env := map[string]string{"HEADMESH_API_KEY": "hmk_test", "HEADMESH_SERVER": srv.URL}
+	deps := Deps{Getenv: func(k string) string { return env[k] }}
+	file := filepath.Join(t.TempDir(), "audit.ndjson")
+	if _, err := run(t, deps, "audit", "export", "-o", file); err != nil {
+		t.Fatal(err)
+	}
+	out, err := run(t, deps, "audit", "verify", "--file", file)
+	if err != nil || !strings.Contains(out, "Audit export intact: 3 events verified from the first event") {
+		t.Fatalf("verify --file: %q, %v", out, err)
+	}
+	if err := os.WriteFile(file, bytes.Replace(body, []byte(`"k1"`), []byte(`"k2"`), 1), 0o600); err != nil {
+		t.Fatal(err)
+	}
+	if out, err := run(t, deps, "audit", "verify", "--file", file); !errors.Is(err, errAuditBroken) || !strings.Contains(out, "BROKEN") {
+		t.Fatalf("a tampered file: %q, %v", out, err)
 	}
 }

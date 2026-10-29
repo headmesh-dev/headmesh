@@ -393,9 +393,36 @@ separate tailscaled (own state, socket, port and interface) alongside it. Creati
 	tail.Flags().Int64Var(&after, "after", 0, "show events after this id")
 	tail.Flags().IntVar(&limit, "limit", 100, "events per page (1-500)")
 	audit.AddCommand(tail)
-	audit.AddCommand(&cobra.Command{
-		Use: "verify", Short: "Check that the audit log's hash chain is intact", Args: cobra.NoArgs,
+	var exportAfter int64
+	var exportOut string
+	export := &cobra.Command{
+		Use: "export", Short: "Download the audit log as NDJSON (verifiable offline with audit verify --file)",
+		Example: "  headmesh audit export -o audit.ndjson && headmesh audit verify --file audit.ndjson", Args: cobra.NoArgs,
 		RunE: func(cmd *cobra.Command, _ []string) error {
+			w := cmd.OutOrStdout()
+			if exportOut != "" && exportOut != "-" {
+				f, err := os.OpenFile(exportOut, os.O_WRONLY|os.O_CREATE|os.O_TRUNC, 0o600) //nolint:gosec // the user names the file to write
+				if err != nil {
+					return fmt.Errorf("open %s: %w", exportOut, err)
+				}
+				defer func() { _ = f.Close() }()
+				w = f
+			}
+			return client().ExportAudit(cmd.Context(), exportAfter, w)
+		},
+	}
+	export.Flags().Int64Var(&exportAfter, "after", 0, "start after this event id (default: the whole log)")
+	export.Flags().StringVarP(&exportOut, "output", "o", "", "write to this file instead of stdout")
+	audit.AddCommand(export)
+	var verifyFile string
+	verify := &cobra.Command{
+		Use: "verify", Short: "Check that the audit log's hash chain is intact", Args: cobra.NoArgs,
+		Long: "Without --file, the server recomputes the chain. With --file, this machine recomputes it from an export, " +
+			"so nobody has to trust the server's word.",
+		RunE: func(cmd *cobra.Command, _ []string) error {
+			if verifyFile != "" {
+				return verifyAuditFile(cmd, verifyFile, print)
+			}
 			v, err := client().VerifyAudit(cmd.Context())
 			if err != nil {
 				return err
@@ -414,13 +441,40 @@ separate tailscaled (own state, socket, port and interface) alongside it. Creati
 			}
 			return nil
 		},
-	})
+	}
+	verify.Flags().StringVar(&verifyFile, "file", "", "verify an NDJSON export offline (- for stdin)")
+	audit.AddCommand(verify)
 	root.AddCommand(audit)
 	return root
 }
 
 // errAuditBroken makes `headmesh audit verify` exit non-zero when the chain doesn't verify.
 var errAuditBroken = errors.New("audit chain verification failed")
+
+// verifyAuditFile checks an export offline; show is the command's --json-aware printer.
+func verifyAuditFile(cmd *cobra.Command, path string, show func(io.Writer, any, func(io.Writer)) error) error {
+	r := cmd.InOrStdin()
+	if path != "-" {
+		f, err := os.Open(path) //nolint:gosec // the user names the file to read
+		if err != nil {
+			return fmt.Errorf("open %s: %w", path, err)
+		}
+		defer func() { _ = f.Close() }()
+		r = f
+	}
+	v, err := VerifyAuditExport(r)
+	if err != nil {
+		_, _ = fmt.Fprintf(cmd.OutOrStdout(), "Audit export BROKEN after %d events: %v\n", v.Checked, err)
+		return errAuditBroken
+	}
+	return show(cmd.OutOrStdout(), v, func(w io.Writer) {
+		scope := "from the first event"
+		if !v.FromGenesis {
+			scope = fmt.Sprintf("from event %d (the file doesn't start at the beginning of the log)", v.FirstID)
+		}
+		_, _ = fmt.Fprintf(w, "Audit export intact: %d events verified %s to event %d\nLast hash: %s\n", v.Checked, scope, v.LastID, v.LastHash)
+	})
+}
 
 // parseInvite accepts a raw token or a join URL (https://api.headmesh.dev/join/hmj_…) and returns the token and,
 // for URLs, the API base URL.

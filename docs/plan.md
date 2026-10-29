@@ -800,7 +800,7 @@ volumes: { hm-cache-mise: {}, hm-cache-uv: {}, hm-cache-npm: {}, hm-cache-pnpm: 
 
 ### 9.7 Audit log (tamper-evident)
 
-**Status 2026-10-29:** the append-only, per-org hash chain is built and tested on Postgres 18; `GET /v1/audit-events` (paged), `GET /v1/audit-events/verify` and `headmesh audit tail|verify` are live behind the `audit:read` scope. Still to do: the signed daily anchor to R2 and NDJSON export.
+**Status 2026-10-29:** the append-only, per-org hash chain is built and tested on Postgres 18; `GET /v1/audit-events` (paged), `GET /v1/audit-events/verify` and `headmesh audit tail|verify` are live behind the `audit:read` scope. `GET /v1/audit-events/export` streams the log as NDJSON with every hashed field, and `headmesh audit export` plus `headmesh audit verify --file` recompute the chain offline (the API's integration test verifies a real export with the CLI's independent code). Still to do: the signed daily anchor to R2.
 - **Append-only:** the app's DB role has INSERT/SELECT only, and a trigger raises on UPDATE or DELETE.
 - **Per-org hash chain:** `hash = sha256(prev_hash || canonical_json(event))`. The chain head is locked with `SELECT … FOR UPDATE` on `org_chain_heads`.
 - **Daily anchor:** a signed chain-head manifest (Ed25519) goes to R2 with an object lock if the bucket supports it (**SPIKE T-17**; otherwise Backblaze B2 object lock).

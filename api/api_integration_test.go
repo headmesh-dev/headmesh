@@ -29,6 +29,7 @@ import (
 	"google.golang.org/protobuf/types/known/timestamppb"
 
 	"github.com/headmesh-dev/headmesh/api"
+	"github.com/headmesh-dev/headmesh/cli"
 	"github.com/headmesh-dev/headmesh/core/cellagent"
 	"github.com/headmesh-dev/headmesh/core/cellserver"
 	cellv1 "github.com/headmesh-dev/headmesh/gen/cell/v1"
@@ -569,5 +570,43 @@ func TestOnboardingAndAccessLifecycle(t *testing.T) {
 	}
 	if code := c.do("GET", "/v1/audit-events", narrow.Key, nil, nil); code != http.StatusForbidden {
 		t.Fatalf("a key without audit:read read the audit log: %d", code)
+	}
+
+	// --- Export: NDJSON that the CLI's independent verifier accepts, and rejects once edited ------------------------
+	export := func(key string) (int, string, []byte) {
+		t.Helper()
+		req, _ := http.NewRequestWithContext(ctx, http.MethodGet, srv.URL+"/v1/audit-events/export", nil)
+		req.Header.Set("Authorization", "Bearer "+key)
+		resp, err := http.DefaultClient.Do(req)
+		if err != nil {
+			t.Fatal(err)
+		}
+		defer func() { _ = resp.Body.Close() }()
+		body, _ := io.ReadAll(resp.Body)
+		return resp.StatusCode, resp.Header.Get("Content-Type"), body
+	}
+	if code, _, _ := export(narrow.Key); code != http.StatusForbidden {
+		t.Fatalf("a key without audit:read exported the audit log: %d", code)
+	}
+	code, ctype, ndjson := export(own.AdminKey.Key)
+	if code != http.StatusOK || ctype != "application/x-ndjson" {
+		t.Fatalf("export: %d %s", code, ctype)
+	}
+	var verifiedCount struct {
+		Checked int `json:"checked"`
+	}
+	c.do("GET", "/v1/audit-events/verify", own.AdminKey.Key, nil, &verifiedCount)
+	v, err := cli.VerifyAuditExport(bytes.NewReader(ndjson))
+	if err != nil || !v.FromGenesis || v.Checked != verifiedCount.Checked {
+		t.Fatalf("offline verification of a real export: %+v, %v (server checked %d)", v, err, verifiedCount.Checked)
+	}
+	lines := bytes.Split(bytes.TrimSpace(ndjson), []byte("\n"))
+	edited := bytes.Replace(ndjson, lines[1], bytes.Replace(lines[1], []byte(`"actor_type":"`), []byte(`"actor_type":"x`), 1), 1)
+	if _, err := cli.VerifyAuditExport(bytes.NewReader(edited)); err == nil {
+		t.Fatal("an edited export verified")
+	}
+	dropped := bytes.Join(append(slices.Clone(lines[:1]), lines[2:]...), []byte("\n"))
+	if _, err := cli.VerifyAuditExport(bytes.NewReader(dropped)); err == nil {
+		t.Fatal("an export with a missing line verified")
 	}
 }

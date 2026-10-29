@@ -92,6 +92,59 @@ func (s *Service) VerifyAudit(ctx context.Context, p Principal) (*AuditVerificat
 	return &res, nil
 }
 
+// AuditExportEntry is an audit event with every field its hash covers, plus the hash it links to, so a copy of the
+// log can be re-verified without the server (`headmesh audit verify --file`).
+type AuditExportEntry struct {
+	AuditEntry
+	OrgID     string
+	UserAgent string
+	PrevHash  string
+}
+
+// auditExportPage is how many events the export reads per transaction.
+const auditExportPage = 500
+
+// ExportAuditEvents calls emit for each of the caller's org's events with an id greater than after, oldest first.
+// It reads a page per transaction, so a long export never holds one open; the log is append-only, so paging by id
+// misses nothing.
+func (s *Service) ExportAuditEvents(ctx context.Context, p Principal, after int64, emit func(*AuditExportEntry) error) error {
+	if !p.Can(ScopeAuditRead) {
+		return ErrForbidden
+	}
+	if after < 0 {
+		return fmt.Errorf("%w: after must be ≥ 0", ErrInvalid)
+	}
+	for {
+		var page []dbq.AuditEvent
+		err := s.Store.Tx(ctx, p.scope(), func(q *dbq.Queries, _ pgx.Tx) error {
+			var err error
+			page, err = q.ListAuditEvents(ctx, dbq.ListAuditEventsParams{OrgID: p.OrgID, ID: after, Limit: auditExportPage})
+			if err != nil {
+				return fmt.Errorf("list audit events: %w", err)
+			}
+			return nil
+		})
+		if err != nil {
+			return err
+		}
+		for _, e := range page {
+			entry := &AuditExportEntry{
+				AuditEntry: *toAuditEntry(e), UserAgent: derefOr(e.UserAgent, ""), PrevHash: hex.EncodeToString(e.PrevHash),
+			}
+			if e.OrgID.Valid {
+				entry.OrgID = e.OrgID.String()
+			}
+			if err := emit(entry); err != nil {
+				return err
+			}
+			after = e.ID
+		}
+		if len(page) < auditExportPage {
+			return nil
+		}
+	}
+}
+
 func toAuditEntry(e dbq.AuditEvent) *AuditEntry {
 	entry := &AuditEntry{
 		ID: e.ID, OccurredAt: e.OccurredAt, ActorType: e.ActorType, ActorID: e.ActorID, Action: e.Action,
