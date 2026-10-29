@@ -13,6 +13,7 @@ on:
       - buf*.yaml
       - sqlc.yaml
       - .golangci.yml
+      - api/openapi/**
       - .github/workflows/ci-go.yml
 
 permissions: {}
@@ -55,6 +56,32 @@ jobs:
           buf generate --template buf.gen.headscale.yaml
           sqlc generate
           git diff --exit-code -- gen internal/store/dbq
+
+  openapi:
+    name: OpenAPI has no breaking changes
+    # The committed spec matching the code is checked by TestOpenAPIIsCommitted in the test job; this compares it with
+    # the base branch (plan §9.8).
+    if: github.event_name == 'pull_request'
+    runs-on: ubuntu-26.04
+    permissions:
+      contents: read
+    timeout-minutes: 5
+    env:
+      OASDIFF_IMAGE: tufin/oasdiff:v1.35.0@sha256:82b1840a77335562bb11ce95f77ad31745a0c6f3a770929333ed1c5ef466e400
+      BASE_REF: ${{ github.base_ref }}
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          fetch-depth: 0
+          persist-credentials: false
+      - name: oasdiff breaking
+        run: |
+          if ! git show "origin/${BASE_REF}:api/openapi/openapi.yaml" > "${RUNNER_TEMP}/base.yaml" 2>/dev/null; then
+            echo "The base branch has no api/openapi/openapi.yaml yet; nothing to compare."
+            exit 0
+          fi
+          docker run --rm -v "${RUNNER_TEMP}:/base:ro" -v "$PWD/api/openapi:/head:ro" "$OASDIFF_IMAGE" \
+            breaking /base/base.yaml /head/openapi.yaml --fail-on ERR --format githubactions
 
   lint:
     name: Lint

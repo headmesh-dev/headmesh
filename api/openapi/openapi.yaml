@@ -1,0 +1,741 @@
+components:
+  schemas:
+    CompleteInBody:
+      additionalProperties: false
+      properties:
+        $schema:
+          description: A URL to the JSON Schema for this object.
+          examples:
+            - https://example.com/schemas/CompleteInBody.json
+          format: uri
+          readOnly: true
+          type: string
+        completion_secret:
+          maxLength: 200
+          minLength: 20
+          type: string
+        node_id:
+          format: int64
+          minimum: 1
+          type: integer
+      required:
+        - completion_secret
+        - node_id
+      type: object
+    DeviceBody:
+      additionalProperties: false
+      properties:
+        $schema:
+          description: A URL to the JSON Schema for this object.
+          examples:
+            - https://example.com/schemas/DeviceBody.json
+          format: uri
+          readOnly: true
+          type: string
+        given_name:
+          description: "MagicDNS name: <name>-<org slug>"
+          type: string
+        id:
+          type: string
+        ipv4:
+          type: string
+        ipv6:
+          type: string
+        kind:
+          type: string
+        name:
+          type: string
+        online:
+          type: boolean
+        roles:
+          items:
+            type: string
+          type:
+            - array
+            - "null"
+        short_id:
+          type: string
+        state:
+          type: string
+      required:
+        - id
+        - short_id
+        - name
+        - given_name
+        - kind
+        - roles
+        - online
+        - state
+      type: object
+    DevicesOutBody:
+      additionalProperties: false
+      properties:
+        $schema:
+          description: A URL to the JSON Schema for this object.
+          examples:
+            - https://example.com/schemas/DevicesOutBody.json
+          format: uri
+          readOnly: true
+          type: string
+        devices:
+          items:
+            $ref: "#/components/schemas/DeviceBody"
+          type:
+            - array
+            - "null"
+      required:
+        - devices
+      type: object
+    EnrollInBody:
+      additionalProperties: false
+      properties:
+        $schema:
+          description: A URL to the JSON Schema for this object.
+          examples:
+            - https://example.com/schemas/EnrollInBody.json
+          format: uri
+          readOnly: true
+          type: string
+        arch:
+          maxLength: 32
+          type: string
+        hostname:
+          maxLength: 253
+          minLength: 1
+          type: string
+        os:
+          maxLength: 32
+          type: string
+        token:
+          maxLength: 200
+          minLength: 20
+          type: string
+      required:
+        - token
+        - hostname
+      type: object
+    EnrollOutBody:
+      additionalProperties: false
+      properties:
+        $schema:
+          description: A URL to the JSON Schema for this object.
+          examples:
+            - https://example.com/schemas/EnrollOutBody.json
+          format: uri
+          readOnly: true
+          type: string
+        auth_key:
+          description: single-use Headscale pre-auth key
+          type: string
+        completion_secret:
+          description: present to complete-enrollment
+          type: string
+        device_id:
+          type: string
+        enrollment_id:
+          type: string
+        expires_at:
+          format: date-time
+          type: string
+        hostname:
+          description: pass to tailscale up --hostname
+          type: string
+        login_server:
+          type: string
+        tags:
+          items:
+            type: string
+          type:
+            - array
+            - "null"
+      required:
+        - enrollment_id
+        - device_id
+        - login_server
+        - auth_key
+        - hostname
+        - tags
+        - expires_at
+        - completion_secret
+      type: object
+    ErrorDetail:
+      additionalProperties: false
+      properties:
+        location:
+          description: Where the error occurred, e.g. 'body.items[3].tags' or 'path.thing-id'
+          type: string
+        message:
+          description: Error message text
+          type: string
+        value:
+          description: The value at the given location
+      type: object
+    ErrorModel:
+      additionalProperties: false
+      properties:
+        $schema:
+          description: A URL to the JSON Schema for this object.
+          examples:
+            - https://example.com/schemas/ErrorModel.json
+          format: uri
+          readOnly: true
+          type: string
+        detail:
+          description: A human-readable explanation specific to this occurrence of the problem.
+          examples:
+            - Property foo is required but is missing.
+          type: string
+        errors:
+          description: Optional list of individual error details
+          items:
+            $ref: "#/components/schemas/ErrorDetail"
+          type:
+            - array
+            - "null"
+        instance:
+          description: A URI reference that identifies the specific occurrence of the problem.
+          examples:
+            - https://example.com/error-log/abc123
+          format: uri
+          type: string
+        status:
+          description: HTTP status code
+          examples:
+            - 400
+          format: int64
+          type: integer
+        title:
+          description: A short, human-readable summary of the problem type. This value should not change between occurrences of the error.
+          examples:
+            - Bad Request
+          type: string
+        type:
+          default: about:blank
+          description: A URI reference to human-readable documentation for the error.
+          examples:
+            - https://example.com/errors/example
+          format: uri
+          type: string
+      type: object
+    GrantBody:
+      additionalProperties: false
+      properties:
+        $schema:
+          description: A URL to the JSON Schema for this object.
+          examples:
+            - https://example.com/schemas/GrantBody.json
+          format: uri
+          readOnly: true
+          type: string
+        dst_device_id:
+          type: string
+        enforced:
+          description: true when the cell confirmed the resulting policy is live
+          type: boolean
+        expires_at:
+          format: date-time
+          type: string
+        external_ref:
+          type: string
+        grantee_org:
+          type: string
+        id:
+          type: string
+        ports:
+          items:
+            type: string
+          type:
+            - array
+            - "null"
+        revoked:
+          type: boolean
+        starts_at:
+          format: date-time
+          type: string
+      required:
+        - id
+        - dst_device_id
+        - ports
+        - starts_at
+        - expires_at
+        - revoked
+        - enforced
+      type: object
+    GrantInBody:
+      additionalProperties: false
+      properties:
+        $schema:
+          description: A URL to the JSON Schema for this object.
+          examples:
+            - https://example.com/schemas/GrantInBody.json
+          format: uri
+          readOnly: true
+          type: string
+        dst_device_id:
+          format: uuid
+          type: string
+        expires_at:
+          format: date-time
+          type: string
+        external_ref:
+          description: idempotency key, e.g. a rental id
+          maxLength: 200
+          type: string
+        grantee_org:
+          description: short id of the org receiving access
+          pattern: ^[a-z2-7]{10}$
+          type: string
+        ports:
+          examples:
+            - - tcp:22
+          items:
+            type: string
+          maxItems: 32
+          minItems: 1
+          type:
+            - array
+            - "null"
+        reason:
+          maxLength: 500
+          type: string
+        src:
+          $ref: "#/components/schemas/SelectorJSON"
+        starts_at:
+          format: date-time
+          type: string
+      required:
+        - grantee_org
+        - src
+        - dst_device_id
+        - ports
+        - expires_at
+      type: object
+    GrantsOutBody:
+      additionalProperties: false
+      properties:
+        $schema:
+          description: A URL to the JSON Schema for this object.
+          examples:
+            - https://example.com/schemas/GrantsOutBody.json
+          format: uri
+          readOnly: true
+          type: string
+        grants:
+          items:
+            $ref: "#/components/schemas/GrantBody"
+          type:
+            - array
+            - "null"
+      required:
+        - grants
+      type: object
+    KeyInBody:
+      additionalProperties: false
+      properties:
+        $schema:
+          description: A URL to the JSON Schema for this object.
+          examples:
+            - https://example.com/schemas/KeyInBody.json
+          format: uri
+          readOnly: true
+          type: string
+        name:
+          maxLength: 100
+          minLength: 1
+          type: string
+        scopes:
+          items:
+            type: string
+          minItems: 1
+          type:
+            - array
+            - "null"
+        ttl_seconds:
+          format: int64
+          minimum: 0
+          type: integer
+      required:
+        - name
+        - scopes
+      type: object
+    KeyOutBody:
+      additionalProperties: false
+      properties:
+        $schema:
+          description: A URL to the JSON Schema for this object.
+          examples:
+            - https://example.com/schemas/KeyOutBody.json
+          format: uri
+          readOnly: true
+          type: string
+        expires_at:
+          format: date-time
+          type: string
+        id:
+          type: string
+        key:
+          description: shown once
+          type: string
+        prefix:
+          type: string
+        scopes:
+          items:
+            type: string
+          type:
+            - array
+            - "null"
+      required:
+        - id
+        - key
+        - prefix
+        - scopes
+      type: object
+    MeOutBody:
+      additionalProperties: false
+      properties:
+        $schema:
+          description: A URL to the JSON Schema for this object.
+          examples:
+            - https://example.com/schemas/MeOutBody.json
+          format: uri
+          readOnly: true
+          type: string
+        org:
+          description: short id of the key's org
+          type: string
+        scopes:
+          items:
+            type: string
+          type:
+            - array
+            - "null"
+      required:
+        - org
+        - scopes
+      type: object
+    SelectorJSON:
+      additionalProperties: false
+      properties:
+        device:
+          type: string
+        kind:
+          type: string
+        role:
+          type: string
+      required:
+        - kind
+      type: object
+    TokenInBody:
+      additionalProperties: false
+      properties:
+        $schema:
+          description: A URL to the JSON Schema for this object.
+          examples:
+            - https://example.com/schemas/TokenInBody.json
+          format: uri
+          readOnly: true
+          type: string
+        approval_required:
+          type: boolean
+        device_kind:
+          enum:
+            - server
+            - gpu
+            - laptop
+            - sandbox
+            - agent
+            - ingress
+            - other
+          type: string
+        ephemeral:
+          description: nodes are removed after going offline
+          type: boolean
+        max_uses:
+          format: int32
+          maximum: 10000
+          minimum: 1
+          type: integer
+        roles:
+          items:
+            type: string
+          maxItems: 16
+          type:
+            - array
+            - "null"
+        ttl_seconds:
+          format: int64
+          maximum: 2592000
+          minimum: 60
+          type: integer
+      required:
+        - ttl_seconds
+      type: object
+    TokenOutBody:
+      additionalProperties: false
+      properties:
+        $schema:
+          description: A URL to the JSON Schema for this object.
+          examples:
+            - https://example.com/schemas/TokenOutBody.json
+          format: uri
+          readOnly: true
+          type: string
+        commands:
+          additionalProperties:
+            type: string
+          type: object
+        expires_at:
+          format: date-time
+          type: string
+        id:
+          type: string
+        join_url:
+          type: string
+        token:
+          description: shown once
+          type: string
+      required:
+        - id
+        - token
+        - join_url
+        - commands
+        - expires_at
+      type: object
+  securitySchemes:
+    bearer:
+      description: API key (hmk_…)
+      scheme: bearer
+      type: http
+info:
+  description: Multi-tenant control layer for Headscale meshes.
+  title: Headmesh API
+  version: "1"
+openapi: 3.1.0
+paths:
+  /v1/api-keys:
+    post:
+      operationId: create-api-key
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/KeyInBody"
+        required: true
+      responses:
+        "201":
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/KeyOutBody"
+          description: Created
+        default:
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/ErrorModel"
+          description: Error
+      security:
+        - bearer: []
+      summary: Create an API key
+      tags:
+        - account
+  /v1/devices:
+    get:
+      operationId: list-devices
+      responses:
+        "200":
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/DevicesOutBody"
+          description: OK
+        default:
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/ErrorModel"
+          description: Error
+      security:
+        - bearer: []
+      summary: List your org's devices
+      tags:
+        - devices
+  /v1/enroll:
+    post:
+      operationId: enroll
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/EnrollInBody"
+        required: true
+      responses:
+        "200":
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/EnrollOutBody"
+          description: OK
+        default:
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/ErrorModel"
+          description: Error
+      summary: Exchange an enrollment token for a single-use pre-auth key
+      tags:
+        - enrollment
+  /v1/enrollment-tokens:
+    post:
+      operationId: create-enrollment-token
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/TokenInBody"
+        required: true
+      responses:
+        "201":
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/TokenOutBody"
+          description: Created
+        default:
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/ErrorModel"
+          description: Error
+      security:
+        - bearer: []
+      summary: Create an invite link and one-line install commands
+      tags:
+        - enrollment
+  /v1/enrollments/{id}/complete:
+    post:
+      operationId: complete-enrollment
+      parameters:
+        - in: path
+          name: id
+          required: true
+          schema:
+            type: string
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/CompleteInBody"
+        required: true
+      responses:
+        "200":
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/DeviceBody"
+          description: OK
+        default:
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/ErrorModel"
+          description: Error
+      summary: Bind the registered node to the enrolled device
+      tags:
+        - enrollment
+  /v1/grants:
+    get:
+      operationId: list-grants
+      responses:
+        "200":
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/GrantsOutBody"
+          description: OK
+        default:
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/ErrorModel"
+          description: Error
+      security:
+        - bearer: []
+      summary: Active grants you issued or received
+      tags:
+        - grants
+    post:
+      operationId: create-grant
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/GrantInBody"
+        required: true
+      responses:
+        "201":
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/GrantBody"
+          description: Created
+        default:
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/ErrorModel"
+          description: Error
+      security:
+        - bearer: []
+      summary: Give another org time-limited access to one of your devices
+      tags:
+        - grants
+  /v1/grants/{id}/revoke:
+    post:
+      operationId: revoke-grant
+      parameters:
+        - in: path
+          name: id
+          required: true
+          schema:
+            format: uuid
+            type: string
+      responses:
+        "200":
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/GrantBody"
+          description: OK
+        default:
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/ErrorModel"
+          description: Error
+      security:
+        - bearer: []
+      summary: Revoke a grant; returns once the cell enforces it
+      tags:
+        - grants
+  /v1/me:
+    get:
+      operationId: me
+      responses:
+        "200":
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/MeOutBody"
+          description: OK
+        default:
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/ErrorModel"
+          description: Error
+      security:
+        - bearer: []
+      summary: Describe the calling API key
+      tags:
+        - account
