@@ -3,10 +3,10 @@
 Scripts that set up and deploy Headmesh's own servers. hm-prod-1 (Hetzner `cx23`, nbg1, Ubuntu 26.04) runs two
 environments side by side, each with its own hostnames, services, database and configuration:
 
-| Environment | Site                | API                     | Cell endpoint (not public) | Indexing      |
-| ----------- | ------------------- | ----------------------- | -------------------------- | ------------- |
-| `prod`      | `headmesh.dev` (+`www`) | `api.headmesh.dev`      | `:7443`                    | allowed       |
-| `test`      | `test.headmesh.dev` | `api-test.headmesh.dev` | `:7444`                    | `noindex`     |
+| Environment | Site                | API                     | Cell endpoint (not public) | Headscale cell             | Indexing  |
+| ----------- | ------------------- | ----------------------- | -------------------------- | -------------------------- | --------- |
+| `prod`      | `headmesh.dev` (+`www`) | `api.headmesh.dev`      | `:7443`                    | `hs1` at `hs1.headmesh.dev` | allowed   |
+| `test`      | `test.headmesh.dev` | `api-test.headmesh.dev` | `:7444`                    | none                       | `noindex` |
 
 The table lives in [`lib/environments.sh`](lib/environments.sh), which both sides read, so they can't disagree.
 
@@ -17,7 +17,8 @@ The table lives in [`lib/environments.sh`](lib/environments.sh), which both side
 | `server/bootstrap.sh`        | The server's application stack: packages, Node, Postgres roles and databases, units, TLS (`--bootstrap`)     |
 | `lib/environments.sh`        | Hostnames, ports and paths per environment                                                                   |
 | `nginx/`                     | Templates for the vhosts, the stream (TCP) proxy for cell endpoints, shared http settings and snippets       |
-| `systemd/`                   | Template units: `headmesh-waitlist@<env>-<colour>`, `headmesh-backend@<env>-<colour>`, `headmesh-backup@<env>` |
+| `systemd/`                   | Template units: `headmesh-waitlist@<env>-<colour>`, `headmesh-backend@<env>-<colour>`, `headmesh-backup@<env>`, `headmesh-cellcert@<env>` |
+| `headscale/`                 | The cell's Headscale configuration (v0.29.6 `config-example.yaml` with Headmesh's settings)                   |
 | `env/<env>/*.env.example`    | Configuration templates; the real `*.env` files next to them are git-ignored                                 |
 | `tests/e2e.sh`               | The whole pipeline against a throwaway systemd container (see [Testing](#testing))                            |
 | `compose/bootstrap.sh`       | Base host setup, run once before anything else: admin user, sshd, host firewall, Docker, Tailscale, Ubuntu Pro |
@@ -32,6 +33,7 @@ deploy.sh (this machine)                         hm-prod-1 (over the tailnet, su
                                                       ├─ nginx files: install; on drift keep the server's copy
                                                       │              unless --nginx-overwrite; nginx -t, then reload
                                                       ├─ backend:  migrate ─► start idle colour ─► /readyz ─► switch
+                                                      │            ─► cell agent (prod: hs1) reconnects
                                                       ├─ waitlist: back up DB ─► start idle colour ─► /readyz ─► switch
                                                       ├─ site:     switch the `current` symlink (nginx -t first)
                                                       └─ smoke test through nginx ─► prune old releases
@@ -114,15 +116,23 @@ cloud): nginx trusts `CF-Connecting-IP` only from Cloudflare's published ranges,
 headmesh.dev  www.headmesh.dev  api.headmesh.dev  test.headmesh.dev  api-test.headmesh.dev
 ```
 
-Until a real certificate exists, the bootstrap installs a self-signed placeholder for `headmesh.dev` and
-`*.headmesh.dev`. That works with Cloudflare's SSL mode **Full**. For **Full (strict)**:
+`hs1.headmesh.dev` is the exception: **DNS only (grey cloud)**, A and AAAA, because Cloudflare's proxy breaks
+Tailscale's Noise protocol and DERP. Its clients also need UDP 3478 (STUN) for the embedded DERP relay.
 
-1. Create a Cloudflare API token with **Zone → DNS → Edit** on `headmesh.dev` only, and put it on the server:
-   `sudo install -m 0600 /dev/stdin /etc/headmesh/cloudflare.ini <<< 'dns_cloudflare_api_token = …'`.
-2. Run `HM_ACME_EMAIL=hello@headmesh.dev deploy/deploy.sh --env all --bootstrap`. Setting `HM_ACME_EMAIL` agrees to
-   the Let's Encrypt subscriber agreement. certbot gets one certificate for both names by DNS-01, and `certbot.timer`
-   renews it; the renewal hook runs `deployctl tls-renewed`, which reloads nginx (after `nginx -t`) and the backends.
-3. Switch the zone's SSL mode to Full (strict).
+Until a real certificate exists, the bootstrap installs a self-signed placeholder for `headmesh.dev` and
+`*.headmesh.dev`. That works with Cloudflare's SSL mode **Full**, but not for `hs1.headmesh.dev`, which Tailscale
+clients reach directly. For the real certificate and **Full (strict)**:
+
+1. Create a Cloudflare **API token** (My Profile → API Tokens → Create Token → "Edit zone DNS") with **Zone → DNS →
+   Edit** on `headmesh.dev` only. Save it in the repository's git-ignored `.env` as `CLOUDFLARE_DNS_API_TOKEN`. Never
+   use the Global API Key: it controls the whole account, and `deploy.sh` refuses to install it.
+2. Set `HM_DEPLOY_ACME_EMAIL=hello@headmesh.dev` in `deploy/env/local.env`. Setting it accepts the Let's Encrypt
+   subscriber agreement.
+3. `deploy/deploy.sh --env all --bootstrap`. The token replaces `/etc/headmesh/cloudflare.ini` (root only, sent over
+   stdin) on every bootstrap. certbot gets one certificate for both names by DNS-01, and `certbot.timer` renews it.
+   The new certificate reaches nginx, the backends and the cell agent through `deployctl tls-renewed`, the same hook
+   every renewal runs.
+4. Switch the zone's SSL mode to Full (strict).
 
 **Cloudflare error 525** means the handshake itself failed. The usual cause here is that the hostname's vhost isn't
 enabled: `headmesh.conf`'s default server refuses the handshake for any name no vhost serves, so a bootstrapped server
@@ -134,6 +144,29 @@ presents for it. A certificate Cloudflare doesn't trust is a 526, not a 525.
 live backend colour, which checks the cell agent's client certificate. The host firewall only admits TCP 80 and 443
 publicly, so cells reach these ports over loopback (hs1 on this server) or the tailnet (the xcelsior cell on
 prod-hetzner, once its policy grant is approved for M4).
+
+## The hs1 cell
+
+prod hosts the shared Headscale cell `hs1` (plan §13.2). `--bootstrap` installs Headscale 0.29.6 from its release
+package (checksum-pinned in `server/bootstrap.sh`) and writes `/etc/headscale/config.yaml` from
+[`headscale/config.yaml.tmpl`](headscale/config.yaml.tmpl): `server_url https://hs1.headmesh.dev`, MagicDNS under
+`mesh.headmesh.dev`, policy in the database, and the embedded DERP region 900 on the server's public addresses.
+Headscale's HTTP, gRPC and metrics listeners stay on loopback; nginx serves `hs1.headmesh.dev` on 443 with WebSocket
+upgrades and long timeouts for `/ts2021`.
+
+After every prod backend switch, `deployctl cell-agent prod`:
+
+1. registers the cell once (`headmesh-server bootstrap`, `enforce` mode, org `headmesh-ops`). Its one-time admin API
+   key is in `/etc/headmesh/prod/cell-hs1-bootstrap.json` (root only): move it to a password manager, then delete it;
+2. issues the agent a 90-day client certificate from prod's cell CA, again within 30 days of expiry
+   (`headmesh-cellcert@prod.timer` checks weekly);
+3. writes `/etc/headmesh-cellagent/cellagent.json`: Headscale's unix socket, the live backend through nginx's stream
+   proxy at `https://127.0.0.1:7443` with `server_name api.headmesh.dev`, and the op-signing public key;
+4. installs the release's `headmesh-cellagent` and restarts it if anything changed, then waits until the backend
+   records its Hello (`cells.last_seen_at`).
+
+The agent runs as `headmesh-cellagent` in the `headscale` group, with the hardened unit from `cellagent/` and a
+drop-in that points it at `/etc/headmesh-cellagent`.
 
 ## Operations
 
@@ -156,5 +189,6 @@ deploy/tests/e2e.sh
 It starts an Ubuntu 26.04 container with systemd, runs the real `deploy.sh` against it through `docker exec`
 (`HM_DEPLOY_REMOTE`), and checks the bootstrap, two deploys (blue then green), a waitlist sign-up and confirmation
 through nginx, the database roles and their privileges, nginx drift handling, a config that fails `nginx -t`, a dry
-run, a rollback, and a prod backend beside test. It needs Docker, Go, Node and pnpm, and takes a few minutes.
+run, a rollback, a prod backend beside test, the Cloudflare token handling, and Headscale hs1 with its cell agent
+connected to the backend across a blue-green switch. It needs Docker, Go, Node and pnpm, and takes a few minutes.
 `HM_E2E_KEEP=1` leaves the container running.

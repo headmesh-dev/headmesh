@@ -1,0 +1,9 @@
+# Reissues the cell agent's client certificate within 30 days of expiry and restarts the agent if anything changed
+# (headmesh-cellcert@prod). deployctl enables the timer the first time it sets up an environment's cell agent.
+[Unit]
+Description=Renew the Headmesh cell agent's client certificate (%i)
+After=headscale.service
+
+[Service]
+Type=oneshot
+ExecStart=/usr/local/lib/headmesh/deployctl.sh cell-agent %i

@@ -2,7 +2,8 @@
 # End-to-end test of the deploy pipeline: deploy.sh → bootstrap.sh → deployctl.sh, unchanged, against a throwaway
 # Ubuntu 26.04 container with systemd standing in for hm-prod-1. It builds the real site, waitlist service and
 # headmesh-server, deploys them twice (blue, then green), and checks nginx, health, a real waitlist sign-up, the
-# database roles, nginx drift handling, the nginx -t guard, dry runs and rollback.
+# database roles, nginx drift handling, the nginx -t guard, dry runs, rollback, and prod's Headscale cell hs1 with
+# its cell agent connected to the backend.
 #
 #   deploy/tests/e2e.sh             needs Docker (privileged containers), Go, Node and pnpm; takes a few minutes
 #   HM_E2E_KEEP=1 deploy/tests/e2e.sh   leave the container running afterwards
@@ -43,6 +44,9 @@ deploy() { "${DEPLOY}" "$@" 2>&1 | tee -a "${ENVDIR}/deploy.log" | sed 's/^/    
 psql_su() { on runuser -u postgres -- psql -X -tA "$@"; }
 
 export HM_DEPLOY_REMOTE="docker exec -i ${NAME}" HM_DEPLOY_SUDO="" HM_DEPLOY_ENV_DIR="${ENVDIR}"
+# Nothing from this workstation's own settings: no real Cloudflare token or ACME email reaches the container.
+export HM_DEPLOY_LOCAL_ENV=/dev/null HM_DEPLOY_DOTENV=/dev/null
+unset CLOUDFLARE_DNS_API_TOKEN CLOUDFLARE_API_TOKEN HM_ACME_EMAIL HM_DEPLOY_ACME_EMAIL
 cp -r "${ROOT}/deploy/env/." "${ENVDIR}/"
 find "${ENVDIR}" -name '*.env' -delete
 
@@ -59,7 +63,11 @@ ok "systemd is ${state}"
 say "Bootstrap and first deploy of test (blue)"
 deploy --env test --init-env
 check "init-env generated a waitlist secret" grep -qE '^WAITLIST_SECRET=.{40,}$' "${ENVDIR}/test/waitlist.env"
-deploy --env test --target all --bootstrap --allow-dirty --skip-checks
+# A Global API Key (37 hex characters) must never be installed on the server.
+CLOUDFLARE_DNS_API_TOKEN="$(printf '0%.0s' {1..37})" CLOUDFLARE_API_TOKEN=account-wide-token deploy --env test --target all --bootstrap --allow-dirty --skip-checks
+check "a Global API Key is refused" grep -q 'Global API Key, not an API token; not installing it' "${ENVDIR}/deploy.log"
+check "…and neither it nor CLOUDFLARE_API_TOKEN reaches the server" bash -c "! docker exec ${NAME} test -e /etc/headmesh/cloudflare.ini"
+check "test hosts no Headscale" bash -c "! docker exec ${NAME} systemctl is-active --quiet headscale"
 first="$(live test marketing.active)"
 check "site release is live (${first})" test -n "${first}"
 check "waitlist runs on blue" test "$(live test waitlist.active)" = blue
@@ -82,7 +90,8 @@ check "the waitlist runs as the headmesh user" test "$(unit_user headmesh-waitli
 check "the backend runs as the headmesh user" test "$(unit_user headmesh-backend@test-blue)" = headmesh
 
 say "Waitlist sign-up and confirmation through nginx"
-body='{"email":"e2e@example.com","use_case":"deploy test","consent":true,"consent_version":"2026-10-27","turnstile_token":"XXXX.DUMMY.TOKEN.XXXX"}'
+consent_version="$(sed -n 's/^export const CONSENT_VERSION = "\(.*\)";$/\1/p' "${ROOT}/web/marketing/shared/site.ts")"
+body='{"email":"e2e@example.com","use_case":"deploy test","consent":true,"consent_version":"'"${consent_version}"'","turnstile_token":"XXXX.DUMMY.TOKEN.XXXX"}'
 check "POST /api/waitlist → 202" test "$(code test.headmesh.dev /api/waitlist -X POST -H 'content-type: application/json' -H 'origin: https://test.headmesh.dev' --data "${body}")" = 202
 sleep 1
 token="$(on journalctl -u 'headmesh-waitlist@test-blue' -o cat --no-pager | grep email_logged | tail -n 1 | grep -oE 'confirm[^"]*token=[^"&]+' | sed 's/.*token=//' || true)"
@@ -144,12 +153,37 @@ check "site serves after rollback" test "$(code test.headmesh.dev /)" = 200
 
 say "prod backend alongside test"
 deploy --env prod --init-env
-deploy --env prod --target backend --bootstrap --skip-checks --yes --allow-dirty
+CLOUDFLARE_DNS_API_TOKEN=e2e-scoped-token deploy --env prod --target backend --bootstrap --skip-checks --yes --allow-dirty
 check "prod API /readyz → 204" test "$(code api.headmesh.dev /readyz)" = 204
+check "the DNS token is installed root-only for certbot" test "$(on stat -c '%a %U' /etc/headmesh/cloudflare.ini)" = "600 root"
+check "…with the token from the environment" on grep -qx 'dns_cloudflare_api_token = e2e-scoped-token' /etc/headmesh/cloudflare.ini
+check "without HM_ACME_EMAIL the placeholder stays" grep -q 'HM_ACME_EMAIL is unset; keeping the placeholder' "${ENVDIR}/deploy.log"
 check "www redirects to the apex" test "$(header www.headmesh.dev /docs/ location)" = "https://headmesh.dev/docs/"
 check "test still serves" test "$(code test.headmesh.dev /)" = 200
 prod_url="$(on sed -n 's/^HEADMESH_DATABASE_URL=//p' /etc/headmesh/prod/db.env)"
 check "prod's app role can't open the test database" bash -c "! docker exec ${NAME} psql -X '${prod_url%/*}/headmesh_test' -c 'select 1' >/dev/null 2>&1"
+
+say "prod's Headscale cell hs1 and its agent"
+seen() { psql_su -d headmesh_prod -c "select coalesce(extract(epoch from last_seen_at)::bigint, 0) from cells where name = 'hs1'"; }
+check "Headscale is running" on systemctl is-active --quiet headscale
+check "Headscale is the pinned release" grep -q '0.29.6' <<<"$(on headscale version 2>&1)"
+check "hs1.headmesh.dev/health → 200 through nginx" test "$(code hs1.headmesh.dev /health)" = 200
+hs_public() { on ss -Hltn | awk '{print $4}' | grep -E ':(8080|50443|9090)$' | grep -v '^127\.0\.0\.1:' || true; }
+check "Headscale's HTTP, gRPC and metrics listen on loopback only" test -z "$(hs_public)"
+check "the cell is registered in prod" test "$(psql_su -d headmesh_prod -c "select mode from cells where name = 'hs1'")" = enforce
+check "the bootstrap's admin key is root-only" test "$(on stat -c '%a %U' /etc/headmesh/prod/cell-hs1-bootstrap.json)" = "600 root"
+check "the cell agent is running" on systemctl is-active --quiet headmesh-cellagent
+check "…as its own user" test "$(unit_user headmesh-cellagent)" = headmesh-cellagent
+check "the agent reached the backend (cells.last_seen_at)" test "$(seen)" -gt 0
+check "…and reported Headscale's version" grep -q '0.29.6' <<<"$(psql_su -d headmesh_prod -c "select headscale_version from cells where name = 'hs1'")"
+check "the certificate renewal timer is on" on systemctl is-enabled --quiet headmesh-cellcert@prod.timer
+on /usr/local/lib/headmesh/deployctl.sh cell-agent prod 2>&1 | tee -a "${ENVDIR}/deploy.log" | sed 's/^/    /'
+check "running the step again changes nothing" grep -q 'cell hs1: agent unchanged and running' "${ENVDIR}/deploy.log"
+before_seen="$(seen)"
+sleep 1
+deploy --env prod --target backend --skip-checks --yes --allow-dirty
+check "prod backend moved to green" test "$(live prod backend.active)" = green
+check "the agent reconnected to the new release" test "$(seen)" -gt "${before_seen}"
 
 say "Status"
 "${DEPLOY}" --status 2>&1 | sed 's/^/    /'

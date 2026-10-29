@@ -29,7 +29,11 @@
 #   -h, --help          this text
 #
 # Local settings (deploy/env/local.env, git-ignored; see local.env.example): HM_DEPLOY_HOST, HM_DEPLOY_HOST_KEY_ALIAS,
-# HM_DEPLOY_BREAKGLASS_HOST and HM_DEPLOY_IDENTITY. The environment overrides the file.
+# HM_DEPLOY_BREAKGLASS_HOST, HM_DEPLOY_IDENTITY and HM_DEPLOY_ACME_EMAIL. The environment overrides the file.
+#
+# TLS: with --bootstrap, CLOUDFLARE_DNS_API_TOKEN (a token with Zone → DNS → Edit on headmesh.dev only, from the
+# environment or the repository's git-ignored .env) replaces the server's /etc/headmesh/cloudflare.ini, and
+# HM_DEPLOY_ACME_EMAIL, which accepts the Let's Encrypt subscriber agreement, lets certbot use it (deploy/README.md).
 #
 # Configuration (always uploaded, always replaces the server's copy; never committed):
 #   deploy/env/<env>/build.env      build-time settings for the site (PUBLIC_* keys, HEADMESH_PRODUCTION)
@@ -39,18 +43,19 @@
 # server and never leave it.
 #
 # Tests drive the same code against a local container: HM_DEPLOY_REMOTE replaces "ssh <host>" with another command
-# prefix (for example "docker exec -i <container>"), HM_DEPLOY_SUDO replaces "sudo -n", and HM_DEPLOY_ENV_DIR replaces
-# deploy/env (deploy/tests/e2e.sh).
+# prefix (for example "docker exec -i <container>"), HM_DEPLOY_SUDO replaces "sudo -n", HM_DEPLOY_ENV_DIR replaces
+# deploy/env, and HM_DEPLOY_LOCAL_ENV and HM_DEPLOY_DOTENV replace local.env and .env (deploy/tests/e2e.sh).
 set -Eeuo pipefail
 
 ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 # shellcheck source=lib/environments.sh
 source "${ROOT}/deploy/lib/environments.sh"
 # The server's addresses stay out of the repository: they come from this git-ignored file or the environment.
-if [[ -f "${ROOT}/deploy/env/local.env" ]]; then
+LOCAL_ENV="${HM_DEPLOY_LOCAL_ENV:-${ROOT}/deploy/env/local.env}"
+if [[ -f "${LOCAL_ENV}" ]]; then
   while IFS='=' read -r key value; do
     [[ "${key}" =~ ^HM_DEPLOY_[A-Z_]+$ && -z "${!key:-}" ]] && export "${key}=${value}"
-  done < <(grep -E '^HM_DEPLOY_[A-Z_]+=' "${ROOT}/deploy/env/local.env")
+  done < <(grep -E '^HM_DEPLOY_[A-Z_]+=' "${LOCAL_ENV}" || true)
 fi
 
 log() { printf '\033[1m[deploy]\033[0m %s\n' "$*" >&2; }
@@ -154,17 +159,21 @@ install_toolkit() {
   tk="$(mktemp -d)"
   install -m 0755 "${ROOT}/deploy/server/deployctl.sh" "${ROOT}/deploy/server/bootstrap.sh" "${tk}/"
   install -m 0644 "${ROOT}/deploy/lib/environments.sh" "${tk}/"
-  install -d "${tk}/systemd"
+  install -d "${tk}/systemd" "${tk}/headscale" "${tk}/cellagent"
   install -m 0644 "${ROOT}"/deploy/systemd/* "${tk}/systemd/"
+  install -m 0644 "${ROOT}/deploy/headscale/config.yaml.tmpl" "${tk}/headscale/"
+  install -m 0644 "${ROOT}/deploy/cellagent/headmesh-cellagent.service" "${tk}/cellagent/"
   # shellcheck disable=SC2016,SC2086 # expanded remotely; SUDO is a command prefix
   tar -C "${tk}" -cf - . | remote ${SUDO} bash -c '
     set -e
     d="$1"; tmp="$(mktemp -d)"
     tar -xf - -C "${tmp}" --no-same-owner
-    install -d -m 0755 "${d}" "${d}/systemd"
+    install -d -m 0755 "${d}" "${d}/systemd" "${d}/headscale" "${d}/cellagent"
     install -m 0755 "${tmp}/deployctl.sh" "${tmp}/bootstrap.sh" "${d}/"
     install -m 0644 "${tmp}/environments.sh" "${d}/"
     install -m 0644 "${tmp}"/systemd/* "${d}/systemd/"
+    install -m 0644 "${tmp}"/headscale/* "${d}/headscale/"
+    install -m 0644 "${tmp}"/cellagent/* "${d}/cellagent/"
     rm -rf "${tmp}"' _ "${HM_LIB_ROOT}"
   rm -rf "${tk}"
 }
@@ -257,6 +266,9 @@ build_backend() {
   log "build: headmesh-server ${RELEASE} (linux/amd64, static)"
   (cd "${ROOT}" && CGO_ENABLED=0 GOOS=linux GOARCH=amd64 go build -trimpath -buildvcs=true \
     -ldflags "-s -w -X main.version=${RELEASE}" -o "${out}/headmesh-server" ./cmd/headmesh-server)
+  # Shipped with the server so the cell this server hosts runs the matching agent (deployctl cell-agent).
+  (cd "${ROOT}" && CGO_ENABLED=0 GOOS=linux GOARCH=amd64 go build -trimpath -buildvcs=true \
+    -ldflags "-s -w -X main.version=${RELEASE}" -o "${out}/headmesh-cellagent" ./cmd/headmesh-cellagent)
 }
 
 # The waitlist service: the marketing package's server half with only its production dependencies.
@@ -287,6 +299,36 @@ build_site() {
   [[ -f "${out}/site/index.html" ]] || die "site build for ${env} has no index.html"
 }
 
+# The Cloudflare token certbot's DNS-01 challenge uses: CLOUDFLARE_DNS_API_TOKEN from the environment, else from the
+# git-ignored .env ($HM_DEPLOY_DOTENV, default <repo>/.env). Only that name is read, never a general-purpose
+# CLOUDFLARE_API_TOKEN, so an account-wide token can't end up on the server by accident. Empty when there is none.
+cloudflare_token() {
+  local value="${CLOUDFLARE_DNS_API_TOKEN:-}" dotenv="${HM_DEPLOY_DOTENV:-${ROOT}/.env}"
+  if [[ -z "${value}" && -f "${dotenv}" ]]; then
+    value="$(grep -E '^CLOUDFLARE_DNS_API_TOKEN=' "${dotenv}" | tail -n 1 | cut -d= -f2- | tr -d "\"'" || true)"
+  fi
+  printf '%s' "${value}"
+}
+
+# Env vars always win: the token replaces the server's cloudflare.ini on every bootstrap. It travels on stdin, never
+# on a command line.
+install_dns_token() {
+  local token
+  token="$(cloudflare_token)"
+  [[ -n "${token}" ]] || return 0
+  # 37 hex characters is Cloudflare's Global API Key: full control of the whole account, so it never goes on a server.
+  if [[ "${token}" =~ ^[0-9a-f]{37}$ ]]; then
+    log "TLS: the Cloudflare credential is the account's Global API Key, not an API token; not installing it."
+    log "TLS: create a token with Zone → DNS → Edit on headmesh.dev only and save it as CLOUDFLARE_DNS_API_TOKEN"
+    return 0
+  fi
+  # Written through a temporary file: Ubuntu 26.04's install (uutils) can't copy /dev/stdin over an existing file.
+  # shellcheck disable=SC2016,SC2086 # $1 expands on the server
+  printf 'dns_cloudflare_api_token = %s\n' "${token}" |
+    remote ${SUDO} sh -c 'umask 077 && cat >"$1.new" && chown root:root "$1.new" && mv -f "$1.new" "$1"' sh "${HM_ETC_ROOT}/cloudflare.ini"
+  log "TLS: Cloudflare DNS token installed for certbot"
+}
+
 # ── nginx rendering ───────────────────────────────────────────────────────────────────────────────────────────────
 
 # render <template> <out> <env>: replace {{KEY}} placeholders (bash replacement, so nginx's own $variables are safe).
@@ -302,6 +344,10 @@ render() {
   fi
   s="${s//\{\{EXTRA_HOSTS_SERVER\}\}/${extra}}"
   s="${s//\{\{ROBOTS_OVERRIDE\}\}/${robots}}"
+  local cell=""
+  if [[ -n "$(hm_env "${env}" CELL_HOST)" ]]; then cell="$(<"${ROOT}/deploy/nginx/cell.conf.tmpl")"; fi
+  s="${s//\{\{CELL_SERVER\}\}/${cell}}"
+  s="${s//\{\{CELL_HOST\}\}/$(hm_env "${env}" CELL_HOST)}"
   s="${s//\{\{NOINDEX_HEADER\}\}/${noindex}}"
   s="${s//\{\{ENV\}\}/${env}}"
   s="${s//\{\{SITE_HOST\}\}/$(hm_env "${env}" SITE_HOST)}"
@@ -396,7 +442,10 @@ deploy_env() {
 
   if has_target backend; then
     push "${WORK}/backend" "${HM_SRV_ROOT}/${env}/backend/releases/${RELEASE}"
-    [[ ${DRY_RUN} == 1 ]] || ctl activate-service backend "${env}" "${RELEASE}"
+    if [[ ${DRY_RUN} == 0 ]]; then
+      ctl activate-service backend "${env}" "${RELEASE}"
+      [[ -z "$(hm_env "${env}" CELL_NAME)" ]] || ctl cell-agent "${env}"
+    fi
   fi
   if has_target frontend; then
     push "${WORK}/waitlist" "${HM_SRV_ROOT}/${env}/waitlist/releases/${RELEASE}"
@@ -443,9 +492,10 @@ main() {
     return 0
   fi
   if [[ ${BOOTSTRAP} == 1 ]]; then
+    install_dns_token
     log "bootstrap: server packages, Node, Postgres, units, TLS (${ENVS[*]})"
     # shellcheck disable=SC2086
-    remote ${SUDO} "${HM_LIB_ROOT}/bootstrap.sh" "${ENVS[@]}"
+    remote ${SUDO} env "HM_ACME_EMAIL=${HM_DEPLOY_ACME_EMAIL:-${HM_ACME_EMAIL:-}}" "${HM_LIB_ROOT}/bootstrap.sh" "${ENVS[@]}"
   fi
   [[ ${#TARGETS[@]} -gt 0 ]] || return 0
   if [[ ${ROLLBACK} == 1 ]]; then

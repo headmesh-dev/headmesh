@@ -1,0 +1,10 @@
+[Unit]
+Description=Weekly check of the cell agent's client certificate (%i)
+
+[Timer]
+OnCalendar=Mon *-*-* 04:41:00 UTC
+RandomizedDelaySec=30m
+Persistent=true
+
+[Install]
+WantedBy=timers.target

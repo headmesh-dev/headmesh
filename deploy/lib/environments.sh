@@ -32,6 +32,11 @@ hm_is_env() {
 #   CELL_PORT        public TCP port for the mTLS cell endpoint (nginx stream, TLS passed through)
 #   NOINDEX          "1" to send X-Robots-Tag: noindex on every response
 #   PRODUCTION       "1" for the production build preflight (real Turnstile key, CASL postal address)
+#   CELL_NAME        the Headscale cell this environment hosts on this server (empty: none)
+#   CELL_HOST        that cell's public hostname. Must be DNS-only (grey cloud): Cloudflare can't proxy Tailscale's
+#                    control protocol
+#   CELL_BASE_DOMAIN the cell's MagicDNS domain (must differ from CELL_HOST's domain, Headscale requires it)
+#   CELL_MODE        "enforce" (the agent applies Headmesh's policy) or "observe" (it only reports drift)
 hm_env() {
   local env="$1" key="$2"
   case "${env}:${key}" in
@@ -41,12 +46,17 @@ hm_env() {
     prod:CELL_PORT) echo "7443" ;;
     prod:NOINDEX) echo "0" ;;
     prod:PRODUCTION) echo "1" ;;
+    prod:CELL_NAME) echo "hs1" ;;
+    prod:CELL_HOST) echo "hs1.headmesh.dev" ;;
+    prod:CELL_BASE_DOMAIN) echo "mesh.headmesh.dev" ;;
+    prod:CELL_MODE) echo "enforce" ;;
     test:SITE_HOST) echo "test.headmesh.dev" ;;
     test:EXTRA_HOSTS) echo "" ;;
     test:API_HOST) echo "api-test.headmesh.dev" ;;
     test:CELL_PORT) echo "7444" ;;
     test:NOINDEX) echo "1" ;;
     test:PRODUCTION) echo "0" ;;
+    test:CELL_NAME | test:CELL_HOST | test:CELL_BASE_DOMAIN | test:CELL_MODE) echo "" ;;
     *) echo "unknown environment setting ${env}:${key}" >&2; return 1 ;;
   esac
 }

@@ -27,7 +27,11 @@ source "${HERE}/environments.sh" 2>/dev/null || source "${HERE}/../lib/environme
 readonly NODE_VERSION="24.16.0"
 readonly NODE_SHA256="d804845d34eddc21dc1092b519d643ef40b1f58ec5dec5c22b1f4bd8fabde6c9"
 readonly PG_MAJOR="18"
+# Headscale for the environment that hosts a cell (plan §13.2), from the release's checksums.txt.
+readonly HEADSCALE_VERSION="0.29.6"
+readonly HEADSCALE_DEB_SHA256="a3b49916a16418c704cef89818d734bc8af0528aac965a2dd5ca4bfa4cef48e2"
 readonly ACME_EMAIL="${HM_ACME_EMAIL:-}"
+TLS_CHANGED=0
 
 export DEBIAN_FRONTEND=noninteractive
 
@@ -189,25 +193,9 @@ units() {
 }
 
 tls() {
-  local dir="${HM_ETC_ROOT}/tls" live="/etc/letsencrypt/live/headmesh.dev"
-  if [[ ! -d "${live}" && -s "${HM_ETC_ROOT}/cloudflare.ini" ]]; then
-    if [[ -z "${ACME_EMAIL}" ]]; then
-      log "TLS: ${HM_ETC_ROOT}/cloudflare.ini exists but HM_ACME_EMAIL is unset; keeping the placeholder"
-    else
-      chmod 0600 "${HM_ETC_ROOT}/cloudflare.ini"
-      log "TLS: requesting a Let's Encrypt certificate for headmesh.dev and *.headmesh.dev (DNS-01)"
-      certbot certonly --non-interactive --agree-tos --email "${ACME_EMAIL}" \
-        --dns-cloudflare --dns-cloudflare-credentials "${HM_ETC_ROOT}/cloudflare.ini" --dns-cloudflare-propagation-seconds 30 \
-        --key-type ecdsa --cert-name headmesh.dev -d headmesh.dev -d '*.headmesh.dev' \
-        --deploy-hook "${HM_LIB_ROOT}/deployctl.sh tls-renewed"
-    fi
-  fi
-  if [[ -d "${live}" ]]; then
-    ln -sfn "${live}/fullchain.pem" "${dir}/fullchain.pem"
-    ln -sfn "${live}/privkey.pem" "${dir}/privkey.pem"
-    log "TLS: using the Let's Encrypt certificate (renewed by certbot.timer)"
-    return 0
-  fi
+  local dir="${HM_ETC_ROOT}/tls" live="/etc/letsencrypt/live/headmesh.dev" before
+  before="$(readlink "${dir}/fullchain.pem" 2>/dev/null || true)"
+  # The placeholder comes first, so certbot's deploy hook always finds a certificate to copy.
   if [[ ! -e "${dir}/fullchain.pem" ]]; then
     install -d -m 0700 "${dir}/selfsigned"
     openssl req -x509 -newkey ec -pkeyopt ec_paramgen_curve:P-256 -nodes -days 825 \
@@ -218,6 +206,75 @@ tls() {
     ln -sfn "${dir}/selfsigned/privkey.pem" "${dir}/privkey.pem"
     log "TLS: self-signed placeholder in place (see deploy/README.md to get the real certificate)"
   fi
+  if [[ ! -d "${live}" && -s "${HM_ETC_ROOT}/cloudflare.ini" ]]; then
+    if [[ -z "${ACME_EMAIL}" ]]; then
+      log "TLS: ${HM_ETC_ROOT}/cloudflare.ini exists but HM_ACME_EMAIL is unset; keeping the placeholder"
+    else
+      chmod 0600 "${HM_ETC_ROOT}/cloudflare.ini"
+      log "TLS: requesting a Let's Encrypt certificate for headmesh.dev and *.headmesh.dev (DNS-01)"
+      certbot certonly --non-interactive --agree-tos --email "${ACME_EMAIL}" \
+        --dns-cloudflare --dns-cloudflare-credentials "${HM_ETC_ROOT}/cloudflare.ini" --dns-cloudflare-propagation-seconds 30 \
+        --key-type ecdsa --cert-name headmesh.dev -d headmesh.dev -d '*.headmesh.dev' \
+        --deploy-hook "${HM_LIB_ROOT}/deployctl.sh tls-renewed" ||
+        log "TLS: certbot failed (see /var/log/letsencrypt/letsencrypt.log); keeping the current certificate"
+    fi
+  fi
+  if [[ -d "${live}" ]]; then
+    ln -sfn "${live}/fullchain.pem" "${dir}/fullchain.pem"
+    ln -sfn "${live}/privkey.pem" "${dir}/privkey.pem"
+    log "TLS: using the Let's Encrypt certificate (renewed by certbot.timer)"
+  fi
+  # A switch from the placeholder reaches nginx, the backends and the cell agent once nginx_base has run.
+  if [[ -n "${before}" && "$(readlink "${dir}/fullchain.pem")" != "${before}" ]]; then TLS_CHANGED=1; fi
+}
+
+# public_address <4|6>: this server's first global address of that family, leaving out tailnet and WireGuard links.
+public_address() {
+  { ip -o "-$1" addr show scope global 2>/dev/null || true; } |
+    awk '$2 !~ /^(tailscale|wg|hm|docker|br-|veth)/ {print $4}' | cut -d/ -f1 |
+    { grep -vE '^(100\.(6[4-9]|[7-9][0-9]|1[01][0-9]|12[0-7])\.|fd7a:)' || true; } | head -n 1
+}
+
+# headscale_cell <env>: Headscale for the cell the environment hosts, configured from deploy/headscale/config.yaml.tmpl.
+# Only the cell's name in nginx is public; the gRPC API stays on loopback and the unix socket (plan §9.4).
+headscale_cell() {
+  local env="$1" host base tmp deb v4 v6
+  host="$(hm_env "${env}" CELL_HOST)"
+  base="$(hm_env "${env}" CELL_BASE_DOMAIN)"
+  if ! dpkg-query -W -f='${Version}' headscale 2>/dev/null | grep -qx "${HEADSCALE_VERSION}"; then
+    tmp="$(mktemp -d)"
+    deb="${tmp}/headscale.deb"
+    log "installing Headscale ${HEADSCALE_VERSION}"
+    curl -fsSL --retry 3 -o "${deb}" \
+      "https://github.com/juanfont/headscale/releases/download/v${HEADSCALE_VERSION}/headscale_${HEADSCALE_VERSION}_linux_amd64.deb"
+    echo "${HEADSCALE_DEB_SHA256}  ${deb}" | sha256sum -c --quiet - || die "Headscale package checksum mismatch"
+    # --force-confold: an upgrade keeps the config.yaml rendered below instead of stopping at dpkg's prompt.
+    apt-get install -y --no-install-recommends -o Dpkg::Options::=--force-confold "${deb}" >/dev/null
+    rm -rf "${tmp}"
+  fi
+  v4="$(public_address 4)"
+  v6="$(public_address 6)"
+  [[ -n "${v4}" ]] || die "no public IPv4 address for the embedded DERP relay"
+  local s
+  s="$(<"${HM_LIB_ROOT}/headscale/config.yaml.tmpl")"
+  s="${s//\{\{CELL_HOST\}\}/${host}}"
+  s="${s//\{\{CELL_BASE_DOMAIN\}\}/${base}}"
+  s="${s//\{\{PUBLIC_IPV4\}\}/${v4}}"
+  if [[ -n "${v6}" ]]; then
+    s="${s//\{\{PUBLIC_IPV6\}\}/${v6}}"
+  else
+    s="$(sed '/{{PUBLIC_IPV6}}/d' <<<"${s}")"
+  fi
+  # The unit's StateDirectory= would fix this on first start; configtest runs before that and writes its keys here.
+  install -d -o headscale -g headscale -m 0750 /var/lib/headscale
+  if printf '%s\n' "${s}" | write_if_changed /etc/headscale/config.yaml 0640 root:headscale; then
+    runuser -u headscale -- headscale configtest -c /etc/headscale/config.yaml >/dev/null 2>&1 ||
+      die "Headscale rejected /etc/headscale/config.yaml"
+    systemctl restart headscale
+  fi
+  systemctl enable --quiet --now headscale
+  for _ in $(seq 1 30); do curl -fs -o /dev/null http://127.0.0.1:8080/health && return 0; sleep 1; done
+  die "Headscale did not become healthy"
 }
 
 nginx_base() {
@@ -246,8 +303,12 @@ main() {
     state_dirs "${env}"
   done
   units "$@"
+  for env in "$@"; do
+    if [[ -n "$(hm_env "${env}" CELL_NAME)" ]]; then headscale_cell "${env}"; fi
+  done
   tls
   nginx_base
+  if [[ ${TLS_CHANGED} == 1 ]]; then "${HM_LIB_ROOT}/deployctl.sh" tls-renewed; fi
   log "bootstrap complete for: $*"
 }
 

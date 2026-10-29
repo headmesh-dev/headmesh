@@ -14,6 +14,8 @@
 #   prune            <env> <keep>                      delete old releases (never the live or rollback ones)
 #   backup           <env>                             copy the waitlist database (also run daily by a timer)
 #   smoke            <env>                             request each vhost through nginx on loopback
+#   cell-agent       <env>                             register the env's Headscale cell, renew the agent's
+#                                                      certificate, configure and (re)start the cell agent
 #   tls-renewed                                        certbot deploy hook: refresh backend copies, reload
 #
 # Every nginx change follows the same rule: write the new files, run `nginx -t`, and reload only if it passes.
@@ -631,6 +633,160 @@ cmd_smoke() {
   [[ "${failed}" == 0 ]] || die "smoke ${env}: some checks failed"
 }
 
+# ── cell agent ─────────────────────────────────────────────────────────────────────────────────────────────────────
+# An environment with a CELL_NAME runs Headscale on this server (bootstrap.sh) and headmesh-cellagent beside it. The
+# agent reaches the live backend colour through nginx's stream proxy on loopback and verifies the API hostname's
+# certificate (server_name). Its client certificate comes from the environment's cell CA and is reissued by
+# headmesh-cellcert@<env>.timer within 30 days of expiry.
+
+CELLAGENT_ETC="/etc/headmesh-cellagent"
+CELLAGENT_UNIT="/etc/systemd/system/headmesh-cellagent.service"
+CELLAGENT_DROPIN="/etc/systemd/system/headmesh-cellagent.service.d/deploy.conf"
+# The operator org a cell is registered under the first time its agent is set up.
+CELL_OPS_ORG="headmesh-ops"
+
+# psql_env <env> [psql args...]: SQL from stdin against the environment's database, as postgres; bare rows out.
+psql_env() { runuser -u postgres -- psql -X -q -A -t -v ON_ERROR_STOP=1 -d "headmesh_$1" "${@:2}"; }
+
+# op_signing_public_key <seed-file>: the base64 Ed25519 public key for a `headmesh-server keygen` seed, the form
+# cellagent.json's server_keys takes. openssl wants the seed wrapped as PKCS#8 DER (RFC 8410).
+op_signing_public_key() {
+  { printf '\x30\x2e\x02\x01\x00\x30\x05\x06\x03\x2b\x65\x70\x04\x22\x04\x20'; base64 -d <"$1"; } |
+    openssl pkey -inform DER -pubout -outform DER | tail -c 32 | base64
+}
+
+# register_cell <env> <headmesh-server>: create the cell (and its operator org) once. The bootstrap's one-time admin
+# API key goes to a root-only file for the operator to move into a password manager.
+register_cell() {
+  local env="$1" binary="$2" cell out
+  cell="$(hm_env "${env}" CELL_NAME)"
+  [[ "$(psql_env "${env}" -v cell="${cell}" <<<"SELECT count(*) FROM cells WHERE name = :'cell';")" == 1 ]] && return 0
+  out="${HM_ETC_ROOT}/${env}/cell-${cell}-bootstrap.json"
+  log "cell ${cell}: registering it in ${env} under the ${CELL_OPS_ORG} org"
+  (
+    umask 077
+    systemd-run --quiet --pipe --wait --collect \
+      -p User="${HM_SERVICE_USER}" -p EnvironmentFile="${HM_ETC_ROOT}/${env}/db.env" \
+      "${binary}" bootstrap -cell "${cell}" -server-url "https://$(hm_env "${env}" CELL_HOST)" \
+      -base-domain "$(hm_env "${env}" CELL_BASE_DOMAIN)" -cell-mode "$(hm_env "${env}" CELL_MODE)" \
+      -org "${CELL_OPS_ORG}" -org-name "Headmesh operations" >"${out}"
+  )
+  log "cell ${cell}: registered; ${out} (root only) holds the org's admin API key: move it to a password manager"
+}
+
+# cell_cert <env> <headmesh-server>: the agent's client certificate, reissued within 30 days of expiry.
+cell_cert() {
+  local env="$1" binary="$2" cell ca tmp crt="${CELLAGENT_ETC}/client.crt"
+  cell="$(hm_env "${env}" CELL_NAME)"
+  ca="${HM_ETC_ROOT}/${env}/backend/cell-ca"
+  if [[ -f "${crt}" ]] && openssl x509 -checkend $((30 * 86400)) -noout -in "${crt}" >/dev/null; then return 0; fi
+  if [[ ! -f "${ca}/ca.key" ]]; then
+    [[ -f "${crt}" ]] && openssl x509 -checkend 0 -noout -in "${crt}" >/dev/null &&
+      { log "cell ${cell}: certificate expires within 30 days and ${ca}/ca.key is offline; reissue it by hand"; return 0; }
+    die "cell ${cell}: no valid agent certificate and ${ca}/ca.key is offline"
+  fi
+  tmp="$(mktemp -d)"
+  "${binary}" cell-cert -dir "${ca}" -cell "${cell}" -out "${tmp}" -days 90 >/dev/null 2>&1
+  install -o root -g headmesh-cellagent -m 0644 "${tmp}/${cell}.crt" "${crt}"
+  install -o root -g headmesh-cellagent -m 0640 "${tmp}/${cell}.key" "${CELLAGENT_ETC}/client.key"
+  rm -rf "${tmp}"
+  log "cell ${cell}: issued the agent a 90-day client certificate"
+}
+
+# Everything whose change means a restart: the binary, the unit, the config and the certificates.
+cellagent_fingerprint() {
+  { cat /usr/local/bin/headmesh-cellagent "${CELLAGENT_UNIT}" "${CELLAGENT_DROPIN}" "${CELLAGENT_ETC}/cellagent.json" \
+    "${CELLAGENT_ETC}/client.crt" "${CELLAGENT_ETC}/server-ca.pem" 2>/dev/null || true; } | sha256sum
+}
+
+# wait_cell_seen <env> <cell> <since>: until the hub records the agent's Hello (cells.last_seen_at) after <since>.
+wait_cell_seen() {
+  local env="$1" cell="$2" since="$3" deadline=$((SECONDS + HEALTH_TIMEOUT))
+  while ((SECONDS < deadline)); do
+    [[ "$(psql_env "${env}" -v cell="${cell}" -v since="${since}" \
+      <<<"SELECT count(*) FROM cells WHERE name = :'cell' AND last_seen_at >= :'since';")" == 1 ]] && return 0
+    sleep 1
+  done
+  return 1
+}
+
+cmd_cell_agent() {
+  local env="$1" cell colour release before since server_ca="" tmp
+  require_env "${env}"
+  cell="$(hm_env "${env}" CELL_NAME)"
+  [[ -n "${cell}" ]] || { log "cell agent ${env}: this environment hosts no cell"; return 0; }
+  colour="$(state_get "${env}" backend.active)"
+  [[ -n "${colour}" ]] || die "cell agent ${env}: no live backend yet"
+  release="$(readlink -f "$(slot_path backend "${env}" "${colour}")")"
+  [[ -x "${release}/headmesh-cellagent" ]] || die "cell agent ${env}: release $(basename "${release}") has no headmesh-cellagent"
+  systemctl is-active --quiet headscale || die "cell agent ${env}: Headscale isn't running (deploy.sh --bootstrap installs it)"
+
+  if ! id headmesh-cellagent &>/dev/null; then
+    useradd --system --no-create-home --home-dir /var/lib/headmesh-cellagent --shell /usr/sbin/nologin headmesh-cellagent
+  fi
+  install -d -o root -g headmesh-cellagent -m 0750 "${CELLAGENT_ETC}"
+  before="$(cellagent_fingerprint)"
+
+  register_cell "${env}" "${release}/headmesh-server"
+  cell_cert "${env}" "${release}/headmesh-server"
+  # A Let's Encrypt certificate verifies against the system roots; the self-signed placeholder is its own root.
+  if [[ "$(readlink -f "${HM_ETC_ROOT}/tls/fullchain.pem")" == /etc/letsencrypt/* ]]; then
+    rm -f "${CELLAGENT_ETC}/server-ca.pem"
+  else
+    install -o root -g headmesh-cellagent -m 0644 "$(readlink -f "${HM_ETC_ROOT}/tls/fullchain.pem")" "${CELLAGENT_ETC}/server-ca.pem"
+    server_ca="${CELLAGENT_ETC}/server-ca.pem"
+  fi
+  tmp="$(mktemp)"
+  cat >"${tmp}" <<EOF
+{
+  "cell_name": "${cell}",
+  "mode": "$(hm_env "${env}" CELL_MODE)",
+  "state_dir": "/var/lib/headmesh-cellagent",
+  "headscale_socket": "/var/run/headscale/headscale.sock",
+  "headscale_http": "http://127.0.0.1:8080",
+  "server_url": "https://127.0.0.1:$(hm_env "${env}" CELL_PORT)",
+  "server_name": "$(hm_env "${env}" API_HOST)",
+  "server_ca": "${server_ca}",
+  "client_cert": "${CELLAGENT_ETC}/client.crt",
+  "client_key": "${CELLAGENT_ETC}/client.key",
+  "server_keys": ["$(op_signing_public_key "${HM_ETC_ROOT}/${env}/backend/op-signing.key")"],
+  "protected_nodes": [],
+  "invariants": []
+}
+EOF
+  install -o root -g headmesh-cellagent -m 0640 "${tmp}" "${CELLAGENT_ETC}/cellagent.json"
+  rm -f "${tmp}"
+  install -m 0755 -o root -g root "${release}/headmesh-cellagent" /usr/local/bin/headmesh-cellagent
+  install -m 0644 "${HM_LIB_ROOT}/cellagent/headmesh-cellagent.service" "${CELLAGENT_UNIT}"
+  install -d -m 0755 "$(dirname "${CELLAGENT_DROPIN}")"
+  # Through a file: Ubuntu 26.04's install (uutils) can't copy /dev/stdin over an existing file.
+  tmp="$(mktemp)"
+  cat >"${tmp}" <<EOF
+# Written by deployctl: this server keeps the agent's files apart from /etc/headmesh, which only the backend reads.
+[Service]
+ExecStart=
+ExecStart=/usr/local/bin/headmesh-cellagent run -config ${CELLAGENT_ETC}/cellagent.json
+ReadOnlyPaths=${CELLAGENT_ETC}
+EOF
+  install -m 0644 "${tmp}" "${CELLAGENT_DROPIN}"
+  rm -f "${tmp}"
+  systemctl daemon-reload
+  systemctl enable --quiet headmesh-cellagent.service "headmesh-cellcert@${env}.timer"
+  systemctl start --quiet "headmesh-cellcert@${env}.timer"
+
+  if [[ "$(cellagent_fingerprint)" == "${before}" ]] && systemctl is-active --quiet headmesh-cellagent.service; then
+    log "cell ${cell}: agent unchanged and running"
+    return 0
+  fi
+  since="$(psql_env "${env}" <<<"SELECT now();")"
+  systemctl restart headmesh-cellagent.service
+  if ! wait_cell_seen "${env}" "${cell}" "${since}"; then
+    journalctl -u headmesh-cellagent -n 30 --no-pager >&2 || true
+    die "cell ${cell}: the agent didn't reach the ${env} backend within ${HEALTH_TIMEOUT}s"
+  fi
+  log "cell ${cell}: agent connected to the ${env} backend ($(hm_env "${env}" CELL_MODE) mode)"
+}
+
 cmd_tls_renewed() {
   refresh_backend_tls
   nginx_check || die "nginx -t failed after certificate renewal; not reloading"
@@ -639,6 +795,8 @@ cmd_tls_renewed() {
   for env in "${HM_ENVS[@]}"; do
     colour="$(state_get "${env}" backend.active)"
     [[ -n "${colour}" ]] && systemctl try-restart "$(unit_name "${service}" "${env}" "${colour}")"
+    # The first Let's Encrypt certificate replaces the self-signed root the agent was told to trust.
+    [[ -f "${CELLAGENT_ETC}/cellagent.json" && -n "$(hm_env "${env}" CELL_NAME)" ]] && cmd_cell_agent "${env}"
   done
   log "certificate renewed; nginx reloaded and live backends restarted"
 }
@@ -660,8 +818,9 @@ main() {
     prune) cmd_prune "$@" ;;
     backup) cmd_backup "$@" ;;
     smoke) cmd_smoke "$@" ;;
+    cell-agent) cmd_cell_agent "$@" ;;
     tls-renewed) cmd_tls_renewed ;;
-    *) sed -n '2,20p' "${BASH_SOURCE[0]}" | sed 's/^# \{0,1\}//' >&2; exit 2 ;;
+    *) sed -n '2,22p' "${BASH_SOURCE[0]}" | sed 's/^# \{0,1\}//' >&2; exit 2 ;;
   esac
 }
 
