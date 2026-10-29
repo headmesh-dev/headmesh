@@ -28,6 +28,7 @@ deploy/env/*/*.env
 deploy/env/local.env
 # Internal ops notes: live infrastructure, addresses and open security findings (never published)
 docs/internal/
+docs/*prod-hetzner*
 deploy/secrets/*.dec.*
 deploy/secrets/*.plain.*
 age.key

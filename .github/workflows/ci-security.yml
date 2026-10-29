@@ -39,6 +39,26 @@ jobs:
       - name: actionlint
         run: docker run --rm -v "$PWD:/repo:ro" -w /repo "$ACTIONLINT_IMAGE" -shellcheck= -config-file .github/actionlint.yaml
 
+  private-paths:
+    name: Internal documents stay out of the repository
+    # Operations runbooks and the internal notes live in docs/internal/ on the operator's machine (git-ignored). A
+    # session that tidies a worktree can still re-add one with `git add -f`; this fails the push instead.
+    runs-on: ubuntu-26.04
+    permissions:
+      contents: read
+    timeout-minutes: 5
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - name: No tracked internal documents
+        run: |
+          found="$(git ls-files 'docs/internal/*' 'docs/*prod-hetzner*' 'deploy/env/*.env' 'deploy/env/*/*.env' '.env')"
+          if [ -n "$found" ]; then
+            printf '::error::These files must not be tracked (keep them in docs/internal/ or the git-ignored env files):\n%s\n' "$found"
+            exit 1
+          fi
+
   secrets:
     name: gitleaks (full history)
     runs-on: ubuntu-26.04
