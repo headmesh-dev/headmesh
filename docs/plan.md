@@ -1044,7 +1044,7 @@ volumes: { hm-cache-mise: {}, hm-cache-uv: {}, hm-cache-npm: {}, hm-cache-pnpm: 
 
 ### 13.2 hm-prod-1 stack (`deploy/compose/`)
 
-**Changed 2026-10-28 (ADR 0013):** nginx 1.28 and systemd units instead of Caddy and Compose, Postgres 18 from Ubuntu, and `deploy/deploy.sh --env prod|test|all --target frontend|backend|all` with blue-green services and `nginx -t` before every reload; see `deploy/README.md`. `deploy/tests/e2e.sh` runs the whole pipeline against a systemd container. Headscale hs1, Litestream and pgBackRest are not deployed yet.
+**Changed 2026-10-28 (ADR 0013):** nginx 1.28 and systemd units instead of Caddy and Compose, Postgres 18 from Ubuntu, and `deploy/deploy.sh --env prod|test|all --target frontend|backend|all` with blue-green services and `nginx -t` before every reload; see `deploy/README.md`. `deploy/tests/e2e.sh` runs the whole pipeline against a systemd container. **Live 2026-10-29:** prod (headmesh.dev, api.headmesh.dev) and test (test.headmesh.dev, api-test.headmesh.dev) are deployed on hm-prod-1 with a self-signed origin certificate until the Let's Encrypt certificate is issued. Headscale hs1, Litestream and pgBackRest are not deployed yet.
 - **Services:**
   - Caddy 2 with automatic HTTPS (DNS-01 via Cloudflare so a recovery VM can get certificates before DNS moves). Reverse proxy for `api.`, `app.`, `hs1.` (h2c and WebSocket for `/ts2021`) and `*.sbx.`.
   - **Headscale v0.29.6** (tagged release image, pinned by digest): `policy.mode: database`, sqlite WAL, `server_url: https://hs1.headmesh.dev`, `dns.base_domain: mesh.headmesh.dev`, embedded DERP region 900 "nbg" with STUN on 3478, metrics on 127.0.0.1:9090, `logtail.enabled: false`.
