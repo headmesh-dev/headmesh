@@ -17,7 +17,7 @@ import (
 
 var knownScopes = []string{
 	ScopeAdmin, ScopeDevicesRead, ScopeEnrollWrite, ScopeGrantsRead, ScopeGrantsWrite, ScopeAPIKeysWrite, ScopeAuditRead,
-	ScopeRulesRead, ScopeRulesWrite,
+	ScopeRulesRead, ScopeRulesWrite, ScopeServicesWrite,
 }
 
 // Authenticate resolves an API key to a principal. Lookup runs in the system scope because the key is what

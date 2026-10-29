@@ -509,6 +509,44 @@ func TestOnboardingAndAccessLifecycle(t *testing.T) {
 		t.Fatalf("deleted rule still readable: %d", code)
 	}
 
+	// --- Services: named ports, private to the org that offers them -------------------------------------------------
+	jupyter := map[string]any{"device_id": gpu["id"], "name": "jupyter", "ports": []string{"TCP:8888"}, "description": "notebooks"}
+	var jsvc map[string]any
+	if code := c.do("POST", "/v1/services", own.AdminKey.Key, jupyter, &jsvc); code != http.StatusCreated || jsvc["ports"].([]any)[0] != "tcp:8888" {
+		t.Fatalf("create service: %d %v", code, jsvc)
+	}
+	if code := c.do("POST", "/v1/services", own.AdminKey.Key, jupyter, nil); code != http.StatusConflict {
+		t.Fatalf("a duplicate service name: %d", code)
+	}
+	if code := c.do("POST", "/v1/services", plat.AdminKey.Key, jupyter, nil); code != http.StatusNotFound {
+		t.Fatalf("a service on another org's device: %d", code)
+	}
+	if code := c.do("POST", "/v1/services", own.AdminKey.Key,
+		map[string]any{"device_id": gpu["id"], "name": "all-ports", "ports": []string{"*"}}, nil); code != http.StatusUnprocessableEntity {
+		t.Fatalf("a service on every port: %d", code)
+	}
+	var svcs struct {
+		Services []map[string]any `json:"services"`
+	}
+	if code := c.do("GET", "/v1/services", plat.AdminKey.Key, nil, &svcs); code != http.StatusOK || len(svcs.Services) != 0 {
+		t.Fatalf("the platform org lists %d services (%d)", len(svcs.Services), code)
+	}
+	if code := c.do("DELETE", "/v1/services/"+jsvc["id"].(string), plat.AdminKey.Key, nil, nil); code != http.StatusNotFound {
+		t.Fatalf("another org deleted the service: %d", code)
+	}
+	if code := c.do("GET", "/v1/services", reader.Key, nil, nil); code != http.StatusForbidden {
+		t.Fatalf("a rules:read key listed services: %d", code)
+	}
+	if code := c.do("GET", "/v1/services", own.AdminKey.Key, nil, &svcs); code != http.StatusOK || len(svcs.Services) != 1 || svcs.Services[0]["name"] != "jupyter" {
+		t.Fatalf("list services: %d %v", code, svcs.Services)
+	}
+	if code := c.do("DELETE", "/v1/services/"+jsvc["id"].(string), own.AdminKey.Key, nil, nil); code != http.StatusOK {
+		t.Fatalf("delete service: %d", code)
+	}
+	if code := c.do("GET", "/v1/services", own.AdminKey.Key, nil, &svcs); code != http.StatusOK || len(svcs.Services) != 0 {
+		t.Fatalf("after delete: %d %v", code, svcs.Services)
+	}
+
 	// --- Expiry sweep: a grant that lapsed while nothing was running is audited exactly once -----------------
 	gpuID, _ := store.UUID(gpu["id"].(string))
 	platID, _ := store.UUID(plat.OrgID)

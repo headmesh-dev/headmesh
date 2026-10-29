@@ -50,6 +50,8 @@ const (
 	ScopeAuditRead    = "audit:read"
 	ScopeRulesRead    = "rules:read"
 	ScopeRulesWrite   = "rules:write"
+	// ScopeServicesWrite creates and deletes services; listing them only needs devices:read.
+	ScopeServicesWrite = "services:write"
 )
 
 // Can reports whether the principal holds scope (admin implies every scope).

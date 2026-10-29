@@ -29,7 +29,9 @@ type Querier interface {
 	CreateOrg(ctx context.Context, arg CreateOrgParams) (Org, error)
 	CreatePlatformRule(ctx context.Context, arg CreatePlatformRuleParams) (PlatformRule, error)
 	CreateRule(ctx context.Context, arg CreateRuleParams) (Rule, error)
+	CreateService(ctx context.Context, arg CreateServiceParams) (Service, error)
 	DeleteRule(ctx context.Context, arg DeleteRuleParams) error
+	DeleteService(ctx context.Context, arg DeleteServiceParams) error
 	ExtendGrant(ctx context.Context, arg ExtendGrantParams) (Grant, error)
 	// Runs in the system scope: the key itself is the credential that establishes the tenant scope.
 	GetAPIKeyByHash(ctx context.Context, keyHash []byte) (ApiKey, error)
@@ -45,6 +47,7 @@ type Querier interface {
 	GetOrgByShortID(ctx context.Context, shortID string) (Org, error)
 	GetOrgBySlug(ctx context.Context, slug string) (Org, error)
 	GetRule(ctx context.Context, id pgtype.UUID) (Rule, error)
+	GetService(ctx context.Context, id pgtype.UUID) (Service, error)
 	InitChainHead(ctx context.Context, arg InitChainHeadParams) error
 	InsertAuditEvent(ctx context.Context, arg InsertAuditEventParams) (int64, error)
 	InsertPolicyRevision(ctx context.Context, arg InsertPolicyRevisionParams) error
@@ -64,6 +67,7 @@ type Querier interface {
 	ListPlatformRulesInCell(ctx context.Context, cellID pgtype.UUID) ([]PlatformRule, error)
 	ListRulesByOrg(ctx context.Context, orgID pgtype.UUID) ([]Rule, error)
 	ListRulesInCell(ctx context.Context, cellID pgtype.UUID) ([]Rule, error)
+	ListServicesByOrg(ctx context.Context, orgID pgtype.UUID) ([]Service, error)
 	LockChainHead(ctx context.Context, chainKey pgtype.UUID) (LockChainHeadRow, error)
 	MarkEnrollmentMinted(ctx context.Context, arg MarkEnrollmentMintedParams) (Enrollment, error)
 	MarkGrantExpiryAudited(ctx context.Context, arg MarkGrantExpiryAuditedParams) error

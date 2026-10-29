@@ -425,3 +425,27 @@ func TestRuleSetKeepsUnchangedFieldsAndSendsIfMatch(t *testing.T) {
 		t.Fatalf("PUT body: %v", put)
 	}
 }
+
+func TestServiceAddSendsTheService(t *testing.T) {
+	var got map[string]any
+	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		if r.Method != http.MethodPost || r.URL.Path != "/v1/services" {
+			w.WriteHeader(http.StatusNotFound)
+			return
+		}
+		_ = json.NewDecoder(r.Body).Decode(&got)
+		w.Header().Set("Content-Type", "application/json")
+		w.WriteHeader(http.StatusCreated)
+		_, _ = w.Write([]byte(`{"id":"s1","device_id":"d1","name":"jupyter","ports":["tcp:8888"]}`))
+	}))
+	defer srv.Close()
+	env := map[string]string{"HEADMESH_API_KEY": "hmk_test", "HEADMESH_SERVER": srv.URL}
+	out, err := run(t, Deps{Getenv: func(k string) string { return env[k] }},
+		"service", "add", "--device", "d1", "--name", "jupyter", "--port", "tcp:8888")
+	if err != nil || !strings.Contains(out, "Service jupyter (s1): tcp:8888 on device d1") {
+		t.Fatalf("output %q, %v", out, err)
+	}
+	if got["device_id"] != "d1" || got["name"] != "jupyter" || got["ports"].([]any)[0] != "tcp:8888" {
+		t.Fatalf("body sent: %v", got)
+	}
+}

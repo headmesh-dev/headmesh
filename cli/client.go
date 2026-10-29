@@ -292,6 +292,41 @@ func (c *Client) DeleteRule(ctx context.Context, id string) (*Rule, error) {
 	return &out, err
 }
 
+// NamedService mirrors the API's service body: named ports on a device.
+type NamedService struct {
+	ID          string    `json:"id"`
+	DeviceID    string    `json:"device_id"`
+	Name        string    `json:"name"`
+	Ports       []string  `json:"ports"`
+	Description string    `json:"description,omitempty"`
+	CreatedAt   time.Time `json:"created_at"`
+}
+
+// CreateService names ports on one of your devices.
+func (c *Client) CreateService(ctx context.Context, deviceID, name string, ports []string, description string) (*NamedService, error) {
+	var out NamedService
+	err := c.do(ctx, http.MethodPost, "/v1/services", true, map[string]any{
+		"device_id": deviceID, "name": name, "ports": ports, "description": description,
+	}, &out)
+	return &out, err
+}
+
+// Services lists your org's services.
+func (c *Client) Services(ctx context.Context) ([]NamedService, error) {
+	var out struct {
+		Services []NamedService `json:"services"`
+	}
+	err := c.do(ctx, http.MethodGet, "/v1/services", true, nil, &out)
+	return out.Services, err
+}
+
+// DeleteService deletes a service.
+func (c *Client) DeleteService(ctx context.Context, id string) (*NamedService, error) {
+	var out NamedService
+	err := c.do(ctx, http.MethodDelete, "/v1/services/"+url.PathEscape(id), true, nil, &out)
+	return &out, err
+}
+
 // AccessCheck mirrors the API's access check.
 type AccessCheck struct {
 	Allowed bool   `json:"allowed"`

@@ -387,6 +387,62 @@ separate tailscaled (own state, socket, port and interface) alongside it. Creati
 	})
 	root.AddCommand(rule)
 
+	// services -------------------------------------------------------------------------------------------
+	svc := &cobra.Command{Use: "service", Short: "Name the ports your devices offer"}
+	var svcDevice, svcName, svcDescription string
+	var svcPorts []string
+	svcAdd := &cobra.Command{
+		Use: "add", Short: "Name ports on one of your devices", Args: cobra.NoArgs,
+		Example: "  headmesh service add --device <id> --name jupyter --port tcp:8888",
+		RunE: func(cmd *cobra.Command, _ []string) error {
+			if svcDevice == "" || svcName == "" || len(svcPorts) == 0 {
+				return errors.New("--device, --name and --port are required")
+			}
+			s, err := client().CreateService(cmd.Context(), svcDevice, svcName, svcPorts, svcDescription)
+			if err != nil {
+				return err
+			}
+			return print(cmd.OutOrStdout(), s, func(w io.Writer) {
+				_, _ = fmt.Fprintf(w, "Service %s (%s): %s on device %s\n", s.Name, s.ID, strings.Join(s.Ports, ","), s.DeviceID)
+			})
+		},
+	}
+	svcAdd.Flags().StringVar(&svcDevice, "device", "", "id of the device that offers it")
+	svcAdd.Flags().StringVar(&svcName, "name", "", "name, e.g. jupyter (lowercase letters, digits, dashes)")
+	svcAdd.Flags().StringSliceVar(&svcPorts, "port", nil, "port it listens on, e.g. tcp:8888 (repeatable)")
+	svcAdd.Flags().StringVar(&svcDescription, "description", "", "what it is")
+	svc.AddCommand(svcAdd)
+	svc.AddCommand(&cobra.Command{
+		Use: "ls", Short: "List your org's services", Args: cobra.NoArgs,
+		RunE: func(cmd *cobra.Command, _ []string) error {
+			ss, err := client().Services(cmd.Context())
+			if err != nil {
+				return err
+			}
+			return print(cmd.OutOrStdout(), ss, func(w io.Writer) {
+				tw := tabwriter.NewWriter(w, 0, 2, 2, ' ', 0)
+				_, _ = fmt.Fprintln(tw, "NAME\tPORTS\tDEVICE\tID")
+				for _, s := range ss {
+					_, _ = fmt.Fprintf(tw, "%s\t%s\t%s\t%s\n", s.Name, strings.Join(s.Ports, ","), s.DeviceID, s.ID)
+				}
+				_ = tw.Flush()
+			})
+		},
+	})
+	svc.AddCommand(&cobra.Command{
+		Use: "rm ID", Short: "Delete a service", Args: cobra.ExactArgs(1),
+		RunE: func(cmd *cobra.Command, args []string) error {
+			s, err := client().DeleteService(cmd.Context(), args[0])
+			if err != nil {
+				return err
+			}
+			return print(cmd.OutOrStdout(), s, func(w io.Writer) {
+				_, _ = fmt.Fprintf(w, "Deleted service %s (%s)\n", s.Name, s.ID)
+			})
+		},
+	})
+	root.AddCommand(svc)
+
 	// access ---------------------------------------------------------------------------------------------
 	access := &cobra.Command{Use: "access", Short: "Check what your network lets through"}
 	access.AddCommand(&cobra.Command{

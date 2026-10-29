@@ -129,7 +129,7 @@ func (s *Service) ExportAuditEvents(ctx context.Context, p Principal, after int6
 		}
 		for _, e := range page {
 			entry := &AuditExportEntry{
-				AuditEntry: *toAuditEntry(e), UserAgent: derefOr(e.UserAgent, ""), PrevHash: hex.EncodeToString(e.PrevHash),
+				AuditEntry: *toAuditEntry(e), UserAgent: derefStr(e.UserAgent), PrevHash: hex.EncodeToString(e.PrevHash),
 			}
 			if e.OrgID.Valid {
 				entry.OrgID = e.OrgID.String()
@@ -148,7 +148,7 @@ func (s *Service) ExportAuditEvents(ctx context.Context, p Principal, after int6
 func toAuditEntry(e dbq.AuditEvent) *AuditEntry {
 	entry := &AuditEntry{
 		ID: e.ID, OccurredAt: e.OccurredAt, ActorType: e.ActorType, ActorID: e.ActorID, Action: e.Action,
-		TargetType: e.TargetType, TargetID: e.TargetID, RequestID: derefOr(e.RequestID, ""), Data: json.RawMessage(e.Data),
+		TargetType: e.TargetType, TargetID: e.TargetID, RequestID: derefStr(e.RequestID), Data: json.RawMessage(e.Data),
 		Hash: hex.EncodeToString(e.Hash),
 	}
 	if e.Ip != nil {

@@ -32,7 +32,7 @@ func (s *Service) SweepExpiredGrants(ctx context.Context) (int, error) {
 					Action: "grant.expired", TargetType: "grant", TargetID: g.ID.String(),
 					Data: map[string]any{
 						"expires_at": g.ExpiresAt, "noticed_late_seconds": int64(now.Sub(g.ExpiresAt).Seconds()),
-						"external_ref": derefOr(g.ExternalRef, ""),
+						"external_ref": derefStr(g.ExternalRef),
 					},
 				})
 				if err != nil {
@@ -100,9 +100,10 @@ func (s *Service) AwaitCellsCurrent(ctx context.Context, hub RecoveryHub, log *s
 	return nil
 }
 
-func derefOr(s *string, def string) string {
+// derefStr is *s, or "" for nil.
+func derefStr(s *string) string {
 	if s == nil {
-		return def
+		return ""
 	}
 	return *s
 }

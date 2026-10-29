@@ -739,6 +739,95 @@ components:
       required:
         - kind
       type: object
+    ServiceBody:
+      additionalProperties: false
+      properties:
+        $schema:
+          description: A URL to the JSON Schema for this object.
+          examples:
+            - https://example.com/schemas/ServiceBody.json
+          format: uri
+          readOnly: true
+          type: string
+        created_at:
+          format: date-time
+          type: string
+        description:
+          type: string
+        device_id:
+          type: string
+        id:
+          type: string
+        name:
+          type: string
+        ports:
+          items:
+            type: string
+          type:
+            - array
+            - "null"
+      required:
+        - id
+        - device_id
+        - name
+        - ports
+        - created_at
+      type: object
+    ServiceInBody:
+      additionalProperties: false
+      properties:
+        $schema:
+          description: A URL to the JSON Schema for this object.
+          examples:
+            - https://example.com/schemas/ServiceInBody.json
+          format: uri
+          readOnly: true
+          type: string
+        description:
+          maxLength: 500
+          type: string
+        device_id:
+          format: uuid
+          type: string
+        name:
+          examples:
+            - jupyter
+          pattern: ^[a-z0-9][a-z0-9-]{0,40}$
+          type: string
+        ports:
+          examples:
+            - - tcp:8888
+          items:
+            type: string
+          maxItems: 32
+          minItems: 1
+          type:
+            - array
+            - "null"
+      required:
+        - device_id
+        - name
+        - ports
+      type: object
+    ServicesOutBody:
+      additionalProperties: false
+      properties:
+        $schema:
+          description: A URL to the JSON Schema for this object.
+          examples:
+            - https://example.com/schemas/ServicesOutBody.json
+          format: uri
+          readOnly: true
+          type: string
+        services:
+          items:
+            $ref: "#/components/schemas/ServiceBody"
+          type:
+            - array
+            - "null"
+      required:
+        - services
+      type: object
     TokenInBody:
       additionalProperties: false
       properties:
@@ -1376,3 +1465,78 @@ paths:
       summary: Replace a rule's selectors, ports and times; returns once the cell enforces the change
       tags:
         - rules
+  /v1/services:
+    get:
+      operationId: list-services
+      responses:
+        "200":
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ServicesOutBody"
+          description: OK
+        default:
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/ErrorModel"
+          description: Error
+      security:
+        - bearer: []
+      summary: Your org's services, by name
+      tags:
+        - services
+    post:
+      operationId: create-service
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/ServiceInBody"
+        required: true
+      responses:
+        "201":
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ServiceBody"
+          description: Created
+        default:
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/ErrorModel"
+          description: Error
+      security:
+        - bearer: []
+      summary: Name ports on one of your devices
+      tags:
+        - services
+  /v1/services/{id}:
+    delete:
+      operationId: delete-service
+      parameters:
+        - in: path
+          name: id
+          required: true
+          schema:
+            format: uuid
+            type: string
+      responses:
+        "200":
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ServiceBody"
+          description: OK
+        default:
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/ErrorModel"
+          description: Error
+      security:
+        - bearer: []
+      summary: Delete a service; returns what was deleted
+      tags:
+        - services
