@@ -43,6 +43,7 @@ test("home page carries the launch copy and both calls to action", async ({ page
     page.getByRole("heading", { name: "Give your AI agents a real machine, not a toy sandbox." }),
   ).toBeVisible();
   await expect(page.getByRole("heading", { name: "Built for Xcelsior Compute" })).toBeVisible();
+  await expect(page.getByRole("contentinfo")).toContainText("and WireGuard. An Xcelsior Compute project.");
   for (const feature of [
     "One-click onboarding",
     "True multi-tenancy",
