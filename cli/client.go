@@ -269,6 +269,30 @@ func (c *Client) Rules(ctx context.Context) ([]Rule, error) {
 	return out.Rules, err
 }
 
+// RulePreview mirrors the API's rule preview.
+type RulePreview struct {
+	At       time.Time `json:"at"`
+	NewPairs int       `json:"new_pairs"`
+	Pairs    []struct {
+		SrcID   string   `json:"src_id"`
+		SrcName string   `json:"src_name"`
+		DstID   string   `json:"dst_id"`
+		DstName string   `json:"dst_name"`
+		New     []string `json:"new"`
+		Already []string `json:"already"`
+	} `json:"pairs"`
+	Truncated bool `json:"truncated"`
+}
+
+// PreviewRule reports what CreateRule would change, without creating anything.
+func (c *Client) PreviewRule(ctx context.Context, src, dst Selector, ports []string, expires *time.Time) (*RulePreview, error) {
+	var out RulePreview
+	err := c.do(ctx, http.MethodPost, "/v1/rules/preview", true, map[string]any{
+		"src": src, "dst": dst, "ports": ports, "expires_at": expires,
+	}, &out)
+	return &out, err
+}
+
 // Rule returns one of your org's rules.
 func (c *Client) Rule(ctx context.Context, id string) (*Rule, error) {
 	var out Rule

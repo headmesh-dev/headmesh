@@ -25,6 +25,13 @@ type ruleBody struct {
 	Enforced  bool               `json:"enforced,omitempty" doc:"on create and delete: true when the cell confirmed the resulting policy is live"`
 }
 
+func nonNil(s []string) []string {
+	if s == nil {
+		return []string{}
+	}
+	return s
+}
+
 // ruleETag is a rule's version as a strong ETag.
 func ruleETag(r *service.Rule) string { return `"` + strconv.Itoa(int(r.Version)) + `"` }
 
@@ -79,6 +86,51 @@ func (h *handlers) registerRules(a huma.API) {
 			return nil, h.fail(err)
 		}
 		return &ruleOut{ETag: ruleETag(r), Body: toRuleBody(r)}, nil
+	})
+
+	type rulePairBody struct {
+		SrcID   string   `json:"src_id"`
+		SrcName string   `json:"src_name"`
+		DstID   string   `json:"dst_id"`
+		DstName string   `json:"dst_name"`
+		New     []string `json:"new" doc:"the rule's ports this pair can't reach yet"`
+		Already []string `json:"already" doc:"the rule's ports something else already allows"`
+	}
+	type previewOut struct {
+		Body struct {
+			At        time.Time      `json:"at" doc:"the instant previewed: now, or starts_at when later"`
+			NewPairs  int            `json:"new_pairs" doc:"device pairs that would gain at least one port"`
+			Pairs     []rulePairBody `json:"pairs"`
+			Truncated bool           `json:"truncated" doc:"more than 500 pairs matched; new_pairs still counts them all"`
+		}
+	}
+	huma.Register(a, huma.Operation{
+		OperationID: "preview-rule", Method: http.MethodPost, Path: "/v1/rules/preview",
+		Summary: "What a rule would change, without creating it",
+		Description: "Validates the rule exactly as create does and compiles the cell's policy with it, then lists every " +
+			"pair of your devices it would let through and which of its ports are new for each pair.",
+		Tags: []string{"rules"}, Security: bearer,
+	}, func(ctx context.Context, in *ruleIn) (*previewOut, error) {
+		p, err := h.principal(ctx)
+		if err != nil {
+			return nil, err
+		}
+		pv, err := h.svc.PreviewRule(ctx, p, service.RuleRequest{
+			Src: in.Body.Src, Dst: in.Body.Dst, Ports: in.Body.Ports, StartsAt: in.Body.StartsAt, ExpiresAt: in.Body.ExpiresAt,
+		})
+		if err != nil {
+			return nil, h.fail(err)
+		}
+		out := &previewOut{}
+		out.Body.At, out.Body.NewPairs, out.Body.Truncated = pv.At, pv.NewPairs, pv.Truncated
+		out.Body.Pairs = make([]rulePairBody, 0, len(pv.Pairs))
+		for _, pr := range pv.Pairs {
+			out.Body.Pairs = append(out.Body.Pairs, rulePairBody{
+				SrcID: pr.SrcID, SrcName: pr.SrcName, DstID: pr.DstID, DstName: pr.DstName,
+				New: nonNil(pr.New), Already: nonNil(pr.Already),
+			})
+		}
+		return out, nil
 	})
 
 	type rulesOut struct {

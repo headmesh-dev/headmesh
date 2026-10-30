@@ -302,3 +302,146 @@ func toRule(r dbq.Rule) (*Rule, error) {
 	}
 	return out, nil
 }
+
+// RulePair is one pair of devices a previewed rule lets through.
+type RulePair struct {
+	SrcID, SrcName string
+	DstID, DstName string
+	// New are the rule's ports this pair can't reach yet; Already are those something else already allows.
+	New, Already []string
+}
+
+// RulePreview is what creating a rule would change.
+type RulePreview struct {
+	// At is the instant previewed: now, or the rule's starts_at when that is later.
+	At       time.Time
+	Pairs    []RulePair
+	NewPairs int // pairs that gain at least one port
+	// Truncated is true when more than maxPreviewPairs pairs matched; NewPairs still counts them all.
+	Truncated bool
+}
+
+const maxPreviewPairs = 500
+
+// PreviewRule reports what CreateRule would change, without changing anything: every pair of the org's devices the
+// rule lets through, and which of its ports are new for that pair. It validates exactly as CreateRule does, and
+// refuses a rule the compiler would refuse.
+func (s *Service) PreviewRule(ctx context.Context, p Principal, req RuleRequest) (*RulePreview, error) {
+	if !p.Can(ScopeRulesRead) && !p.Can(ScopeRulesWrite) {
+		return nil, ErrForbidden
+	}
+	ports, _, _, err := s.prepareRule(req)
+	if err != nil {
+		return nil, err
+	}
+	out := &RulePreview{At: s.now()}
+	if req.StartsAt != nil && req.StartsAt.After(out.At) {
+		out.At = *req.StartsAt
+	}
+	var org dbq.Org
+	byShort := map[string]dbq.Device{}
+	var rule policy.Rule
+	err = s.Store.Tx(ctx, p.scope(), func(q *dbq.Queries, _ pgx.Tx) error {
+		var err error
+		if org, err = q.GetOrg(ctx, p.OrgID); err != nil {
+			return fmt.Errorf("load org: %w", err)
+		}
+		if err := validateSelector(ctx, q, org, "src", "your org", req.Src); err != nil {
+			return err
+		}
+		if err := validateSelector(ctx, q, org, "dst", "your org", req.Dst); err != nil {
+			return err
+		}
+		devices, err := q.ListDevicesByOrg(ctx, p.OrgID)
+		if err != nil {
+			return fmt.Errorf("list devices: %w", err)
+		}
+		byID := map[string]dbq.Device{}
+		for _, d := range devices {
+			byShort[d.ShortID] = d
+			byID[d.ID.String()] = d
+		}
+		rule = policy.Rule{ID: "preview", Org: org.ShortID, StartsAt: derefTime(req.StartsAt), ExpiresAt: derefTime(req.ExpiresAt)}
+		if rule.Src, err = policySelector(req.Src, byID); err != nil {
+			return err
+		}
+		if rule.Dst, err = policySelector(req.Dst, byID); err != nil {
+			return err
+		}
+		for _, pt := range ports {
+			rule.Ports = append(rule.Ports, policy.Port(pt))
+		}
+		return nil
+	})
+	if err != nil {
+		return nil, err
+	}
+	var snap policy.Snapshot
+	err = s.Store.Tx(ctx, systemScope, func(q *dbq.Queries, _ pgx.Tx) error {
+		cell, err := q.GetCell(ctx, org.CellID)
+		if err != nil {
+			return fmt.Errorf("load cell: %w", err)
+		}
+		snap, err = store.LoadSnapshot(ctx, q, cell, out.At, 0)
+		return err
+	})
+	if err != nil {
+		return nil, err
+	}
+	deltas, err := policy.PreviewRule(snap, out.At, rule)
+	if errors.Is(err, policy.ErrInvalid) {
+		return nil, fmt.Errorf("%w: %w", ErrInvalid, err)
+	} else if err != nil {
+		return nil, fmt.Errorf("preview: %w", err)
+	}
+	for _, d := range deltas {
+		if len(d.New) > 0 {
+			out.NewPairs++
+		}
+		if len(out.Pairs) == maxPreviewPairs {
+			out.Truncated = true
+			continue
+		}
+		src, dst := byShort[d.Src], byShort[d.Dst]
+		pair := RulePair{SrcID: src.ID.String(), SrcName: src.GivenName, DstID: dst.ID.String(), DstName: dst.GivenName}
+		for _, pt := range d.New {
+			pair.New = append(pair.New, string(pt))
+		}
+		for _, pt := range d.Already {
+			pair.Already = append(pair.Already, string(pt))
+		}
+		out.Pairs = append(out.Pairs, pair)
+	}
+	return out, nil
+}
+
+// policySelector turns a stored selector into the compiler's form; device selectors name devices by UUID.
+func policySelector(sel store.SelectorJSON, byID map[string]dbq.Device) (policy.Selector, error) {
+	switch sel.Kind {
+	case "all":
+		return policy.All(), nil
+	case "users":
+		return policy.Users(), nil
+	case "role":
+		return policy.Role(sel.Role), nil
+	case "device":
+		id, err := store.UUID(sel.Device)
+		if err != nil {
+			return policy.Selector{}, fmt.Errorf("%w: device", ErrInvalid)
+		}
+		d, ok := byID[id.String()]
+		if !ok {
+			return policy.Selector{}, fmt.Errorf("%w: device is not in your org", ErrInvalid)
+		}
+		return policy.DeviceSel(d.ShortID), nil
+	default:
+		return policy.Selector{}, fmt.Errorf("%w: unknown selector kind %q", ErrInvalid, sel.Kind)
+	}
+}
+
+func derefTime(t *time.Time) time.Time {
+	if t == nil {
+		return time.Time{}
+	}
+	return *t
+}

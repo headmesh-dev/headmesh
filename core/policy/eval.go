@@ -1,6 +1,9 @@
 package policy
 
-import "slices"
+import (
+	"cmp"
+	"slices"
+)
 
 // Principals returns the policy principals a live device is known by. Inactive devices have none.
 func Principals(d Device) []string {
@@ -34,6 +37,53 @@ func (doc Document) AllowsPrincipals(sp, dp []string, proto string, port int) bo
 			if pr, err := Port(raw).parsed(); err == nil && pr.matches(proto, port) {
 				return true
 			}
+		}
+	}
+	return false
+}
+
+// AllowsPort reports whether doc lets src reach dst on every connection port spec p names: one port, a range, or "*".
+// It counts the union of matching grants, so tcp:8000-8100 is allowed when one grant opens 8000-8049 and another
+// 8050-8100. "*" is allowed only by a matching "*" grant, since it covers protocols Headmesh never lists.
+func (doc Document) AllowsPort(src, dst Device, p Port) bool {
+	want, err := p.parsed()
+	if err != nil {
+		return false
+	}
+	sp, dp := Principals(src), Principals(dst)
+	if len(sp) == 0 || len(dp) == 0 {
+		return false
+	}
+	var spans []portRange
+	for _, g := range doc.Grants {
+		if !intersects(g.Src, sp) || !intersects(g.Dst, dp) {
+			continue
+		}
+		for _, raw := range g.IP {
+			have, err := Port(raw).parsed()
+			if err != nil {
+				continue
+			}
+			if have.covers(want) {
+				return true
+			}
+			if want.proto != "" && have.proto == want.proto {
+				spans = append(spans, have)
+			}
+		}
+	}
+	// No single grant covers it: sweep the union of the matching spans across [lo, hi].
+	slices.SortFunc(spans, func(a, b portRange) int { return cmp.Compare(a.lo, b.lo) })
+	next := want.lo
+	for _, r := range spans {
+		if r.lo > next {
+			break
+		}
+		if r.hi >= next {
+			next = r.hi + 1
+		}
+		if next > want.hi {
+			return true
 		}
 	}
 	return false

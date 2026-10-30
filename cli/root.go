@@ -266,6 +266,7 @@ separate tailscaled (own state, socket, port and interface) alongside it. Creati
 	var ruleFrom, ruleTo string
 	var rulePorts []string
 	var ruleFor time.Duration
+	var ruleDryRun bool
 	ruleAdd := &cobra.Command{
 		Use: "add", Short: "Let devices in your org reach other devices in your org", Args: cobra.NoArgs,
 		Example: "  headmesh rule add --from role:ops --to role:gpu-host --port tcp:22\n" +
@@ -287,6 +288,24 @@ separate tailscaled (own state, socket, port and interface) alongside it. Creati
 				t := time.Now().Add(ruleFor).UTC()
 				expires = &t
 			}
+			if ruleDryRun {
+				pv, err := client().PreviewRule(cmd.Context(), src, dst, rulePorts, expires)
+				if err != nil {
+					return err
+				}
+				return print(cmd.OutOrStdout(), pv, func(w io.Writer) {
+					_, _ = fmt.Fprintf(w, "Dry run: this rule would newly let %d device pairs through (nothing was created).\n", pv.NewPairs)
+					tw := tabwriter.NewWriter(w, 0, 2, 2, ' ', 0)
+					_, _ = fmt.Fprintln(tw, "FROM\tTO\tNEW\tALREADY ALLOWED")
+					for _, pr := range pv.Pairs {
+						_, _ = fmt.Fprintf(tw, "%s\t%s\t%s\t%s\n", pr.SrcName, pr.DstName, strings.Join(pr.New, ","), strings.Join(pr.Already, ","))
+					}
+					_ = tw.Flush()
+					if pv.Truncated {
+						_, _ = fmt.Fprintln(w, "(only the first 500 pairs are listed)")
+					}
+				})
+			}
 			r, err := client().CreateRule(cmd.Context(), src, dst, rulePorts, expires)
 			if err != nil {
 				return err
@@ -300,6 +319,7 @@ separate tailscaled (own state, socket, port and interface) alongside it. Creati
 	ruleAdd.Flags().StringVar(&ruleTo, "to", "", "devices they may reach, in the same form")
 	ruleAdd.Flags().StringSliceVar(&rulePorts, "port", nil, "port to open, e.g. tcp:22, udp:5000-5100 or * (repeatable)")
 	ruleAdd.Flags().DurationVar(&ruleFor, "for", 0, "remove the access after this long (default: until deleted)")
+	ruleAdd.Flags().BoolVar(&ruleDryRun, "dry-run", false, "show which device pairs it would let through, and create nothing")
 	rule.AddCommand(ruleAdd)
 	var setFrom, setTo string
 	var setPorts []string

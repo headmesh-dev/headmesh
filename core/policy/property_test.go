@@ -342,3 +342,108 @@ func TestExplainAgreesWithThePolicy(t *testing.T) {
 		}
 	})
 }
+
+// TestAllowsPortIsAllowsOnEveryPortOfTheRange: a range is allowed exactly when each of its ports is.
+func TestAllowsPortIsAllowsOnEveryPortOfTheRange(t *testing.T) {
+	rapid.Check(t, func(t *rapid.T) {
+		s := genSnapshot(t)
+		if len(s.Devices) < 2 {
+			return
+		}
+		at := t0.Add(time.Duration(rapid.IntRange(-60, 60).Draw(t, "at")) * time.Minute)
+		c, err := Compile(s, at, Options{Canaries: -1})
+		if err != nil {
+			t.Fatalf("Compile: %v", err)
+		}
+		a := rapid.SampledFrom(s.Devices).Draw(t, "src")
+		b := rapid.SampledFrom(s.Devices).Draw(t, "dst")
+		spec := Port(rapid.SampledFrom([]string{"tcp:22", "udp:53", "tcp:8000-8100", "tcp:8040-8060", "tcp:1-100"}).Draw(t, "spec"))
+		r, _ := spec.parsed()
+		want := true
+		for port := r.lo; port <= r.hi && want; port++ {
+			want = c.Document.Allows(a, b, r.proto, port)
+		}
+		if got := c.Document.AllowsPort(a, b, spec); got != want {
+			t.Fatalf("%s -> %s %s: AllowsPort=%v, every port=%v", a.Short, b.Short, spec, got, want)
+		}
+	})
+}
+
+// TestPreviewRuleIsTheExactDelta: what a preview calls new is refused now and allowed with the rule, what it calls
+// already allowed is allowed now, and every connection the rule adds appears in the preview.
+func TestPreviewRuleIsTheExactDelta(t *testing.T) {
+	rapid.Check(t, func(t *rapid.T) {
+		s := genSnapshot(t)
+		at := t0.Add(time.Duration(rapid.IntRange(-60, 60).Draw(t, "at")) * time.Minute)
+		org := rapid.SampledFrom(s.Orgs).Draw(t, "org").Short
+		var tagged []string
+		for _, d := range s.Devices {
+			if d.Org == org && d.User == "" {
+				tagged = append(tagged, d.Short)
+			}
+		}
+		sel := func(label string) Selector {
+			switch rapid.IntRange(0, 2).Draw(t, label) {
+			case 0:
+				return All()
+			case 1:
+				return Role(rapid.SampledFrom(roleChoices).Draw(t, label+"Role"))
+			default:
+				if len(tagged) == 0 {
+					return All()
+				}
+				return DeviceSel(rapid.SampledFrom(tagged).Draw(t, label+"Device"))
+			}
+		}
+		r := Rule{
+			ID: "preview", Org: org, Src: sel("src"), Dst: sel("dst"),
+			Ports: []Port{Port(rapid.SampledFrom(portChoices).Draw(t, "port"))},
+		}
+		deltas, err := PreviewRule(s, at, r)
+		if err != nil {
+			t.Fatalf("PreviewRule: %v", err)
+		}
+		before, err := Compile(s, at, Options{Canaries: -1})
+		if err != nil {
+			t.Fatal(err)
+		}
+		with := s
+		with.Rules = append(slices.Clone(s.Rules), r)
+		after, err := Compile(with, at, Options{Canaries: -1})
+		if err != nil {
+			t.Fatal(err)
+		}
+		dev := map[string]Device{}
+		for _, d := range s.Devices {
+			dev[d.Short] = d
+		}
+		reported := map[[2]string]bool{}
+		for _, d := range deltas {
+			a, b := dev[d.Src], dev[d.Dst]
+			reported[[2]string{d.Src, d.Dst}] = true
+			for _, p := range d.New {
+				if before.Document.AllowsPort(a, b, p) || !after.Document.AllowsPort(a, b, p) {
+					t.Fatalf("%s -> %s %s reported new: before=%v after=%v", d.Src, d.Dst, p,
+						before.Document.AllowsPort(a, b, p), after.Document.AllowsPort(a, b, p))
+				}
+			}
+			for _, p := range d.Already {
+				if !before.Document.AllowsPort(a, b, p) {
+					t.Fatalf("%s -> %s %s reported as already allowed but isn't", d.Src, d.Dst, p)
+				}
+			}
+		}
+		for _, a := range s.Devices {
+			for _, b := range s.Devices {
+				if a.Short == b.Short {
+					continue
+				}
+				for _, p := range r.Ports {
+					if after.Document.AllowsPort(a, b, p) && !before.Document.AllowsPort(a, b, p) && !reported[[2]string{a.Short, b.Short}] {
+						t.Fatalf("the rule opens %s -> %s %s but the preview doesn't say so", a.Short, b.Short, p)
+					}
+				}
+			}
+		}
+	})
+}

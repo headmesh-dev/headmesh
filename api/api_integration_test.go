@@ -138,6 +138,14 @@ type client struct {
 	base string
 }
 
+// reachOtherOrg is a rule body aimed at a device the caller doesn't own.
+func reachOtherOrg(device string) map[string]any {
+	return map[string]any{
+		"src": map[string]string{"kind": "all"}, "dst": map[string]string{"kind": "device", "device": device},
+		"ports": []string{"tcp:22"},
+	}
+}
+
 func (c client) do(method, path, key string, body any, out any) int {
 	c.t.Helper()
 	code, _ := c.doHeaders(method, path, key, nil, body, out)
@@ -389,6 +397,24 @@ func TestOnboardingAndAccessLifecycle(t *testing.T) {
 		"dst":   map[string]string{"kind": "device", "device": gpu["id"].(string)},
 		"ports": []string{"TCP:2222"},
 	}
+	type previewOut struct {
+		NewPairs int `json:"new_pairs"`
+		Pairs    []struct {
+			SrcID   string   `json:"src_id"`
+			DstID   string   `json:"dst_id"`
+			New     []string `json:"new"`
+			Already []string `json:"already"`
+		} `json:"pairs"`
+	}
+	var pv previewOut
+	if code := c.do("POST", "/v1/rules/preview", own.AdminKey.Key, ruleReq, &pv); code != http.StatusOK || pv.NewPairs != 1 ||
+		len(pv.Pairs) != 1 || pv.Pairs[0].SrcID != laptop["id"] || pv.Pairs[0].DstID != gpu["id"] ||
+		len(pv.Pairs[0].New) != 1 || pv.Pairs[0].New[0] != "tcp:2222" {
+		t.Fatalf("preview before the rule exists: %d %+v", code, pv)
+	}
+	if strings.Contains(hs.livePolicy(), `"tcp:2222"`) {
+		t.Fatal("a preview changed the live policy")
+	}
 	var rule map[string]any
 	if code := c.do("POST", "/v1/rules", own.AdminKey.Key, ruleReq, &rule); code != http.StatusCreated {
 		t.Fatalf("create rule: %d", code)
@@ -397,6 +423,15 @@ func TestOnboardingAndAccessLifecycle(t *testing.T) {
 		t.Fatalf("rule not enforced: %v", rule)
 	}
 	ruleID := rule["id"].(string)
+
+	pv = previewOut{}
+	if code := c.do("POST", "/v1/rules/preview", own.AdminKey.Key, ruleReq, &pv); code != http.StatusOK || pv.NewPairs != 0 ||
+		len(pv.Pairs) != 1 || len(pv.Pairs[0].Already) != 1 || len(pv.Pairs[0].New) != 0 {
+		t.Fatalf("preview once the rule exists: %d %+v", code, pv)
+	}
+	if code := c.do("POST", "/v1/rules/preview", plat.AdminKey.Key, reachOtherOrg(gpu["id"].(string)), nil); code != http.StatusUnprocessableEntity {
+		t.Fatalf("a preview aimed at another org's device: %d", code)
+	}
 
 	// --- Access check: the answer and what gives it, without revealing other orgs' devices -------------------
 	type accessOut struct {

@@ -449,3 +449,29 @@ func TestServiceAddSendsTheService(t *testing.T) {
 		t.Fatalf("body sent: %v", got)
 	}
 }
+
+func TestRuleAddDryRunPreviewsAndCreatesNothing(t *testing.T) {
+	var created bool
+	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		w.Header().Set("Content-Type", "application/json")
+		switch r.URL.Path {
+		case "/v1/rules/preview":
+			_, _ = w.Write([]byte(`{"new_pairs":1,"pairs":[{"src_name":"laptop-acme","dst_name":"gpu-acme","new":["tcp:22"],"already":[]}]}`))
+		case "/v1/rules":
+			created = true
+			w.WriteHeader(http.StatusCreated)
+		default:
+			w.WriteHeader(http.StatusNotFound)
+		}
+	}))
+	defer srv.Close()
+	env := map[string]string{"HEADMESH_API_KEY": "hmk_test", "HEADMESH_SERVER": srv.URL}
+	out, err := run(t, Deps{Getenv: func(k string) string { return env[k] }},
+		"rule", "add", "--from", "role:ops", "--to", "all", "--port", "tcp:22", "--dry-run")
+	if err != nil || created {
+		t.Fatalf("err %v, created %v", err, created)
+	}
+	if !strings.Contains(out, "would newly let 1 device pairs through") || !strings.Contains(out, "laptop-acme") {
+		t.Fatalf("output %q", out)
+	}
+}

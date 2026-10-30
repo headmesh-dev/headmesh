@@ -585,6 +585,39 @@ components:
         - org
         - scopes
       type: object
+    PreviewOutBody:
+      additionalProperties: false
+      properties:
+        $schema:
+          description: A URL to the JSON Schema for this object.
+          examples:
+            - https://example.com/schemas/PreviewOutBody.json
+          format: uri
+          readOnly: true
+          type: string
+        at:
+          description: "the instant previewed: now, or starts_at when later"
+          format: date-time
+          type: string
+        new_pairs:
+          description: device pairs that would gain at least one port
+          format: int64
+          type: integer
+        pairs:
+          items:
+            $ref: "#/components/schemas/RulePairBody"
+          type:
+            - array
+            - "null"
+        truncated:
+          description: more than 500 pairs matched; new_pairs still counts them all
+          type: boolean
+      required:
+        - at
+        - new_pairs
+        - pairs
+        - truncated
+      type: object
     RuleBody:
       additionalProperties: false
       properties:
@@ -668,6 +701,39 @@ components:
         - src
         - dst
         - ports
+      type: object
+    RulePairBody:
+      additionalProperties: false
+      properties:
+        already:
+          description: the rule's ports something else already allows
+          items:
+            type: string
+          type:
+            - array
+            - "null"
+        dst_id:
+          type: string
+        dst_name:
+          type: string
+        new:
+          description: the rule's ports this pair can't reach yet
+          items:
+            type: string
+          type:
+            - array
+            - "null"
+        src_id:
+          type: string
+        src_name:
+          type: string
+      required:
+        - src_id
+        - src_name
+        - dst_id
+        - dst_name
+        - new
+        - already
       type: object
     RuleUpdateInBody:
       additionalProperties: false
@@ -1359,6 +1425,34 @@ paths:
       security:
         - bearer: []
       summary: Let devices in your org reach other devices in your org
+      tags:
+        - rules
+  /v1/rules/preview:
+    post:
+      description: Validates the rule exactly as create does and compiles the cell's policy with it, then lists every pair of your devices it would let through and which of its ports are new for each pair.
+      operationId: preview-rule
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/RuleInBody"
+        required: true
+      responses:
+        "200":
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/PreviewOutBody"
+          description: OK
+        default:
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/ErrorModel"
+          description: Error
+      security:
+        - bearer: []
+      summary: What a rule would change, without creating it
       tags:
         - rules
   /v1/rules/{id}:
