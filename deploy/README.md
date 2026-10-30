@@ -129,7 +129,7 @@ clients reach directly. For the real certificate and **Full (strict)**:
 2. Set `HM_DEPLOY_ACME_EMAIL=hello@headmesh.dev` in `deploy/env/local.env`. Setting it accepts the Let's Encrypt
    subscriber agreement.
 3. `deploy/deploy.sh --env all --bootstrap`. The token replaces `/etc/headmesh/cloudflare.ini` (root only, sent over
-   stdin) on every bootstrap. certbot gets one certificate for both names by DNS-01, and `certbot.timer` renews it.
+   stdin) on every bootstrap. certbot gets one certificate for both names by DNS-01, and `certbot-renew.timer` renews it.
    The new certificate reaches nginx, the backends and the cell agent through `deployctl tls-renewed`, the same hook
    every renewal runs.
 4. Switch the zone's SSL mode to Full (strict).

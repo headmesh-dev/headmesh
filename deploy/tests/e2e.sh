@@ -63,10 +63,17 @@ ok "systemd is ${state}"
 say "Bootstrap and first deploy of test (blue)"
 deploy --env test --init-env
 check "init-env generated a waitlist secret" grep -qE '^WAITLIST_SECRET=.{40,}$' "${ENVDIR}/test/waitlist.env"
+# Like hm-prod-1 before certbot moved to PyPI: Ubuntu's certbot packages, with state under /etc/letsencrypt.
+on apt-get update -qq
+on apt-get install -y -qq --no-install-recommends certbot python3-certbot-dns-cloudflare >/dev/null
+on sh -c 'echo e2e >/etc/letsencrypt/e2e-marker'
 # A Global API Key (37 hex characters) must never be installed on the server.
 CLOUDFLARE_DNS_API_TOKEN="$(printf '0%.0s' {1..37})" CLOUDFLARE_API_TOKEN=account-wide-token deploy --env test --target all --bootstrap --allow-dirty --skip-checks
 check "a Global API Key is refused" grep -q 'Global API Key, not an API token; not installing it' "${ENVDIR}/deploy.log"
 check "…and neither it nor CLOUDFLARE_API_TOKEN reaches the server" bash -c "! docker exec ${NAME} test -e /etc/headmesh/cloudflare.ini"
+check "Ubuntu's certbot is replaced, keeping /etc/letsencrypt" on test -s /etc/letsencrypt/e2e-marker
+check "…after a backup of it" on sh -c 'tar -tzf /var/backups/letsencrypt/letsencrypt-*.tar.gz | grep -q e2e-marker'
+check "…and certbot.timer is gone" bash -c "! docker exec ${NAME} systemctl cat certbot.timer >/dev/null 2>&1"
 check "test hosts no Headscale" bash -c "! docker exec ${NAME} systemctl is-active --quiet headscale"
 first="$(live test marketing.active)"
 check "site release is live (${first})" test -n "${first}"
@@ -158,6 +165,10 @@ check "prod API /readyz → 204" test "$(code api.headmesh.dev /readyz)" = 204
 check "the DNS token is installed root-only for certbot" test "$(on stat -c '%a %U' /etc/headmesh/cloudflare.ini)" = "600 root"
 check "…with the token from the environment" on grep -qx 'dns_cloudflare_api_token = e2e-scoped-token' /etc/headmesh/cloudflare.ini
 check "without HM_ACME_EMAIL the placeholder stays" grep -q 'HM_ACME_EMAIL is unset; keeping the placeholder' "${ENVDIR}/deploy.log"
+check "certbot is the pinned release from PyPI" test "$(on certbot --version 2>&1)" = "certbot 5.9.0"
+check "…with the Cloudflare DNS plugin" grep -q dns-cloudflare <<<"$(on certbot plugins --text 2>&1)"
+check "Ubuntu's certbot package isn't installed" bash -c "! docker exec ${NAME} dpkg-query -W -f='\${Status}' certbot 2>/dev/null | grep -q 'install ok installed'"
+check "the Let's Encrypt renewal timer is on" on systemctl is-enabled --quiet certbot-renew.timer
 check "www redirects to the apex" test "$(header www.headmesh.dev /docs/ location)" = "https://headmesh.dev/docs/"
 check "test still serves" test "$(code test.headmesh.dev /)" = 200
 prod_url="$(on sed -n 's/^HEADMESH_DATABASE_URL=//p' /etc/headmesh/prod/db.env)"
