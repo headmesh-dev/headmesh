@@ -8,13 +8,13 @@ import Base from "../layouts/Base.astro";
 const features: { icon: IconName; title: string; body: string }[] = [
   {
     icon: "link",
-    title: "One-click onboarding",
+    title: "Invite people and devices",
     body: "Invite a device, teammate or GPU with one link. It lands on the right network with the right access.",
   },
   {
     icon: "layers",
-    title: "True multi-tenancy",
-    body: "Each workspace has its own members, devices and rules. Other tenants aren't just blocked. They're invisible.",
+    title: "Keep teams separate",
+    body: "Each workspace has its own people, devices and access settings. Teams stay separate unless you choose to share.",
   },
   {
     icon: "clock",
@@ -53,18 +53,6 @@ const agentPoints: { icon: IconName; title: string; body: string }[] = [
     icon: "check",
     title: "Works with the agents you use",
     body: "Connect from Claude Code, Codex or any MCP client, over MCP, SSH or a remote session.",
-  },
-];
-
-const parts = [
-  { name: "WireGuard", body: "End-to-end encryption with modern, audited cryptography." },
-  {
-    name: "Headscale",
-    body: "The open-source control server. Headmesh drives it; it doesn't fork it.",
-  },
-  {
-    name: "Tailscale clients",
-    body: "The standard open-source client, on every major platform.",
   },
 ];
 ---
@@ -186,22 +174,22 @@ const parts = [
     </div>
   </section>
 
-  <!-- Built on -->
-  <section aria-labelledby="parts-heading" class="container-page py-20 sm:py-24">
-    <h2 id="parts-heading" class="text-2xl font-bold tracking-tight sm:text-3xl">No new networking, no new crypto.</h2>
+  <!-- Privacy and control -->
+  <section aria-labelledby="privacy-heading" class="container-page py-20 sm:py-24">
+    <h2 id="privacy-heading" class="text-2xl font-bold tracking-tight sm:text-3xl">Keep your connections private.</h2>
     <p class="mt-3 max-w-2xl text-lg leading-relaxed text-muted">
-      Headmesh is a control layer. The parts that move your packets are proven, open and already everywhere.
+      Connections between your devices are encrypted. You choose who can reach each machine and when their access ends.
     </p>
-    <dl class="mt-10 grid gap-5 sm:grid-cols-3">
-      {
-        parts.map((part) => (
-          <div class="rounded-xl border border-line p-6">
-            <dt class="font-mono text-sm font-semibold text-accent">{part.name}</dt>
-            <dd class="mt-2 leading-relaxed text-muted">{part.body}</dd>
-          </div>
-        ))
-      }
-    </dl>
+    <p class="mt-4 max-w-2xl text-lg leading-relaxed text-muted">
+      Headmesh is open source and self-hostable, so you can run it on your own infrastructure.
+    </p>
+    <a
+      href="/docs/concepts/#how-it-works"
+      class="mt-7 inline-flex items-center gap-1.5 font-semibold text-accent underline-offset-4 hover:underline"
+    >
+      See how it works
+      <Icon name="arrow" class="size-4" />
+    </a>
   </section>
 
   <!-- CTA -->

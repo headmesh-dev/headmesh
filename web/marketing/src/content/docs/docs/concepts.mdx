@@ -7,6 +7,14 @@ Headmesh is a control layer. It never touches your packets: devices talk to each
 the standard Tailscale client, coordinated by [Headscale](https://github.com/juanfont/headscale). Headmesh decides
 **who may reach what**, and keeps Headscale's policy in line with that.
 
+## How it works
+
+Headmesh manages access using three existing components:
+
+- **WireGuard** encrypts connections between devices.
+- **Headscale** coordinates the devices. Headmesh manages its access policy without maintaining a Headscale fork.
+- **Tailscale clients** connect your devices to the network using the standard client applications.
+
 ## Workspaces
 
 A workspace (an _organisation_ in the API) is a tenant: its own members, devices, services and rules. Workspaces are
