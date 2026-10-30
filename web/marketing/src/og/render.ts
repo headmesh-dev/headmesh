@@ -110,8 +110,11 @@ export async function renderOgImage({ title, subtitle }: OgCard): Promise<Uint8A
   return new Uint8Array(new Resvg(svg, { fitTo: { mode: "width", value: WIDTH } }).render().asPng());
 }
 
-/** Square app icon for iOS home screens: the mark on a full-bleed background (iOS rounds the corners). */
+/**
+ * Square app icon for iOS home screens: the mark on a full-bleed background (iOS rounds the corners), inset on the
+ * brand kit's 512 canvas so the rounding never clips the legs.
+ */
 export function renderTouchIcon(size = 180): Uint8Array<ArrayBuffer> {
-  const svg = `<svg xmlns="http://www.w3.org/2000/svg" viewBox="76 76 360 360" width="${size}" height="${size}"><rect x="76" y="76" width="360" height="360" fill="${COLORS.bg}"/>${MARK_SVG.replace(/^<svg[^>]*>|<\/svg>$/g, "")}</svg>`;
+  const svg = `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512" width="${size}" height="${size}"><rect width="512" height="512" fill="${COLORS.bg}"/>${MARK_SVG.replace(/^<svg[^>]*>|<\/svg>$/g, "")}</svg>`;
   return new Uint8Array(new Resvg(svg, { fitTo: { mode: "width", value: size } }).render().asPng());
 }
