@@ -1,66 +1,282 @@
 ---
 // Hero illustration: one owner workspace shares exactly one machine with a renter (time-limited) and one with
-// an AI agent sandbox, while everything else stays private.
+// an AI agent sandbox, while everything else stays private. Hovering or tapping a connection (anywhere along it: the
+// transparent shapes are hit areas), or its chip below, lights that path up and explains it. There's no SVG <title>,
+// so browsers don't show a plain tooltip box over it.
+
+const lanes = [
+  {
+    id: "renter",
+    label: "Renter",
+    detail: "grant · 4h",
+    caption: "A renter's laptop reaches gpu-01 for four hours. When the grant expires, the path closes on its own.",
+  },
+  {
+    id: "agent",
+    label: "AI agent",
+    detail: "scoped",
+    caption: "An AI agent's sandbox reaches your NAS and nothing else, so it can work without seeing your network.",
+  },
+  {
+    id: "desktop",
+    label: "Desktop",
+    detail: "private",
+    caption: "Your desktop isn't shared with anyone. To other tenants it doesn't exist.",
+  },
+] as const;
 ---
 
-<svg
-  viewBox="0 0 520 340"
-  class="h-auto w-full font-mono"
-  role="img"
-  aria-labelledby="mesh-diagram-title"
->
-  <title id="mesh-diagram-title">
-    Diagram: a renter holds a four-hour grant to one GPU in your workspace, an AI agent sandbox reaches only your
-    NAS, and your desktop stays private.
-  </title>
+<figure class="mesh" data-mesh>
+  <svg
+    viewBox="0 0 520 340"
+    class="h-auto w-full font-mono"
+    role="img"
+    aria-label="Diagram: a renter holds a four-hour grant to one GPU in your workspace, an AI agent sandbox reaches only your NAS, and your desktop stays private."
+  >
+    <!-- Workspaces -->
+    <rect x="8" y="8" width="208" height="324" rx="14" class="fill-surface stroke-line" stroke-width="1.5"></rect>
+    <text x="28" y="38" class="fill-muted" font-size="11" letter-spacing="1.2">YOUR WORKSPACE</text>
 
-  <!-- Workspaces -->
-  <rect x="8" y="8" width="208" height="324" rx="14" class="fill-surface stroke-line" stroke-width="1.5"></rect>
-  <text x="28" y="38" class="fill-muted" font-size="11" letter-spacing="1.2">YOUR WORKSPACE</text>
+    <!-- Renter: a four-hour grant from the renter's laptop to gpu-01 -->
+    <g class="mesh-lane" data-lane="renter">
+      <rect x="196" y="60" width="136" height="48" fill="transparent"></rect>
+      <rect x="312" y="8" width="200" height="150" rx="14" class="mesh-box fill-surface stroke-line" stroke-width="1.5"
+      ></rect>
+      <text x="332" y="38" class="fill-muted" font-size="11" letter-spacing="1.2">RENTER</text>
+      <text x="332" y="134" class="fill-muted" font-size="11">sees gpu-01 only</text>
+      <path d="M332 84H196" class="mesh-grant stroke-accent" stroke-width="1.75" stroke-dasharray="5 5" fill="none"
+      ></path>
+      <g class="fill-accent">
+        <circle cx="196" cy="84" r="3.5"></circle>
+        <circle cx="332" cy="84" r="3.5"></circle>
+        <circle cx="196" cy="84" r="3.5" class="mesh-pulse"></circle>
+        <circle cx="332" cy="84" r="3.5" class="mesh-pulse"></circle>
+      </g>
+      <text x="264" y="74" text-anchor="middle" class="fill-accent" font-size="11">grant · 4h</text>
+      <g font-size="13">
+        <rect x="28" y="64" width="168" height="40" rx="8" class="mesh-device fill-raised stroke-line" stroke-width="1.5"
+        ></rect>
+        <circle cx="46" cy="84" r="4" class="fill-accent"></circle>
+        <text x="60" y="88.5" class="fill-fg">gpu-01</text>
+        <rect x="332" y="64" width="160" height="40" rx="8" class="mesh-device fill-raised stroke-line" stroke-width="1.5"
+        ></rect>
+        <circle cx="350" cy="84" r="4" class="fill-accent"></circle>
+        <text x="364" y="88.5" class="fill-fg">laptop</text>
+      </g>
+    </g>
 
-  <rect x="312" y="8" width="200" height="150" rx="14" class="fill-surface stroke-line" stroke-width="1.5"></rect>
-  <text x="332" y="38" class="fill-muted" font-size="11" letter-spacing="1.2">RENTER</text>
-  <text x="332" y="134" class="fill-muted" font-size="11">sees gpu-01 only</text>
+    <!-- AI agent: a scoped path from the sandbox to the NAS -->
+    <g class="mesh-lane" data-lane="agent">
+      <path d="M196 146H284V238H332V278H244V186H196Z" fill="transparent"></path>
+      <rect x="312" y="182" width="200" height="150" rx="14" class="mesh-box fill-surface stroke-line" stroke-width="1.5"
+      ></rect>
+      <text x="332" y="212" class="fill-muted" font-size="11" letter-spacing="1.2">AI AGENT</text>
+      <text x="332" y="308" class="fill-muted" font-size="11">scoped mode</text>
+      <path
+        d="M332 258H264V166H196"
+        class="mesh-grant stroke-accent"
+        stroke-width="1.75"
+        stroke-dasharray="5 5"
+        fill="none"></path>
+      <g class="fill-accent">
+        <circle cx="196" cy="166" r="3.5"></circle>
+        <circle cx="332" cy="258" r="3.5"></circle>
+        <circle cx="196" cy="166" r="3.5" class="mesh-pulse"></circle>
+        <circle cx="332" cy="258" r="3.5" class="mesh-pulse"></circle>
+      </g>
+      <text x="258" y="216" text-anchor="end" class="fill-accent" font-size="11">scoped</text>
+      <g font-size="13">
+        <rect x="28" y="146" width="168" height="40" rx="8" class="mesh-device fill-raised stroke-line" stroke-width="1.5"
+        ></rect>
+        <circle cx="46" cy="166" r="4" class="fill-accent"></circle>
+        <text x="60" y="170.5" class="fill-fg">nas</text>
+        <rect x="332" y="238" width="160" height="40" rx="8" class="mesh-device fill-raised stroke-line" stroke-width="1.5"
+        ></rect>
+        <circle cx="350" cy="258" r="4" class="fill-accent"></circle>
+        <text x="364" y="262.5" class="fill-fg">sandbox</text>
+      </g>
+    </g>
 
-  <rect x="312" y="182" width="200" height="150" rx="14" class="fill-surface stroke-line" stroke-width="1.5"></rect>
-  <text x="332" y="212" class="fill-muted" font-size="11" letter-spacing="1.2">AI AGENT</text>
-  <text x="332" y="308" class="fill-muted" font-size="11">scoped mode</text>
+    <!-- Desktop: private, so any path towards it stops short -->
+    <g class="mesh-lane" data-lane="desktop">
+      <g font-size="13">
+        <rect x="28" y="228" width="168" height="40" rx="8" class="mesh-device fill-raised stroke-line" stroke-width="1.5"
+        ></rect>
+        <circle cx="46" cy="248" r="4" class="fill-muted"></circle>
+        <text x="60" y="252.5" class="fill-fg">desktop</text>
+        <text x="184" y="252" text-anchor="end" class="fill-muted" font-size="10.5">private</text>
+      </g>
+      <g class="mesh-blocked">
+        <path d="M226 248H202" class="stroke-muted" stroke-width="1.75" stroke-dasharray="3 4" fill="none"></path>
+        <path d="M232 242l12 12M244 242l-12 12" class="stroke-danger" stroke-width="2" stroke-linecap="round"></path>
+      </g>
+    </g>
+  </svg>
 
-  <!-- Grants -->
-  <g class="stroke-accent" stroke-width="1.75" stroke-dasharray="5 5" fill="none">
-    <path d="M332 84H196"></path>
-    <path d="M332 258H264V166H196"></path>
-  </g>
-  <g class="fill-accent">
-    <circle cx="196" cy="84" r="3.5"></circle>
-    <circle cx="332" cy="84" r="3.5"></circle>
-    <circle cx="196" cy="166" r="3.5"></circle>
-    <circle cx="332" cy="258" r="3.5"></circle>
-  </g>
-  <text x="264" y="74" text-anchor="middle" class="fill-accent" font-size="11">grant · 4h</text>
-  <text x="258" y="216" text-anchor="end" class="fill-accent" font-size="11">scoped</text>
+  <figcaption class="mt-4">
+    <div class="flex flex-wrap justify-center gap-2" role="group" aria-label="Explore the diagram">
+      {
+        lanes.map((lane) => (
+          <button type="button" class="mesh-chip" data-lane={lane.id} aria-pressed="false">
+            <span class="mesh-chip-dot" aria-hidden="true" />
+            {lane.label}
+            <span class="text-muted">{lane.detail}</span>
+          </button>
+        ))
+      }
+    </div>
+    <!-- Every caption shares one grid cell, so the box is as tall as the longest and nothing shifts on hover. -->
+    <div class="mesh-callout mt-3 grid rounded-xl border border-line bg-surface px-4 py-3 text-sm leading-relaxed" aria-live="polite">
+      <p class="mesh-caption is-shown text-muted" data-caption="">Hover or tap a connection to see who can reach what.</p>
+      {
+        lanes.map((lane) => (
+          <p class="mesh-caption text-fg" data-caption={lane.id}>
+            <span class="font-mono text-accent">{lane.label}.</span> {lane.caption}
+          </p>
+        ))
+      }
+    </div>
+  </figcaption>
+</figure>
 
-  <!-- Devices -->
-  <g font-size="13">
-    <rect x="28" y="64" width="168" height="40" rx="8" class="fill-raised stroke-line" stroke-width="1.5"></rect>
-    <circle cx="46" cy="84" r="4" class="fill-accent"></circle>
-    <text x="60" y="88.5" class="fill-fg">gpu-01</text>
+<style>
+  .mesh-lane {
+    cursor: pointer;
+    transition: opacity 250ms ease;
+  }
 
-    <rect x="28" y="146" width="168" height="40" rx="8" class="fill-raised stroke-line" stroke-width="1.5"></rect>
-    <circle cx="46" cy="166" r="4" class="fill-accent"></circle>
-    <text x="60" y="170.5" class="fill-fg">nas</text>
+  .mesh-grant {
+    animation: mesh-flow 2.4s linear infinite;
+  }
 
-    <rect x="28" y="228" width="168" height="40" rx="8" class="fill-raised stroke-line" stroke-width="1.5"></rect>
-    <circle cx="46" cy="248" r="4" class="fill-muted"></circle>
-    <text x="60" y="252.5" class="fill-fg">desktop</text>
-    <text x="184" y="252" text-anchor="end" class="fill-muted" font-size="10.5">private</text>
+  .mesh-box,
+  .mesh-device {
+    transition:
+      stroke 250ms ease,
+      fill 250ms ease;
+  }
 
-    <rect x="332" y="64" width="160" height="40" rx="8" class="fill-raised stroke-line" stroke-width="1.5"></rect>
-    <circle cx="350" cy="84" r="4" class="fill-accent"></circle>
-    <text x="364" y="88.5" class="fill-fg">laptop</text>
+  .mesh-pulse {
+    opacity: 0;
+    transform-box: fill-box;
+    transform-origin: center;
+  }
 
-    <rect x="332" y="238" width="160" height="40" rx="8" class="fill-raised stroke-line" stroke-width="1.5"></rect>
-    <circle cx="350" cy="258" r="4" class="fill-accent"></circle>
-    <text x="364" y="262.5" class="fill-fg">sandbox</text>
-  </g>
-</svg>
+  .mesh-blocked {
+    opacity: 0;
+    transition: opacity 250ms ease;
+  }
+
+  /* One lane active: dim the others, light its boxes, speed up its packets and pulse its endpoints. */
+  [data-mesh][data-active] .mesh-lane:not(.is-active) {
+    opacity: 0.22;
+  }
+
+  .mesh-lane.is-active .mesh-box,
+  .mesh-lane.is-active .mesh-device {
+    stroke: var(--hm-accent);
+  }
+
+  .mesh-lane.is-active .mesh-box {
+    fill: var(--hm-accent-soft);
+  }
+
+  .mesh-lane.is-active .mesh-grant {
+    stroke-width: 2.5;
+    animation-duration: 0.8s;
+  }
+
+  .mesh-lane.is-active .mesh-pulse {
+    animation: mesh-pulse 1.4s ease-out infinite;
+  }
+
+  .mesh-lane.is-active .mesh-blocked {
+    opacity: 1;
+  }
+
+  @keyframes mesh-flow {
+    to {
+      stroke-dashoffset: -20;
+    }
+  }
+
+  @keyframes mesh-pulse {
+    from {
+      opacity: 0.7;
+      transform: scale(1);
+    }
+    to {
+      opacity: 0;
+      transform: scale(4);
+    }
+  }
+
+  .mesh-chip {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.45rem;
+    border: 1px solid var(--hm-line);
+    border-radius: 999px;
+    background-color: var(--hm-raised);
+    padding: 0.35rem 0.8rem;
+    font-family: var(--font-mono);
+    font-size: 0.78rem;
+    color: var(--hm-fg);
+    transition:
+      border-color 150ms,
+      background-color 150ms;
+  }
+
+  .mesh-chip:hover,
+  .mesh-chip.is-active {
+    border-color: var(--hm-accent);
+  }
+
+  .mesh-chip[aria-pressed="true"] {
+    background-color: var(--hm-accent-soft);
+  }
+
+  .mesh-chip:focus-visible {
+    outline: 2px solid var(--hm-accent);
+    outline-offset: 2px;
+  }
+
+  .mesh-chip-dot {
+    width: 0.45rem;
+    height: 0.45rem;
+    border-radius: 999px;
+    background-color: var(--hm-accent);
+  }
+
+  .mesh-chip[data-lane="desktop"] .mesh-chip-dot {
+    background-color: var(--hm-muted);
+  }
+
+  .mesh-caption {
+    grid-area: 1 / 1;
+    visibility: hidden;
+  }
+
+  .mesh-caption.is-shown {
+    visibility: visible;
+  }
+
+  @media (prefers-reduced-motion: reduce) {
+    .mesh-grant,
+    .mesh-lane.is-active .mesh-grant,
+    .mesh-lane.is-active .mesh-pulse {
+      animation: none;
+    }
+
+    .mesh-lane,
+    .mesh-blocked {
+      transition: none;
+    }
+  }
+</style>
+
+<script>
+  import { initMeshDiagram } from "../scripts/mesh-diagram";
+
+  for (const root of document.querySelectorAll<HTMLElement>("[data-mesh]")) initMeshDiagram(root);
+</script>

@@ -67,6 +67,45 @@ test("home page carries the launch copy and both calls to action", async ({ page
   expect(problems.console).toEqual([]);
 });
 
+test("hero diagram explains each connection on hover and tap, without a native tooltip", async ({
+  page,
+  problems,
+  isMobile,
+}) => {
+  await page.goto("/");
+  const diagram = page.locator("[data-mesh]");
+  const caption = diagram.locator(".mesh-caption.is-shown");
+  await expect(diagram.getByRole("img", { name: /four-hour grant to one GPU/ })).toBeVisible();
+  // An SVG <title> is what browsers show as a plain tooltip box.
+  await expect(diagram.locator("svg title")).toHaveCount(0);
+  await expect(caption).toHaveText("Hover or tap a connection to see who can reach what.");
+
+  if (!isMobile) {
+    await diagram.locator('.mesh-lane[data-lane="renter"]').hover();
+    await expect(diagram).toHaveAttribute("data-active", "renter");
+    await expect(caption).toContainText("reaches gpu-01 for four hours");
+    await page.mouse.move(0, 0);
+    await expect(diagram).not.toHaveAttribute("data-active");
+  }
+
+  // A tap or click pins the lane, so touch screens get the captions too, and a second one lets go.
+  const agent = diagram.getByRole("button", { name: /AI agent/ });
+  await agent.click();
+  await expect(agent).toHaveAttribute("aria-pressed", "true");
+  await expect(diagram).toHaveAttribute("data-active", "agent");
+  await expect(caption).toContainText("reaches your NAS and nothing else");
+  await agent.click();
+  await expect(agent).toHaveAttribute("aria-pressed", "false");
+
+  await diagram.locator('.mesh-lane[data-lane="desktop"] text').first().click();
+  await expect(diagram).toHaveAttribute("data-active", "desktop");
+  await expect(caption).toContainText("isn't shared with anyone");
+  await expect(diagram.getByRole("button", { name: /Desktop/ })).toHaveAttribute("aria-pressed", "true");
+  await page.getByRole("heading", { level: 1 }).click();
+  await expect(diagram).not.toHaveAttribute("data-active");
+  expect(problems.console).toEqual([]);
+});
+
 test("theme toggle switches theme and carries over to the docs", async ({ page }) => {
   await page.emulateMedia({ colorScheme: "light" });
   await page.goto("/");
