@@ -33,10 +33,9 @@ export const SENDER: Sender = {
  * Version of the consent wording shown next to the waitlist checkbox. Change the version whenever the wording
  * changes so each stored consent record points at the exact text the person agreed to.
  */
-export const CONSENT_VERSION = "2026-10-29";
+export const CONSENT_VERSION = "2026-10-30";
 
-export const CONSENT_TEXT = "Email me Headmesh early-access invites and updates. I can unsubscribe anytime.";
-("I can unsubscribe at any time.");
+export const CONSENT_TEXT = "Email me Headmesh early-access invites and updates.\nYou can opt out anytime.";
 
 /** Turnstile action name. The Function rejects tokens minted for any other action. */
 export const TURNSTILE_ACTION = "waitlist";
