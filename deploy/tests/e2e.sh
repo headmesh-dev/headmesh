@@ -158,6 +158,10 @@ check "prod API /readyz → 204" test "$(code api.headmesh.dev /readyz)" = 204
 check "the DNS token is installed root-only for certbot" test "$(on stat -c '%a %U' /etc/headmesh/cloudflare.ini)" = "600 root"
 check "…with the token from the environment" on grep -qx 'dns_cloudflare_api_token = e2e-scoped-token' /etc/headmesh/cloudflare.ini
 check "without HM_ACME_EMAIL the placeholder stays" grep -q 'HM_ACME_EMAIL is unset; keeping the placeholder' "${ENVDIR}/deploy.log"
+check "certbot is the pinned release from PyPI" test "$(on certbot --version 2>&1)" = "certbot 5.9.0"
+check "…with the Cloudflare DNS plugin" grep -q dns-cloudflare <<<"$(on certbot plugins --text 2>&1)"
+check "Ubuntu's certbot package isn't installed" bash -c "! docker exec ${NAME} dpkg-query -W -f='\${Status}' certbot 2>/dev/null | grep -q 'install ok installed'"
+check "the Let's Encrypt renewal timer is on" on systemctl is-enabled --quiet certbot-renew.timer
 check "www redirects to the apex" test "$(header www.headmesh.dev /docs/ location)" = "https://headmesh.dev/docs/"
 check "test still serves" test "$(code test.headmesh.dev /)" = 200
 prod_url="$(on sed -n 's/^HEADMESH_DATABASE_URL=//p' /etc/headmesh/prod/db.env)"

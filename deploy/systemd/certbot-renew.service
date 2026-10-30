@@ -1,0 +1,10 @@
+# Renews the Let's Encrypt certificate within 30 days of expiry. certbot runs the deploy hook saved in its renewal
+# config (deployctl tls-renewed). bootstrap.sh installs certbot at /opt/certbot; this replaces Ubuntu's certbot.timer.
+[Unit]
+Description=Renew the Let's Encrypt certificate
+Wants=network-online.target
+After=network-online.target
+
+[Service]
+Type=oneshot
+ExecStart=/opt/certbot/bin/certbot renew --quiet --no-random-sleep-on-renew

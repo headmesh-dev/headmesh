@@ -6,7 +6,8 @@
 #   bootstrap.sh <env>...          for example: bootstrap.sh prod test
 #
 # What it does:
-#   - packages: nginx with the stream module, PostgreSQL 18, sqlite3, certbot with the Cloudflare DNS plugin
+#   - packages: nginx with the stream module, PostgreSQL 18, sqlite3
+#   - certbot with the Cloudflare DNS plugin, hash-pinned from PyPI, at /opt/certbot (renewed by certbot-renew.timer)
 #   - Node.js (the pinned release the waitlist service and CI use), checksum-verified, at /opt/node
 #   - the unprivileged `headmesh` service user and the directories under /srv, /var/lib and /etc/headmesh
 #   - per environment: database headmesh_<env> with two roles, headmesh_<env>_owner (runs migrations) and
@@ -30,6 +31,9 @@ readonly PG_MAJOR="18"
 # Headscale for the environment that hosts a cell (plan §13.2), from the release's checksums.txt.
 readonly HEADSCALE_VERSION="0.29.6"
 readonly HEADSCALE_DEB_SHA256="a3b49916a16418c704cef89818d734bc8af0528aac965a2dd5ca4bfa4cef48e2"
+# certbot from PyPI rather than Ubuntu's archive, whose DNS plugin needs the end-of-life cloudflare 2.x SDK. The
+# versions and hashes are in certbot-requirements.txt; bump CERTBOT_VERSION with it.
+readonly CERTBOT_VERSION="5.9.0"
 readonly ACME_EMAIL="${HM_ACME_EMAIL:-}"
 TLS_CHANGED=0
 
@@ -64,7 +68,7 @@ preflight() {
 }
 
 packages() {
-  local -a want=(nginx libnginx-mod-stream "postgresql-${PG_MAJOR}" sqlite3 certbot python3-certbot-dns-cloudflare
+  local -a want=(nginx libnginx-mod-stream "postgresql-${PG_MAJOR}" sqlite3 python3-venv
     ca-certificates curl xz-utils openssl)
   local -a missing=() pkg
   for pkg in "${want[@]}"; do
@@ -90,6 +94,34 @@ node_runtime() {
   fi
   [[ "$(readlink /opt/node 2>/dev/null)" == "${dir}" ]] || ln -sfn "${dir}" /opt/node
   [[ "$(/opt/node/bin/node --version)" == "v${NODE_VERSION}" ]] || die "/opt/node is not Node.js ${NODE_VERSION}"
+}
+
+# certbot_runtime: the pinned certbot in its own venv, rebuilt whenever certbot-requirements.txt changes. Ubuntu's
+# certbot packages go once it works; /etc/letsencrypt (account, certificate, renewal config) stays as it is.
+certbot_runtime() {
+  local dir="/opt/certbot-${CERTBOT_VERSION}" req="${HM_LIB_ROOT}/certbot-requirements.txt" want
+  want="$(sha256sum <"${req}" | cut -d' ' -f1)"
+  if [[ "$(cat "${dir}/.requirements.sha256" 2>/dev/null)" != "${want}" ]]; then
+    log "installing certbot ${CERTBOT_VERSION}"
+    rm -rf "${dir}"
+    python3 -m venv "${dir}"
+    "${dir}/bin/pip" install --quiet --no-cache-dir --disable-pip-version-check --require-hashes -r "${req}"
+    echo "${want}" >"${dir}/.requirements.sha256"
+  fi
+  [[ "$(readlink /opt/certbot 2>/dev/null)" == "${dir}" ]] || ln -sfn "${dir}" /opt/certbot
+  ln -sfn /opt/certbot/bin/certbot /usr/local/bin/certbot
+  [[ "$(/opt/certbot/bin/certbot --version 2>&1)" == "certbot ${CERTBOT_VERSION}" ]] ||
+    die "/opt/certbot is not certbot ${CERTBOT_VERSION}"
+  # remove, never purge: purging Ubuntu's certbot deletes /etc/letsencrypt. A backup goes to /var/backups first anyway.
+  if dpkg-query -W -f='${Status}' certbot 2>/dev/null | grep -q 'install ok installed'; then
+    if [[ -d /etc/letsencrypt ]]; then
+      install -d -m 0700 /var/backups/letsencrypt
+      tar -C /etc -czf "/var/backups/letsencrypt/letsencrypt-$(date -u +%Y%m%dT%H%M%SZ).tar.gz" letsencrypt
+    fi
+    log "removing Ubuntu's certbot packages (certbot-renew.timer replaces certbot.timer)"
+    apt-get remove -y certbot python3-certbot-dns-cloudflare >/dev/null
+    systemctl daemon-reload
+  fi
 }
 
 service_user() {
@@ -190,6 +222,7 @@ units() {
   [[ ${changed} == 1 ]] && systemctl daemon-reload
   local env
   for env in "$@"; do systemctl enable --quiet --now "headmesh-backup@${env}.timer"; done
+  systemctl enable --quiet --now certbot-renew.timer
 }
 
 tls() {
@@ -212,7 +245,7 @@ tls() {
     else
       chmod 0600 "${HM_ETC_ROOT}/cloudflare.ini"
       log "TLS: requesting a Let's Encrypt certificate for headmesh.dev and *.headmesh.dev (DNS-01)"
-      certbot certonly --non-interactive --agree-tos --email "${ACME_EMAIL}" \
+      /opt/certbot/bin/certbot certonly --non-interactive --agree-tos --email "${ACME_EMAIL}" \
         --dns-cloudflare --dns-cloudflare-credentials "${HM_ETC_ROOT}/cloudflare.ini" --dns-cloudflare-propagation-seconds 30 \
         --key-type ecdsa --cert-name headmesh.dev -d headmesh.dev -d '*.headmesh.dev' \
         --deploy-hook "${HM_LIB_ROOT}/deployctl.sh tls-renewed" ||
@@ -222,7 +255,7 @@ tls() {
   if [[ -d "${live}" ]]; then
     ln -sfn "${live}/fullchain.pem" "${dir}/fullchain.pem"
     ln -sfn "${live}/privkey.pem" "${dir}/privkey.pem"
-    log "TLS: using the Let's Encrypt certificate (renewed by certbot.timer)"
+    log "TLS: using the Let's Encrypt certificate (renewed by certbot-renew.timer)"
   fi
   # A switch from the placeholder reaches nginx, the backends and the cell agent once nginx_base has run.
   if [[ -n "${before}" && "$(readlink "${dir}/fullchain.pem")" != "${before}" ]]; then TLS_CHANGED=1; fi
@@ -295,6 +328,7 @@ main() {
   preflight "$@"
   packages
   node_runtime
+  certbot_runtime
   service_user
   postgres
   local env

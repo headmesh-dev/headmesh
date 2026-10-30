@@ -1,0 +1,8 @@
+# Top-level pins for hm-prod-1's certbot, which deploy/server/bootstrap.sh installs into /opt/certbot from
+# certbot-requirements.txt with pip --require-hashes. certbot-dns-cloudflare 5.x is built on the cloudflare 4.x+ SDK;
+# bump the three together, then regenerate the lock from the repository root:
+#   uv pip compile deploy/server/certbot-requirements.in --generate-hashes --universal --python-version 3.12 \
+#     -o deploy/server/certbot-requirements.txt
+certbot==5.9.0
+certbot-dns-cloudflare==5.9.0
+cloudflare==5.9.0
