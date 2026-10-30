@@ -197,23 +197,35 @@ separate tailscaled (own state, socket, port and interface) alongside it. Creati
 
 	// grants ---------------------------------------------------------------------------------------------
 	grant := &cobra.Command{Use: "grant", Short: "Give another org time-limited access to one of your devices"}
-	var toOrg, device, srcRole, ref string
+	var toOrg, device, service, srcRole, ref string
 	var ports []string
 	var forDur time.Duration
 	create := &cobra.Command{
 		Use: "create", Short: "Create a grant", Args: cobra.NoArgs,
 		RunE: func(cmd *cobra.Command, _ []string) error {
-			if toOrg == "" || device == "" || len(ports) == 0 {
-				return errors.New("--to, --device and --port are required")
+			switch {
+			case toOrg == "":
+				return errors.New("--to is required")
+			case (device == "") == (service == ""):
+				return errors.New("give --device (with --port) or --service")
+			case device != "" && len(ports) == 0:
+				return errors.New("--port is required with --device")
 			}
 			src := map[string]string{"kind": "all"}
 			if srcRole != "" {
 				src = map[string]string{"kind": "role", "role": srcRole}
 			}
-			g, err := client().CreateGrant(cmd.Context(), map[string]any{
-				"grantee_org": toOrg, "src": src, "dst_device_id": device, "ports": ports,
-				"expires_at": time.Now().Add(forDur).UTC(), "external_ref": ref,
-			})
+			req := map[string]any{"grantee_org": toOrg, "src": src, "expires_at": time.Now().Add(forDur).UTC(), "external_ref": ref}
+			// Only the destination given: the API checks dst_device_id's format whenever it is present.
+			if device != "" {
+				req["dst_device_id"] = device
+			} else {
+				req["dst_service"] = service
+			}
+			if len(ports) > 0 {
+				req["ports"] = ports
+			}
+			g, err := client().CreateGrant(cmd.Context(), req)
 			if err != nil {
 				return err
 			}
@@ -225,6 +237,7 @@ separate tailscaled (own state, socket, port and interface) alongside it. Creati
 	}
 	create.Flags().StringVar(&toOrg, "to", "", "short id of the org receiving access")
 	create.Flags().StringVar(&device, "device", "", "id of your device to share")
+	create.Flags().StringVar(&service, "service", "", "share one of your services by name (its ports unless --port narrows them)")
 	create.Flags().StringSliceVar(&ports, "port", nil, "port to open, e.g. tcp:22 (repeatable)")
 	create.Flags().DurationVar(&forDur, "for", time.Hour, "how long the grant lasts")
 	create.Flags().StringVar(&srcRole, "from-role", "", "limit access to the receiving org's devices with this role")

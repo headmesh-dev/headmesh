@@ -79,6 +79,30 @@ func (q *Queries) GetService(ctx context.Context, id pgtype.UUID) (Service, erro
 	return i, err
 }
 
+const getServiceByName = `-- name: GetServiceByName :one
+SELECT id, org_id, device_id, name, ports, description, created_at FROM services WHERE org_id = $1 AND name = $2
+`
+
+type GetServiceByNameParams struct {
+	OrgID pgtype.UUID
+	Name  string
+}
+
+func (q *Queries) GetServiceByName(ctx context.Context, arg GetServiceByNameParams) (Service, error) {
+	row := q.db.QueryRow(ctx, getServiceByName, arg.OrgID, arg.Name)
+	var i Service
+	err := row.Scan(
+		&i.ID,
+		&i.OrgID,
+		&i.DeviceID,
+		&i.Name,
+		&i.Ports,
+		&i.Description,
+		&i.CreatedAt,
+	)
+	return i, err
+}
+
 const listServicesByOrg = `-- name: ListServicesByOrg :many
 SELECT id, org_id, device_id, name, ports, description, created_at FROM services WHERE org_id = $1 ORDER BY name
 `

@@ -575,6 +575,48 @@ func TestOnboardingAndAccessLifecycle(t *testing.T) {
 	if code := c.do("GET", "/v1/services", own.AdminKey.Key, nil, &svcs); code != http.StatusOK || len(svcs.Services) != 1 || svcs.Services[0]["name"] != "jupyter" {
 		t.Fatalf("list services: %d %v", code, svcs.Services)
 	}
+	// A grant can name the service instead of a device and ports, and can't open more than the service offers.
+	svcGrant := map[string]any{
+		"grantee_org": plat.OrgShort, "src": map[string]string{"kind": "role", "role": "gateway"},
+		"dst_service": "jupyter", "expires_at": time.Now().Add(time.Hour),
+	}
+	var sg map[string]any
+	if code := c.do("POST", "/v1/grants", own.AdminKey.Key, svcGrant, &sg); code != http.StatusCreated ||
+		sg["dst_device_id"] != gpu["id"] || sg["ports"].([]any)[0] != "tcp:8888" || sg["enforced"] != true ||
+		!strings.Contains(hs.livePolicy(), `"tcp:8888"`) {
+		t.Fatalf("grant to a service: %d %v", code, sg)
+	}
+	if a, code := check(plat.AdminKey.Key, gw["id"].(string), gpu["id"].(string), "tcp:8888"); code != http.StatusOK || !a.Allowed {
+		t.Fatalf("the service grant isn't reachable: %d %+v", code, a)
+	}
+	for name, body := range map[string]map[string]any{
+		"a port outside the service": {
+			"grantee_org": plat.OrgShort, "src": map[string]string{"kind": "all"}, "dst_service": "jupyter",
+			"ports": []string{"tcp:22"}, "expires_at": time.Now().Add(time.Hour),
+		},
+		"both destinations": {
+			"grantee_org": plat.OrgShort, "src": map[string]string{"kind": "all"}, "dst_service": "jupyter",
+			"dst_device_id": gpu["id"], "expires_at": time.Now().Add(time.Hour),
+		},
+		"no destination": {
+			"grantee_org": plat.OrgShort, "src": map[string]string{"kind": "all"}, "ports": []string{"tcp:22"},
+			"expires_at": time.Now().Add(time.Hour),
+		},
+	} {
+		if code := c.do("POST", "/v1/grants", own.AdminKey.Key, body, nil); code != http.StatusUnprocessableEntity {
+			t.Fatalf("%s: %d", name, code)
+		}
+	}
+	if code := c.do("POST", "/v1/grants", plat.AdminKey.Key, map[string]any{
+		"grantee_org": own.OrgShort, "src": map[string]string{"kind": "all"}, "dst_service": "jupyter",
+		"expires_at": time.Now().Add(time.Hour),
+	}, nil); code != http.StatusNotFound {
+		t.Fatalf("another org named our service: %d", code)
+	}
+	if code := c.do("POST", "/v1/grants/"+sg["id"].(string)+"/revoke", own.AdminKey.Key, nil, nil); code != http.StatusOK ||
+		strings.Contains(hs.livePolicy(), `"tcp:8888"`) {
+		t.Fatalf("revoke the service grant: %d", code)
+	}
 	if code := c.do("DELETE", "/v1/services/"+jsvc["id"].(string), own.AdminKey.Key, nil, nil); code != http.StatusOK {
 		t.Fatalf("delete service: %d", code)
 	}

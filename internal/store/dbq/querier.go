@@ -48,6 +48,7 @@ type Querier interface {
 	GetOrgBySlug(ctx context.Context, slug string) (Org, error)
 	GetRule(ctx context.Context, id pgtype.UUID) (Rule, error)
 	GetService(ctx context.Context, id pgtype.UUID) (Service, error)
+	GetServiceByName(ctx context.Context, arg GetServiceByNameParams) (Service, error)
 	InitChainHead(ctx context.Context, arg InitChainHeadParams) error
 	InsertAuditEvent(ctx context.Context, arg InsertAuditEventParams) (int64, error)
 	InsertPolicyRevision(ctx context.Context, arg InsertPolicyRevisionParams) error

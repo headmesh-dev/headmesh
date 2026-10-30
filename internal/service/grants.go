@@ -5,6 +5,8 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	"slices"
+	"strings"
 	"time"
 
 	"github.com/jackc/pgx/v5"
@@ -19,6 +21,9 @@ type GrantRequest struct {
 	GranteeOrg  string // short id of the org receiving access
 	Src         store.SelectorJSON
 	DstDeviceID string
+	// DstService names one of the grantor's services instead of DstDeviceID; Ports then default to the service's
+	// ports and may only narrow them. The grant records the device and ports as they are now.
+	DstService  string
 	Ports       []string
 	StartsAt    *time.Time
 	ExpiresAt   time.Time
@@ -32,6 +37,9 @@ type Grant struct {
 	GrantorOrg  string
 	GranteeOrg  string
 	DstDeviceID string
+	// DstService names one of the grantor's services instead of DstDeviceID; Ports then default to the service's
+	// ports and may only narrow them. The grant records the device and ports as they are now.
+	DstService  string
 	Ports       []string
 	StartsAt    time.Time
 	ExpiresAt   time.Time
@@ -52,6 +60,16 @@ func (s *Service) maxGrantTTL() time.Duration {
 func (s *Service) CreateGrant(ctx context.Context, p Principal, req GrantRequest) (*Grant, error) {
 	if !p.Can(ScopeGrantsWrite) {
 		return nil, ErrForbidden
+	}
+	if req.DstService != "" {
+		if req.DstDeviceID != "" {
+			return nil, fmt.Errorf("%w: give dst_device_id or dst_service, not both", ErrInvalid)
+		}
+		if err := s.resolveGrantService(ctx, p, &req); err != nil {
+			return nil, err
+		}
+	} else if req.DstDeviceID == "" {
+		return nil, fmt.Errorf("%w: give dst_device_id or dst_service", ErrInvalid)
 	}
 	ports := make([]string, 0, len(req.Ports))
 	for _, raw := range req.Ports {
@@ -138,7 +156,7 @@ func (s *Service) CreateGrant(ctx context.Context, p Principal, req GrantRequest
 		_, err = store.AppendAudit(ctx, q, store.AuditEvent{
 			OrgID: p.OrgID, ActorType: "api_key", ActorID: p.KeyID.String(),
 			Action: "grant.created", TargetType: "grant", TargetID: g.ID.String(), Data: map[string]any{
-				"grantee_org": req.GranteeOrg, "dst_device": req.DstDeviceID, "ports": ports,
+				"grantee_org": req.GranteeOrg, "dst_device": req.DstDeviceID, "dst_service": req.DstService, "ports": ports,
 				"starts_at": starts, "expires_at": req.ExpiresAt, "external_ref": req.ExternalRef,
 			},
 		})
@@ -150,6 +168,32 @@ func (s *Service) CreateGrant(ctx context.Context, p Principal, req GrantRequest
 	out := toGrant(g, p.OrgShort, req.GranteeOrg)
 	out.Enforced = s.Hub.RefreshAndWait(ctx, cell.Name) == nil
 	return out, nil
+}
+
+// resolveGrantService turns req.DstService into the service's device and ports. Ports the caller lists must be
+// ports of the service: a grant can open part of a service, never more.
+func (s *Service) resolveGrantService(ctx context.Context, p Principal, req *GrantRequest) error {
+	return s.Store.Tx(ctx, p.scope(), func(q *dbq.Queries, _ pgx.Tx) error {
+		svc, err := q.GetServiceByName(ctx, dbq.GetServiceByNameParams{OrgID: p.OrgID, Name: req.DstService})
+		if errors.Is(err, pgx.ErrNoRows) {
+			return fmt.Errorf("%w: your org has no service named %q", ErrNotFound, req.DstService)
+		} else if err != nil {
+			return fmt.Errorf("load service: %w", err)
+		}
+		req.DstDeviceID = svc.DeviceID.String()
+		if len(req.Ports) == 0 {
+			req.Ports = svc.Ports
+			return nil
+		}
+		for _, raw := range req.Ports {
+			pt, err := policy.ParsePort(raw)
+			if err != nil || !slices.Contains(svc.Ports, string(pt)) {
+				return fmt.Errorf("%w: port %q isn't one of service %s's ports (%s)", ErrInvalid, raw, svc.Name,
+					strings.Join(svc.Ports, ", "))
+			}
+		}
+		return nil
+	})
 }
 
 func validateGranteeSelector(ctx context.Context, q *dbq.Queries, grantee dbq.Org, sel store.SelectorJSON) error {

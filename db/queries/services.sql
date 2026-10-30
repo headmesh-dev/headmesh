@@ -11,3 +11,6 @@ SELECT * FROM services WHERE id = $1;
 
 -- name: DeleteService :exec
 DELETE FROM services WHERE id = $1 AND org_id = $2;
+
+-- name: GetServiceByName :one
+SELECT * FROM services WHERE org_id = $1 AND name = $2;

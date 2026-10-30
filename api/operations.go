@@ -206,8 +206,9 @@ func (h *handlers) register(a huma.API) {
 		Body struct {
 			GranteeOrg  string             `json:"grantee_org" pattern:"^[a-z2-7]{10}$" doc:"short id of the org receiving access"`
 			Src         store.SelectorJSON `json:"src"`
-			DstDeviceID string             `json:"dst_device_id" format:"uuid"`
-			Ports       []string           `json:"ports" minItems:"1" maxItems:"32" example:"[\"tcp:22\"]"`
+			DstDeviceID string             `json:"dst_device_id,omitempty" format:"uuid" doc:"the device to open; or give dst_service"`
+			DstService  string             `json:"dst_service,omitempty" pattern:"^[a-z0-9][a-z0-9-]{0,40}$" doc:"one of your services by name, instead of dst_device_id"`
+			Ports       []string           `json:"ports,omitempty" minItems:"1" maxItems:"32" example:"[\"tcp:22\"]" doc:"required with dst_device_id; with dst_service, defaults to the service's ports and may only narrow them"`
 			StartsAt    *time.Time         `json:"starts_at,omitempty"`
 			ExpiresAt   time.Time          `json:"expires_at"`
 			Reason      string             `json:"reason,omitempty" maxLength:"500"`
@@ -226,7 +227,7 @@ func (h *handlers) register(a huma.API) {
 		}
 		g, err := h.svc.CreateGrant(ctx, p, service.GrantRequest{
 			GranteeOrg: in.Body.GranteeOrg, Src: in.Body.Src,
-			DstDeviceID: in.Body.DstDeviceID, Ports: in.Body.Ports, StartsAt: in.Body.StartsAt, ExpiresAt: in.Body.ExpiresAt,
+			DstDeviceID: in.Body.DstDeviceID, DstService: in.Body.DstService, Ports: in.Body.Ports, StartsAt: in.Body.StartsAt, ExpiresAt: in.Body.ExpiresAt,
 			Reason: in.Body.Reason, ExternalRef: in.Body.ExternalRef,
 		})
 		if err != nil {

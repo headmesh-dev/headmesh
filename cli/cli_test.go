@@ -475,3 +475,27 @@ func TestRuleAddDryRunPreviewsAndCreatesNothing(t *testing.T) {
 		t.Fatalf("output %q", out)
 	}
 }
+
+func TestGrantCreateWithAService(t *testing.T) {
+	var got map[string]any
+	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		_ = json.NewDecoder(r.Body).Decode(&got)
+		w.Header().Set("Content-Type", "application/json")
+		w.WriteHeader(http.StatusCreated)
+		_, _ = w.Write([]byte(`{"id":"g1","dst_device_id":"d1","ports":["tcp:8888"],"expires_at":"2026-10-30T12:00:00Z","enforced":true}`))
+	}))
+	defer srv.Close()
+	env := map[string]string{"HEADMESH_API_KEY": "hmk_test", "HEADMESH_SERVER": srv.URL}
+	deps := Deps{Getenv: func(k string) string { return env[k] }}
+	if _, err := run(t, deps, "grant", "create", "--to", "abcdefghij", "--service", "jupyter"); err != nil {
+		t.Fatal(err)
+	}
+	_, hasDevice := got["dst_device_id"]
+	_, hasPorts := got["ports"]
+	if got["dst_service"] != "jupyter" || hasDevice || hasPorts {
+		t.Fatalf("body sent: %v", got)
+	}
+	if _, err := run(t, deps, "grant", "create", "--to", "abcdefghij", "--service", "jupyter", "--device", "d1"); err == nil {
+		t.Fatal("--service and --device together were accepted")
+	}
+}
