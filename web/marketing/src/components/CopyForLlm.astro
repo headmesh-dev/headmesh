@@ -1,11 +1,9 @@
 ---
 // "Copy for LLM": a split button. The main half copies the first option; the chevron opens a menu with all of them.
-// Marketing pages lead with directions an AI agent can follow to get the person onto the waitlist. Docs pages pass
-// their page and lead with its Markdown. The text to copy is rendered into <template>s at build time, so copying
+// Marketing pages lead with directions an AI agent can follow to get the person onto the waitlist, pointing at the
+// waitlist skill for the full context. Docs pages pass their page and lead with its Markdown. The text to copy is rendered into <template>s at build time, so copying
 // never waits on the network.
-import { getCollection } from "astro:content";
-import { type DocPage, llmsTxt, markdownUrl, pageMarkdown, WAITLIST_PROMPT } from "../agents/markdown";
-import { docPages } from "../agents/pages";
+import { type DocPage, markdownUrl, pageMarkdown, WAITLIST_PROMPT, waitlistSkill } from "../agents/markdown";
 import Icon, { type IconName } from "./Icon.astro";
 
 interface Props {
@@ -45,9 +43,9 @@ const options: Option[] = page
       directions,
       {
         label: "Copy as Markdown",
-        hint: "Headmesh overview and docs index",
+        hint: "The whole waitlist skill (SKILL.md), for your agent's skills folder",
         icon: "file",
-        copy: llmsTxt(await docPages(getCollection)),
+        copy: waitlistSkill(),
       },
       {
         label: "Open in Claude",

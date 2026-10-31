@@ -10,6 +10,8 @@ import {
   sortPages,
   WAITLIST_PREFILL_URL,
   WAITLIST_PROMPT,
+  WAITLIST_SKILL_URL,
+  waitlistSkill,
 } from "../../src/agents/markdown.ts";
 import { prefillFromFragment } from "../../src/scripts/waitlist.ts";
 
@@ -87,18 +89,38 @@ describe("llms.txt", () => {
     expect(text).toContain("codex plugin add headmesh@headmesh");
   });
 
-  it("tells agents how to send a person to a prefilled waitlist form", () => {
-    expect(text).toContain(WAITLIST_PREFILL_URL);
+  it("lists the waitlist skill", () => {
+    expect(text).toContain(`- [Waitlist skill](${WAITLIST_SKILL_URL}):`);
   });
 });
 
 describe("waitlist directions for agents", () => {
-  it("has the agent prefill the form and leave consent and submitting to the person", () => {
+  it("points at the skill on its own line, then gives the short version", () => {
     expect(WAITLIST_PROMPT).toMatch(/^Help me join the Headmesh waitlist\.\n/);
+    expect(WAITLIST_PROMPT).toContain("\nhttps://headmesh.dev/skills/headmesh-waitlist/SKILL.md\n");
     expect(WAITLIST_PROMPT).toContain("https://headmesh.dev/waitlist/?ref=agent#email=<email>&use_case=<use case>");
-    expect(WAITLIST_PROMPT).toContain("don't submit it or call its API for me");
+    expect(WAITLIST_PROMPT).toContain("Don't submit the form or call its API for me.");
     expect(WAITLIST_PROMPT).toContain("I tick the consent box");
     expect(WAITLIST_PROMPT).toContain("at most 500 characters");
+  });
+
+  it("is a valid Agent Skill whose name matches its folder", () => {
+    const skill = waitlistSkill();
+    const frontmatter = /^---\nname: ([^\n]+)\ndescription: ([^\n]+)\n---\n/.exec(skill);
+    expect(frontmatter?.[1]).toBe("headmesh-waitlist");
+    expect(WAITLIST_SKILL_URL).toBe(`https://headmesh.dev/skills/${frontmatter?.[1]}/SKILL.md`);
+    expect(frontmatter?.[1]).toMatch(/^[a-z0-9-]{1,64}$/);
+    expect(frontmatter?.[2]?.length).toBeLessThanOrEqual(1024);
+    expect(frontmatter?.[2]).toContain("Use when the user asks to join the Headmesh waitlist");
+  });
+
+  it("gives the skill the link, the limits and the reason not to call the API", () => {
+    const skill = waitlistSkill();
+    expect(skill).toContain(`\`\`\`text\n${WAITLIST_PREFILL_URL}\n\`\`\``);
+    expect(skill).toContain("At most 254 characters.");
+    expect(skill).toContain("At most 500 characters.");
+    expect(skill).toContain("Don't submit the form or call its API for the user.");
+    expect(skill).toContain("https://headmesh.dev/llms.txt");
   });
 
   it("round-trips through the link an agent builds", () => {

@@ -1,4 +1,4 @@
-import { WAITLIST_PROMPT } from "../../src/agents/markdown.ts";
+import { WAITLIST_PROMPT, waitlistSkill } from "../../src/agents/markdown.ts";
 import { cspViolations, expect, expectAccessible, test, waitForTurnstile } from "./fixtures";
 
 const PAGES = [
@@ -158,7 +158,10 @@ test.describe("copy for LLM", () => {
     await page.keyboard.press("Enter");
     await expect(menu).toBeHidden();
     await expect(toggle).toBeFocused();
-    expect(await clipboard(page)).toBe(await (await page.request.get("/llms.txt")).text());
+    const skill = await page.request.get("/skills/headmesh-waitlist/SKILL.md");
+    expect(skill.headers()["content-type"]).toContain("text/markdown");
+    expect(await skill.text()).toBe(waitlistSkill());
+    expect(await clipboard(page)).toBe(waitlistSkill());
 
     await toggle.click();
     await expect(menu.getByRole("menuitem").first()).toBeFocused();

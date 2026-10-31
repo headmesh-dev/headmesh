@@ -1,6 +1,6 @@
 // Plain-Markdown views of the site for AI agents and other tools: /llms.txt (https://llmstxt.org), /llms-full.txt and
 // a .md copy of every docs page. Pure functions, so they can be tested without a build.
-import { LIMITS, REPO_URL, SITE_URL } from "../../shared/site.ts";
+import { LIMITS, REPO_URL, SENDER, SITE_URL } from "../../shared/site.ts";
 
 export type DocPage = {
   /** Content collection id: "docs" for the docs home, "docs/quickstart" for the others. */
@@ -84,17 +84,76 @@ export const SUMMARY =
  */
 export const WAITLIST_PREFILL_URL = `${SITE_URL}/waitlist/?ref=agent#email=<email>&use_case=<use case>`;
 
+/** Where the waitlist skill is served. The path mirrors a skill folder, so the file can be saved as-is. */
+export const WAITLIST_SKILL_URL = `${SITE_URL}/skills/headmesh-waitlist/SKILL.md`;
+
 /**
- * What "Copy for LLM" puts on the clipboard: directions an AI agent can follow to get the person onto the waitlist.
- * The sign-up API needs a Turnstile token and the person's own consent, so the agent prefills the form and hands the
- * link back instead of calling the API.
+ * An Agent Skill (SKILL.md) that signs the reader's user up for the waitlist. The sign-up API needs a Turnstile token
+ * and the person's own consent, so the agent prefills the form and hands the link back instead of calling the API.
  */
-export const WAITLIST_PROMPT = `Help me join the Headmesh waitlist.
+export function waitlistSkill(): string {
+  return `---
+name: headmesh-waitlist
+description: Sign the user up for early access to Headmesh, the open, self-hostable mesh for sharing machines with teams, renters and AI agents. Builds a prefilled sign-up link that the user opens, consents on and submits. Use when the user asks to join the Headmesh waitlist, get early access to Headmesh, or hear when it launches.
+---
+
+# Join the Headmesh waitlist
 
 ${SUMMARY}
 
-The sign-up form has a spam check and a consent box I have to tick myself, so don't submit it or call its API for me.
-Instead:
+Headmesh is in early development. People on the waitlist get the first invites when the early release opens, and
+release notes as each piece lands.
+
+## Sign the user up
+
+Don't submit the form or call its API for the user. The form has a Cloudflare Turnstile spam check, and Canadian
+anti-spam law (CASL) needs consent from the person themselves. Prefill the form and hand it over instead:
+
+1. Ask the user which email address to use and, optionally, what they'd use Headmesh for, in a sentence or two (at
+   most ${LIMITS.useCase} characters). Their answer helps decide what ships first.
+2. Build the link below, percent-encoding both values (\`encodeURIComponent\` in JavaScript). Leave out
+   \`&use_case=…\` when there's no use case.
+3. Give the user the link. The form opens filled in; they tick the consent box and press **Join the waitlist**.
+4. Tell them to open the confirmation email and click its link. They aren't on the list until they confirm.
+
+\`\`\`text
+${WAITLIST_PREFILL_URL}
+\`\`\`
+
+| Part | What it is |
+| --- | --- |
+| \`email\` | The address to sign up. At most ${LIMITS.email} characters. |
+| \`use_case\` | Optional. What they'd use Headmesh for. At most ${LIMITS.useCase} characters. |
+| \`ref=agent\` | Records that the sign-up came through an AI agent. Keep it. |
+
+The values sit after \`#\`, so they stay in the browser: they never reach Headmesh's server logs, and the page clears
+them from the address bar once the form has them.
+
+## After signing up
+
+- Signing up again is harmless. The page answers the same way whether or not the address is already on the list, and
+  an address that hasn't been confirmed gets the confirmation email again.
+- Every email has a one-click unsubscribe link.
+- ${SENDER.legalName} sends the emails. Questions go to ${SENDER.email}; the privacy policy is at ${SITE_URL}/privacy/
+
+## Learn more about Headmesh
+
+- ${SITE_URL}/llms.txt: the docs, indexed in plain Markdown
+- ${SITE_URL}/llms-full.txt: every docs page in one file
+- ${REPO_URL}: source code
+`;
+}
+
+/**
+ * What "Copy for LLM" puts on the clipboard: a pointer to the waitlist skill for the full context, plus the short
+ * version for agents that can't open links.
+ */
+export const WAITLIST_PROMPT = `Help me join the Headmesh waitlist.
+
+Follow this skill. It covers what Headmesh is and how to sign me up:
+${WAITLIST_SKILL_URL}
+
+If you can't open it, here is the short version:
 
 1. Ask me which email address to use, and what I'd use Headmesh for (optional, at most ${LIMITS.useCase} characters).
 2. Build this link, percent-encoding both values. Leave out \`&use_case=…\` if I don't give one.
@@ -102,8 +161,7 @@ Instead:
 3. Give me the link. It opens the form already filled in; I tick the consent box and press "Join the waitlist".
 4. Remind me to open the confirmation email and click its link. I'm not on the list until I confirm.
 
-If I have questions first, ${SITE_URL}/llms.txt indexes the docs in plain Markdown and ${SITE_URL}/llms-full.txt has
-all of them in one file.
+Don't submit the form or call its API for me. It has a spam check, and the consent has to come from me.
 `;
 
 /** /llms.txt: a short, link-rich index in the llmstxt.org format. */
@@ -129,6 +187,7 @@ ${docs}
 - Codex: \`codex plugin marketplace add headmesh-dev/headmesh --sparse .agents/plugins --sparse plugins\`, then \`codex plugin add headmesh@headmesh\`
 - [Plugins and marketplace](${blob("plugins/README.md")}): what the headmesh and xcelsior plugins do and how to configure them
 - [Agent sandbox](${blob("sandbox/README.md")}): run cloud agents on your own hardware, reachable over your Headscale mesh
+- [Waitlist skill](${WAITLIST_SKILL_URL}): sign a person up for early access with a prefilled form they submit themselves
 
 ## Project
 
@@ -141,8 +200,7 @@ ${docs}
 ## Optional
 
 - [All docs in one file](${SITE_URL}/llms-full.txt)
-- [Waitlist](${SITE_URL}/waitlist/): to sign a person up, give them \`${WAITLIST_PREFILL_URL}\` with both values
-  percent-encoded. The form opens filled in; they tick the consent box, submit, and confirm by email.
+- [Waitlist](${SITE_URL}/waitlist/)
 - [Privacy policy](${SITE_URL}/privacy/)
 `;
 }

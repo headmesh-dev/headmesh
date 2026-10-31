@@ -72,8 +72,9 @@ The e2e tests stub Turnstile and block every third-party request, so they never 
 1. The form posts JSON to `/api/waitlist`: email, optional use case (≤ 500 characters), the consent checkbox, the
    consent wording version, the Turnstile token, and the source (`?ref=`, `utm_source` or the referring host) and
    `utm_*` parameters. An AI agent can't pass Turnstile or consent for someone, so the "Copy for LLM" button
-   (`src/components/CopyForLlm.astro`, also on every docs page) gives agents directions to send the person
-   `/waitlist/?ref=agent#email=…&use_case=…` instead. The form fills itself in from the fragment and clears it from
+   (`src/components/CopyForLlm.astro`, also on every docs page) points agents at the waitlist skill,
+   `/skills/headmesh-waitlist/SKILL.md`, which has them send the person `/waitlist/?ref=agent#email=…&use_case=…`
+   instead. The form fills itself in from the fragment and clears it from
    the address bar; the person ticks the box and submits.
 2. The service validates with zod, normalises the email (trim, NFC, lowercase, punycode domain; no Gmail-style
    rewriting), verifies Turnstile server-side (action must be `waitlist`) and limits each IP to 10 sign-ups an
