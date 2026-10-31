@@ -254,6 +254,8 @@ type WebhookDelivery struct {
 	Error         *string
 	CreatedAt     time.Time
 	NextAttemptAt *time.Time
+	LastAttemptAt *time.Time
+	DeliveredAt   *time.Time
 }
 
 type WebhookEndpoint struct {
@@ -265,4 +267,5 @@ type WebhookEndpoint struct {
 	Status           string
 	FailingSince     *time.Time
 	CreatedAt        time.Time
+	Description      *string
 }

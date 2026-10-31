@@ -17,3 +17,6 @@ SELECT * FROM audit_events WHERE org_id = $1 AND id > $2 ORDER BY id LIMIT $3;
 
 -- name: ListAuditEventsForChain :many
 SELECT * FROM audit_events WHERE org_id IS NOT DISTINCT FROM $1 AND id > $2 ORDER BY id LIMIT $3;
+
+-- name: GetAuditEvent :one
+SELECT * FROM audit_events WHERE id = $1;

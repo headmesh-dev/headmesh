@@ -13,6 +13,9 @@ import (
 type Querier interface {
 	AdvanceChainHead(ctx context.Context, arg AdvanceChainHeadParams) error
 	AttachDeviceNode(ctx context.Context, arg AttachDeviceNodeParams) (Device, error)
+	// Leases due deliveries: pushing next_attempt_at forward hides them from other workers until the lease ends, so a
+	// worker that dies mid-delivery only delays a retry.
+	ClaimDueWebhookDeliveries(ctx context.Context, arg ClaimDueWebhookDeliveriesParams) ([]WebhookDelivery, error)
 	// Expired, never-revoked grants whose expiry has not been audited yet. SKIP LOCKED lets several server instances
 	// sweep concurrently without double-auditing.
 	ClaimExpiredGrants(ctx context.Context, arg ClaimExpiredGrantsParams) ([]Grant, error)
@@ -30,11 +33,18 @@ type Querier interface {
 	CreatePlatformRule(ctx context.Context, arg CreatePlatformRuleParams) (PlatformRule, error)
 	CreateRule(ctx context.Context, arg CreateRuleParams) (Rule, error)
 	CreateService(ctx context.Context, arg CreateServiceParams) (Service, error)
+	CreateWebhookEndpoint(ctx context.Context, arg CreateWebhookEndpointParams) (WebhookEndpoint, error)
 	DeleteRule(ctx context.Context, arg DeleteRuleParams) error
 	DeleteService(ctx context.Context, arg DeleteServiceParams) error
+	DeleteWebhookEndpoint(ctx context.Context, arg DeleteWebhookEndpointParams) error
+	// The outbox: one pending delivery per active endpoint of the event's org whose filter matches the action exactly,
+	// by its first segment ("grant.*"), or with "*".
+	EnqueueWebhookDeliveries(ctx context.Context, arg EnqueueWebhookDeliveriesParams) error
 	ExtendGrant(ctx context.Context, arg ExtendGrantParams) (Grant, error)
+	FinishWebhookDelivery(ctx context.Context, arg FinishWebhookDeliveryParams) error
 	// Runs in the system scope: the key itself is the credential that establishes the tenant scope.
 	GetAPIKeyByHash(ctx context.Context, keyHash []byte) (ApiKey, error)
+	GetAuditEvent(ctx context.Context, id int64) (AuditEvent, error)
 	GetCell(ctx context.Context, id pgtype.UUID) (Cell, error)
 	GetCellByName(ctx context.Context, name string) (Cell, error)
 	GetDevice(ctx context.Context, id pgtype.UUID) (Device, error)
@@ -49,6 +59,7 @@ type Querier interface {
 	GetRule(ctx context.Context, id pgtype.UUID) (Rule, error)
 	GetService(ctx context.Context, id pgtype.UUID) (Service, error)
 	GetServiceByName(ctx context.Context, arg GetServiceByNameParams) (Service, error)
+	GetWebhookEndpoint(ctx context.Context, id pgtype.UUID) (WebhookEndpoint, error)
 	InitChainHead(ctx context.Context, arg InitChainHeadParams) error
 	InsertAuditEvent(ctx context.Context, arg InsertAuditEventParams) (int64, error)
 	InsertPolicyRevision(ctx context.Context, arg InsertPolicyRevisionParams) error
@@ -69,10 +80,15 @@ type Querier interface {
 	ListRulesByOrg(ctx context.Context, orgID pgtype.UUID) ([]Rule, error)
 	ListRulesInCell(ctx context.Context, cellID pgtype.UUID) ([]Rule, error)
 	ListServicesByOrg(ctx context.Context, orgID pgtype.UUID) ([]Service, error)
+	ListWebhookDeliveries(ctx context.Context, arg ListWebhookDeliveriesParams) ([]ListWebhookDeliveriesRow, error)
+	ListWebhookEndpoints(ctx context.Context, orgID pgtype.UUID) ([]WebhookEndpoint, error)
 	LockChainHead(ctx context.Context, chainKey pgtype.UUID) (LockChainHeadRow, error)
 	MarkEnrollmentMinted(ctx context.Context, arg MarkEnrollmentMintedParams) (Enrollment, error)
 	MarkGrantExpiryAudited(ctx context.Context, arg MarkGrantExpiryAuditedParams) error
 	MarkPolicyRevision(ctx context.Context, arg MarkPolicyRevisionParams) error
+	// Records the first failure and disables an endpoint that has failed for 24 hours. Returns the new status.
+	MarkWebhookEndpointFailing(ctx context.Context, id pgtype.UUID) (string, error)
+	MarkWebhookEndpointHealthy(ctx context.Context, id pgtype.UUID) error
 	NextPolicyRevision(ctx context.Context, cellID pgtype.UUID) (int64, error)
 	RenameDeviceGivenName(ctx context.Context, arg RenameDeviceGivenNameParams) error
 	RevokeAPIKey(ctx context.Context, arg RevokeAPIKeyParams) error

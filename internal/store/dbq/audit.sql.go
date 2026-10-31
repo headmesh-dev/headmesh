@@ -28,6 +28,32 @@ func (q *Queries) AdvanceChainHead(ctx context.Context, arg AdvanceChainHeadPara
 	return err
 }
 
+const getAuditEvent = `-- name: GetAuditEvent :one
+SELECT id, org_id, occurred_at, actor_type, actor_id, action, target_type, target_id, request_id, ip, user_agent, data, prev_hash, hash FROM audit_events WHERE id = $1
+`
+
+func (q *Queries) GetAuditEvent(ctx context.Context, id int64) (AuditEvent, error) {
+	row := q.db.QueryRow(ctx, getAuditEvent, id)
+	var i AuditEvent
+	err := row.Scan(
+		&i.ID,
+		&i.OrgID,
+		&i.OccurredAt,
+		&i.ActorType,
+		&i.ActorID,
+		&i.Action,
+		&i.TargetType,
+		&i.TargetID,
+		&i.RequestID,
+		&i.Ip,
+		&i.UserAgent,
+		&i.Data,
+		&i.PrevHash,
+		&i.Hash,
+	)
+	return i, err
+}
+
 const initChainHead = `-- name: InitChainHead :exec
 INSERT INTO audit_chain_heads (chain_key, head_hash, last_id) VALUES ($1, $2, 0) ON CONFLICT (chain_key) DO NOTHING
 `
