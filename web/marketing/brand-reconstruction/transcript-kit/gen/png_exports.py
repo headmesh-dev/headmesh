@@ -57,7 +57,7 @@ def sync_site():
     public = MARKETING / "public/brand/headmesh-v1"
     originals = [(source, Path("selected-brand") / source.relative_to(public)) for source in sorted(public.rglob("*.svg"))]
     originals += [(MARKETING / "src/assets" / name, Path("site") / name) for name in ("logo.svg", "logo-on-light.svg")]
-    originals += [(MARKETING / "public/favicon.svg", Path("site/favicon.svg"))]
+    originals += [(MARKETING / "public" / name, Path("site") / name) for name in ("favicon.svg", "favicon-dark.svg")]
     originals += [(public / "logos/manifest.json", Path("selected-brand/logos/manifest.json"))]
     records = []
     for source, relative in originals:

@@ -9,6 +9,7 @@ const id = Astro.locals.starlightRoute?.entry?.id;
 ---
 
 <Default><slot /></Default>
+<link rel="icon" href="/favicon-dark.svg?v=transparent-1" type="image/svg+xml" media="(prefers-color-scheme: dark)" />
 <FontFaces />
 <StructuredData />
 {id && <link rel="alternate" type="text/markdown" href={`/${id}.md`} title="This page as Markdown" />}

@@ -126,7 +126,7 @@ export default defineConfig({
       description: "Documentation for Headmesh, the open, self-hostable, multi-tenant mesh built on Headscale.",
       logo: { dark: "./src/assets/logo.svg", light: "./src/assets/logo-on-light.svg", alt: "Headmesh" },
       components: { Head: "./src/components/StarlightHead.astro", SiteTitle: "./src/components/DocsSiteTitle.astro" },
-      favicon: "/favicon.svg",
+      favicon: "/favicon.svg?v=transparent-1",
       disable404Route: true,
       pagefind: false,
       social: [{ icon: "github", label: "GitHub", href: REPO_URL }],

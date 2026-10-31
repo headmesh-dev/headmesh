@@ -19,3 +19,7 @@ The dark theme uses mint-to-cyan (#3CEFB4 → #27BFF5) on ink (#070B12).
 The shared leg is fully opaque in both themes; the contrast comes from the palette, not reduced opacity.
 Gradient backgrounds use mint-to-cyan with a solid black mark, including its shared leg.
 PNG corners outside the rounded and circular backgrounds remain transparent. Squares have sharp, opaque corners.
+
+Favicons use the standalone mark with a transparent background, including the spaces under the arches and between
+the legs. The site selects favicon.svg or favicon-dark.svg for light and dark browser tabs. The 16, 32 and 48 px
+PNGs and ICO frames use the light-theme foreground and preserve the same transparent gaps.

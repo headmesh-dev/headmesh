@@ -4,8 +4,8 @@ This folder preserves all supplied commands and reconstructs all 13 candidates: 
 
 ## Complete PNG collection
 
-Open [`png/index.html`](png/index.html) to browse and download **397 PNGs**, one per SVG: all 338 candidate
-assets, the type-study sheet, 55 selected-brand assets, and three live-site logo/favicon assets. Files in
+Open [`png/index.html`](png/index.html) to browse and download **399 PNGs**, one per SVG: all 338 candidate
+assets, the type-study sheet, 56 selected-brand assets, and four live-site logo/favicon assets. Files in
 `png/` are grouped by family and variant, with `selected-brand/`, `site/`, and `previews/` for the extras.
 Every PNG preserves its source SVG's dimensions and transparency; scalable site marks without explicit sizes
 are exported at 512 px wide. The earlier 234 size-specific PNGs remain under `out/headmesh-brand/`.
@@ -28,7 +28,7 @@ outside the repository. The renderer embeds the prepared brand fonts for the few
 contain live text; exported typography does not depend on installed system fonts.
 
 `png/validation.json` records source hashes, dimensions, alpha ranges, painted bounds, and checks against
-previous same-size renders. `png/SHA256SUMS` covers every new PNG. All 397 exports are shown on the 14 sheets
+previous same-size renders. `png/SHA256SUMS` covers every new PNG. All 399 exports are shown on the 14 sheets
 under `png/contact-sheets/`, including the D4 sheet at `png/contact-sheets/D4.jpg`.
 
 To regenerate the PNG collection alone, run `npm run png`. Inside the full repository, refresh the copied
@@ -82,6 +82,6 @@ To create a source-and-artwork ZIP after a successful build:
 ```
 
 The package includes the generators, pinned dependency files, prepared fonts and licenses, transcripts and
-command inventory, original image references, previews, all 585 legacy exports, and all 397 additional PNGs
+command inventory, original image references, previews, all 585 legacy exports, and all 399 additional PNGs
 with their source SVG copies, catalog, and contact sheets. Installed dependencies and temporary render probes
-are excluded. The packager verifies all 982 exported asset hashes inside the ZIP and writes an archive checksum.
+are excluded. The packager verifies all 984 exported asset hashes inside the ZIP and writes an archive checksum.

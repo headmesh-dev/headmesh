@@ -5,7 +5,8 @@ import { Resvg } from "@resvg/resvg-js";
 import satori from "satori";
 
 const scriptDir = path.dirname(fileURLToPath(import.meta.url));
-const root = path.resolve(scriptDir, "../public/brand/headmesh-v1");
+const publicRoot = path.resolve(scriptDir, "../public");
+const root = path.join(publicRoot, "brand/headmesh-v1");
 const referenceRoot = path.resolve(scriptDir, "../brand-reference/headmesh-process");
 const wordmarkSource = await readFile(path.resolve(scriptDir, "../src/components/Wordmark.astro"), "utf8");
 const wordmarkPath = wordmarkSource.match(/<path fill="currentColor" d="([^"]+)"/)?.[1];
@@ -106,6 +107,14 @@ function appIconSvg({ light = false, shape = "rounded", gradient = false }) {
   const body = `${backgrounds[shape]}<g>${markPaths(fill, "appGradient")}</g>`;
   const title = shape === "rounded" ? "Headmesh app icon" : `Headmesh ${shape} app icon`;
   return svgDocument(512, 512, `${title} ${gradient ? "on gradient" : light ? "on light" : "on dark"}`, body, defs);
+}
+
+function faviconSvg({ dark = false } = {}) {
+  const start = dark ? colors.mint : colors.evergreen;
+  const end = dark ? colors.cyan : colors.blue;
+  const defs = `<linearGradient id="faviconLeg" x1="222" y1="280" x2="290" y2="424" gradientUnits="userSpaceOnUse"><stop stop-color="${start}"/><stop offset="1" stop-color="${end}"/></linearGradient>`;
+  const body = markPaths(dark ? colors.white : colors.ink, "faviconLeg").trim();
+  return svgDocument(512, 512, "Headmesh favicon", body, defs, ' data-background="transparent"');
 }
 
 const logoStyles = [
@@ -527,6 +536,8 @@ const lightMark = markSvg({
 });
 const darkIcon = appIconSvg({});
 const lightIcon = appIconSvg({ light: true });
+const favicon = faviconSvg();
+const darkFavicon = faviconSvg({ dark: true });
 const shapedIcons = ["circle", "square"].flatMap((shape) =>
   [false, true].map((light) => ({
     name: `app-icon-${shape}-on-${light ? "light" : "dark"}`,
@@ -582,7 +593,10 @@ await Promise.all([
   save("logos/lockup-on-light.svg", lockupSvg({ dark: false })),
   save("icons/app-icon.svg", darkIcon),
   save("icons/app-icon-on-light.svg", lightIcon),
-  save("icons/favicon.svg", darkIcon),
+  save("icons/favicon.svg", favicon),
+  save("icons/favicon-dark.svg", darkFavicon),
+  writeFile(path.join(publicRoot, "favicon.svg"), favicon),
+  writeFile(path.join(publicRoot, "favicon-dark.svg"), darkFavicon),
   ...shapedIcons.map(({ name, svg }) => save(`icons/${name}.svg`, svg)),
   save("social/og-image-1200x630.svg", og),
   save("social/x-banner-1500x500.svg", xBanner),
@@ -591,10 +605,11 @@ await Promise.all([
 
 const icoEntries = [];
 for (const size of [16, 32, 48]) {
-  const png = await renderPng(darkIcon, `icons/favicon-${size}.png`, size);
+  const png = await renderPng(favicon, `icons/favicon-${size}.png`, size);
   icoEntries.push({ size, png });
 }
-await save("icons/favicon.ico", makeIco(icoEntries));
+const ico = makeIco(icoEntries);
+await Promise.all([save("icons/favicon.ico", ico), writeFile(path.join(publicRoot, "favicon.ico"), ico)]);
 await Promise.all([
   renderPng(darkIcon, "icons/apple-touch-icon.png", 180),
   renderPng(darkIcon, "icons/icon-192.png", 192),
@@ -653,6 +668,10 @@ The dark theme uses mint-to-cyan (#3CEFB4 → #27BFF5) on ink (#070B12).
 The shared leg is fully opaque in both themes; the contrast comes from the palette, not reduced opacity.
 Gradient backgrounds use mint-to-cyan with a solid black mark, including its shared leg.
 PNG corners outside the rounded and circular backgrounds remain transparent. Squares have sharp, opaque corners.
+
+Favicons use the standalone mark with a transparent background, including the spaces under the arches and between
+the legs. The site selects favicon.svg or favicon-dark.svg for light and dark browser tabs. The 16, 32 and 48 px
+PNGs and ICO frames use the light-theme foreground and preserve the same transparent gaps.
 `,
 );
 
