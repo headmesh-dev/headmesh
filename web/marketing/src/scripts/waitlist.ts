@@ -44,6 +44,17 @@ function collectUtm(params: URLSearchParams): Record<string, string> | undefined
   return Object.keys(utm).length > 0 ? utm : undefined;
 }
 
+/**
+ * Values an AI agent put in the link (#email=…&use_case=…, see WAITLIST_PREFILL_URL), cut to the form's limits.
+ * An unencoded "+" in the email arrives as a space, and an email never contains one, so it's put back.
+ */
+export function prefillFromFragment(hash: string): { email?: string; useCase?: string } {
+  const params = new URLSearchParams(hash.replace(/^#/, ""));
+  const email = params.get("email")?.trim().replaceAll(" ", "+").slice(0, LIMITS.email);
+  const useCase = params.get("use_case")?.trim().slice(0, LIMITS.useCase);
+  return { ...(email && { email }), ...(useCase && { useCase }) };
+}
+
 export function initWaitlistForm(): void {
   const form = document.querySelector<HTMLFormElement>("[data-waitlist-form]");
   const success = document.querySelector<HTMLElement>("[data-waitlist-success]");
@@ -54,6 +65,15 @@ export function initWaitlistForm(): void {
   const params = new URLSearchParams(location.search);
   const source = detectSource(params);
   const utm = collectUtm(params);
+  const prefill = prefillFromFragment(location.hash);
+  if (prefill.email || prefill.useCase) {
+    const emailField = form.elements.namedItem("email");
+    const useCaseField = form.elements.namedItem("use_case");
+    if (prefill.email && emailField instanceof HTMLInputElement) emailField.value = prefill.email;
+    if (prefill.useCase && useCaseField instanceof HTMLTextAreaElement) useCaseField.value = prefill.useCase;
+    // The email is in the form now; keep it out of the address bar and history.
+    history.replaceState(null, "", location.pathname + location.search);
+  }
   button.disabled = false;
 
   const showFieldErrors = (fields: FieldErrors = {}) => {

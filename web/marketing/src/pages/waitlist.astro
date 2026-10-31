@@ -1,6 +1,7 @@
 ---
 import { PUBLIC_TURNSTILE_SITE_KEY } from "astro:env/client";
 import { CONSENT_TEXT, CONSENT_VERSION, CONTACT_EMAIL, LIMITS, SENDER, TURNSTILE_ACTION } from "../../shared/site";
+import CopyForLlm from "../components/CopyForLlm.astro";
 import Base from "../layouts/Base.astro";
 ---
 
@@ -21,6 +22,13 @@ import Base from "../layouts/Base.astro";
         <li class="flex gap-3"><span class="text-accent" aria-hidden="true">→</span>Your use case shapes what ships first.</li>
         <li class="flex gap-3"><span class="text-accent" aria-hidden="true">→</span>Release notes as each piece lands: the CLI, the agent sandbox, the hosted mesh.</li>
       </ul>
+      <div class="mt-10 max-w-lg border-t border-line pt-6">
+        <p class="text-sm leading-relaxed text-muted">
+          Using an AI agent? Copy directions it can follow to fill in this form for you. You still tick the consent box
+          and press the button yourself.
+        </p>
+        <CopyForLlm class="mt-4" />
+      </div>
     </div>
 
     <div class="rounded-2xl border border-line bg-surface p-6 sm:p-8">

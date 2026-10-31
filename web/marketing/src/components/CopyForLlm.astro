@@ -1,0 +1,298 @@
+---
+// "Copy for LLM": a split button. The main half copies the first option; the chevron opens a menu with all of them.
+// Marketing pages lead with directions an AI agent can follow to get the person onto the waitlist. Docs pages pass
+// their page and lead with its Markdown. The text to copy is rendered into <template>s at build time, so copying
+// never waits on the network.
+import { getCollection } from "astro:content";
+import { type DocPage, llmsTxt, markdownUrl, pageMarkdown, WAITLIST_PROMPT } from "../agents/markdown";
+import { docPages } from "../agents/pages";
+import Icon, { type IconName } from "./Icon.astro";
+
+interface Props {
+  /** The docs page this button sits on. */
+  page?: DocPage;
+  /** Which edge of the button the menu lines up with. It switches sides if it would run off the screen. */
+  align?: "start" | "end";
+  class?: string;
+}
+
+type Option = { label: string; hint: string; icon: IconName } & ({ copy: string } | { href: string });
+
+const { page, align = "start", class: className } = Astro.props;
+
+/** claude.ai starts a new chat with `q` already in the message box. */
+const openInClaude = (prompt: string) => `https://claude.ai/new?q=${encodeURIComponent(prompt)}`;
+
+const directions: Option = {
+  label: "Copy for LLM",
+  hint: "Directions your AI agent can follow to get you on the waitlist",
+  icon: "bot",
+  copy: WAITLIST_PROMPT,
+};
+
+const options: Option[] = page
+  ? [
+      { label: "Copy page", hint: "This page as Markdown", icon: "file", copy: pageMarkdown(page) },
+      directions,
+      {
+        label: "Open in Claude",
+        hint: "Ask Claude about this page",
+        icon: "chat",
+        href: openInClaude(`Read ${markdownUrl(page.id)} so I can ask you questions about it.`),
+      },
+    ]
+  : [
+      directions,
+      {
+        label: "Copy as Markdown",
+        hint: "Headmesh overview and docs index",
+        icon: "file",
+        copy: llmsTxt(await docPages(getCollection)),
+      },
+      {
+        label: "Open in Claude",
+        hint: "Start a chat with the waitlist directions",
+        icon: "chat",
+        href: openInClaude(WAITLIST_PROMPT),
+      },
+    ];
+const primary = options[0] as Option;
+---
+
+<div class:list={["llm-copy", { "is-end": align === "end" }, className]} data-llm-copy data-align={align}>
+  <div class="llm-copy-group">
+    <button type="button" class="llm-copy-main" data-copy-option="0">
+      <Icon name="copy" class="llm-copy-icon llm-copy-idle" />
+      <Icon name="check" class="llm-copy-icon llm-copy-done" />
+      <span data-copy-label>{primary.label}</span>
+    </button>
+    <button
+      type="button"
+      class="llm-copy-toggle"
+      aria-label="More ways to copy"
+      aria-haspopup="menu"
+      aria-expanded="false"
+      aria-controls="llm-copy-menu"
+    >
+      <Icon name="chevron" class="llm-copy-chevron" />
+    </button>
+  </div>
+
+  <div class="llm-copy-menu" id="llm-copy-menu" role="menu" aria-label="Copy for LLM" hidden>
+    {
+      options.map((option, index) =>
+        "copy" in option ? (
+          <button type="button" role="menuitem" tabindex="-1" class="llm-copy-item" data-copy-option={index}>
+            <Icon name={option.icon} class="llm-copy-item-icon" />
+            <span>
+              <span class="llm-copy-item-label">{option.label}</span>
+              <span class="llm-copy-item-hint">{option.hint}</span>
+            </span>
+          </button>
+        ) : (
+          <a
+            role="menuitem"
+            tabindex="-1"
+            class="llm-copy-item"
+            href={option.href}
+            target="_blank"
+            rel="noopener noreferrer"
+          >
+            <Icon name={option.icon} class="llm-copy-item-icon" />
+            <span>
+              <span class="llm-copy-item-label">
+                {option.label}
+                <Icon name="external" class="llm-copy-external" />
+              </span>
+              <span class="llm-copy-item-hint">{option.hint}</span>
+            </span>
+          </a>
+        ),
+      )
+    }
+  </div>
+
+  {options.map((option, index) => "copy" in option && <template data-copy-source={index}>{option.copy}</template>)}
+  <span class="llm-copy-status" role="status" aria-live="polite" data-copy-status></span>
+</div>
+
+<script>
+  import { initCopyForLlm } from "../scripts/copy-for-llm";
+
+  initCopyForLlm();
+</script>
+
+<style>
+  .llm-copy {
+    position: relative;
+    display: inline-flex;
+    font-family: var(--hm-font-body);
+  }
+
+  .llm-copy-group {
+    display: inline-flex;
+    align-items: stretch;
+    border: 1px solid var(--hm-line);
+    border-radius: 0.5rem;
+    background-color: var(--hm-raised);
+    color: var(--hm-fg);
+  }
+
+  .llm-copy-main,
+  .llm-copy-toggle,
+  .llm-copy-item {
+    margin: 0;
+    border: 0;
+    background: none;
+    color: inherit;
+    font: inherit;
+    cursor: pointer;
+    transition: background-color 150ms;
+  }
+
+  .llm-copy-main {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.5rem;
+    border-radius: 0.5rem 0 0 0.5rem;
+    padding: 0.7rem 0.95rem;
+    font-weight: 600;
+    font-size: 0.95rem;
+    line-height: 1.25rem;
+  }
+
+  .llm-copy-toggle {
+    display: inline-flex;
+    align-items: center;
+    border-left: 1px solid var(--hm-line);
+    border-radius: 0 0.5rem 0.5rem 0;
+    padding-inline: 0.6rem;
+  }
+
+  .llm-copy-main:hover,
+  .llm-copy-toggle:hover,
+  .llm-copy-toggle[aria-expanded="true"] {
+    background-color: var(--hm-surface);
+  }
+
+  .llm-copy :global(.llm-copy-icon),
+  .llm-copy :global(.llm-copy-chevron) {
+    width: 1rem;
+    height: 1rem;
+    flex-shrink: 0;
+  }
+
+  .llm-copy :global(.llm-copy-chevron) {
+    transition: transform 150ms;
+  }
+
+  .llm-copy-toggle[aria-expanded="true"] :global(.llm-copy-chevron) {
+    transform: rotate(180deg);
+  }
+
+  .llm-copy :global(.llm-copy-done),
+  .llm-copy.is-copied :global(.llm-copy-idle) {
+    display: none;
+  }
+
+  .llm-copy.is-copied :global(.llm-copy-done) {
+    display: block;
+    color: var(--hm-accent);
+  }
+
+  .llm-copy-menu {
+    position: absolute;
+    top: calc(100% + 0.4rem);
+    left: 0;
+    z-index: 30;
+    display: grid;
+    gap: 2px;
+    width: min(20rem, calc(100vw - 2.5rem));
+    border: 1px solid var(--hm-line);
+    border-radius: 0.75rem;
+    background-color: var(--hm-raised);
+    padding: 0.35rem;
+    box-shadow: 0 14px 36px -14px color-mix(in srgb, var(--hm-fg) 35%, transparent);
+  }
+
+  .llm-copy-menu[hidden] {
+    display: none;
+  }
+
+  /* Right-aligned menu: from the align prop, or set by the script when the menu would run off the screen. */
+  .llm-copy.is-end .llm-copy-menu {
+    right: 0;
+    left: auto;
+  }
+
+  .llm-copy-item {
+    display: grid;
+    grid-template-columns: 1.15rem 1fr;
+    gap: 0.7rem;
+    align-items: start;
+    border-radius: 0.5rem;
+    padding: 0.6rem 0.65rem;
+    width: 100%;
+    text-align: left;
+    text-decoration: none;
+    color: var(--hm-fg);
+  }
+
+  .llm-copy-item:hover,
+  .llm-copy-item:focus-visible {
+    background-color: var(--hm-accent-soft);
+  }
+
+  .llm-copy-item:focus-visible {
+    outline-offset: -2px;
+    border-radius: 0.5rem;
+  }
+
+  .llm-copy :global(.llm-copy-item-icon) {
+    margin-top: 0.1rem;
+    width: 1.15rem;
+    height: 1.15rem;
+    color: var(--hm-accent);
+  }
+
+  .llm-copy-item-label {
+    display: flex;
+    align-items: center;
+    gap: 0.35rem;
+    font-weight: 600;
+    font-size: 0.9rem;
+    line-height: 1.3;
+  }
+
+  .llm-copy :global(.llm-copy-external) {
+    width: 0.8rem;
+    height: 0.8rem;
+    color: var(--hm-muted);
+  }
+
+  .llm-copy-item-hint {
+    display: block;
+    margin-top: 0.15rem;
+    font-size: 0.8rem;
+    line-height: 1.4;
+    color: var(--hm-muted);
+  }
+
+  .llm-copy-status {
+    position: absolute;
+    width: 1px;
+    height: 1px;
+    overflow: hidden;
+    clip-path: inset(50%);
+    white-space: nowrap;
+  }
+
+  @media (prefers-reduced-motion: reduce) {
+    .llm-copy-main,
+    .llm-copy-toggle,
+    .llm-copy-item,
+    .llm-copy :global(.llm-copy-chevron) {
+      transition: none;
+    }
+  }
+</style>

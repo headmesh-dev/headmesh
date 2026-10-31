@@ -8,7 +8,10 @@ import {
   mdxToMarkdown,
   pageMarkdown,
   sortPages,
+  WAITLIST_PREFILL_URL,
+  WAITLIST_PROMPT,
 } from "../../src/agents/markdown.ts";
+import { prefillFromFragment } from "../../src/scripts/waitlist.ts";
 
 const page = (id: string, title = id): DocPage => ({ id, title, description: `About ${title}.`, body: "Text.\n" });
 
@@ -82,6 +85,36 @@ describe("llms.txt", () => {
   it("tells agents how to install the plugins in Claude Code and Codex", () => {
     expect(text).toContain("claude plugin install headmesh@headmesh");
     expect(text).toContain("codex plugin add headmesh@headmesh");
+  });
+
+  it("tells agents how to send a person to a prefilled waitlist form", () => {
+    expect(text).toContain(WAITLIST_PREFILL_URL);
+  });
+});
+
+describe("waitlist directions for agents", () => {
+  it("has the agent prefill the form and leave consent and submitting to the person", () => {
+    expect(WAITLIST_PROMPT).toMatch(/^Help me join the Headmesh waitlist\.\n/);
+    expect(WAITLIST_PROMPT).toContain("https://headmesh.dev/waitlist/?ref=agent#email=<email>&use_case=<use case>");
+    expect(WAITLIST_PROMPT).toContain("don't submit it or call its API for me");
+    expect(WAITLIST_PROMPT).toContain("I tick the consent box");
+    expect(WAITLIST_PROMPT).toContain("at most 500 characters");
+  });
+
+  it("round-trips through the link an agent builds", () => {
+    const email = "ada+hm@example.com";
+    const useCase = "Share 2 GPUs & a NAS with renters";
+    const link = WAITLIST_PREFILL_URL.replace("<email>", encodeURIComponent(email)).replace(
+      "<use case>",
+      encodeURIComponent(useCase),
+    );
+    expect(prefillFromFragment(new URL(link).hash)).toEqual({ email, useCase });
+  });
+
+  it("repairs an unencoded + in the email, trims, and enforces the form's limits", () => {
+    expect(prefillFromFragment("#email= ada+hm@example.com &use_case=")).toEqual({ email: "ada+hm@example.com" });
+    expect(prefillFromFragment(`#use_case=${"x".repeat(600)}`).useCase).toHaveLength(500);
+    expect(prefillFromFragment("")).toEqual({});
   });
 });
 

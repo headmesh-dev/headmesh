@@ -1,6 +1,6 @@
 // Plain-Markdown views of the site for AI agents and other tools: /llms.txt (https://llmstxt.org), /llms-full.txt and
 // a .md copy of every docs page. Pure functions, so they can be tested without a build.
-import { REPO_URL, SITE_URL } from "../../shared/site.ts";
+import { LIMITS, REPO_URL, SITE_URL } from "../../shared/site.ts";
 
 export type DocPage = {
   /** Content collection id: "docs" for the docs home, "docs/quickstart" for the others. */
@@ -78,6 +78,34 @@ export const SUMMARY =
   "and the standard Tailscale clients. It gives teams, renters and AI agents time-limited access to exactly the " +
   "machines and ports they need, and gives cloud AI agents a sandbox on your own hardware.";
 
+/**
+ * The waitlist page with the form filled in. The values ride in the fragment, which browsers never send to the
+ * server, and src/scripts/waitlist.ts clears it from the address bar once the form has them.
+ */
+export const WAITLIST_PREFILL_URL = `${SITE_URL}/waitlist/?ref=agent#email=<email>&use_case=<use case>`;
+
+/**
+ * What "Copy for LLM" puts on the clipboard: directions an AI agent can follow to get the person onto the waitlist.
+ * The sign-up API needs a Turnstile token and the person's own consent, so the agent prefills the form and hands the
+ * link back instead of calling the API.
+ */
+export const WAITLIST_PROMPT = `Help me join the Headmesh waitlist.
+
+${SUMMARY}
+
+The sign-up form has a spam check and a consent box I have to tick myself, so don't submit it or call its API for me.
+Instead:
+
+1. Ask me which email address to use, and what I'd use Headmesh for (optional, at most ${LIMITS.useCase} characters).
+2. Build this link, percent-encoding both values. Leave out \`&use_case=…\` if I don't give one.
+   ${WAITLIST_PREFILL_URL}
+3. Give me the link. It opens the form already filled in; I tick the consent box and press "Join the waitlist".
+4. Remind me to open the confirmation email and click its link. I'm not on the list until I confirm.
+
+If I have questions first, ${SITE_URL}/llms.txt indexes the docs in plain Markdown and ${SITE_URL}/llms-full.txt has
+all of them in one file.
+`;
+
 /** /llms.txt: a short, link-rich index in the llmstxt.org format. */
 export function llmsTxt(pages: DocPage[]): string {
   const docs = sortPages(pages)
@@ -113,7 +141,8 @@ ${docs}
 ## Optional
 
 - [All docs in one file](${SITE_URL}/llms-full.txt)
-- [Waitlist](${SITE_URL}/waitlist/)
+- [Waitlist](${SITE_URL}/waitlist/): to sign a person up, give them \`${WAITLIST_PREFILL_URL}\` with both values
+  percent-encoded. The form opens filled in; they tick the consent box, submit, and confirm by email.
 - [Privacy policy](${SITE_URL}/privacy/)
 `;
 }

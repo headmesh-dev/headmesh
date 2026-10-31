@@ -1,0 +1,29 @@
+---
+// Starlight's page title with the "Copy page" split button beside it.
+import Default from "@astrojs/starlight/components/PageTitle.astro";
+import { toDocPage } from "../agents/pages";
+import CopyForLlm from "./CopyForLlm.astro";
+
+const entry = Astro.locals.starlightRoute.entry;
+---
+
+<div class="docs-title">
+  <Default />
+  {entry.body && <CopyForLlm page={toDocPage(entry)} align="end" class="docs-title-copy" />}
+</div>
+
+<style>
+  .docs-title {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    column-gap: 1.5rem;
+    row-gap: 0.75rem;
+  }
+
+  /* Starlight's <h1> has a 1rem top margin; match it so the two sit on one line. */
+  .docs-title :global(.docs-title-copy) {
+    margin-top: 1rem;
+    margin-left: auto;
+  }
+</style>

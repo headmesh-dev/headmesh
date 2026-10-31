@@ -1,5 +1,6 @@
 ---
 import { REPO_URL, XCELSIOR_URL } from "../../shared/site";
+import CopyForLlm from "../components/CopyForLlm.astro";
 import GitHubIcon from "../components/GitHubIcon.astro";
 import Icon, { type IconName } from "../components/Icon.astro";
 import MeshDiagram from "../components/MeshDiagram.astro";
@@ -88,6 +89,7 @@ const agentPoints: { icon: IconName; title: string; body: string }[] = [
             <GitHubIcon class="size-4" />
             Star on GitHub
           </a>
+          <CopyForLlm />
         </div>
         <p class="mt-6 text-sm text-muted">In early development. Join the waitlist for early access.</p>
       </div>
