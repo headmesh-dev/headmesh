@@ -93,7 +93,10 @@ func SchemaVersion(ctx context.Context, pool *pgxpool.Pool) (int64, error) {
 	err := withGoose(pool, func(conn *sql.DB) error {
 		var err error
 		v, err = goose.GetDBVersionContext(ctx, conn)
-		return err
+		if err != nil {
+			return fmt.Errorf("schema version: %w", err)
+		}
+		return nil
 	})
 	return v, err
 }

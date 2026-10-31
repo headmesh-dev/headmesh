@@ -251,7 +251,7 @@ func migrate(ctx context.Context, args []string) error {
 	fs := flag.NewFlagSet("migrate", flag.ContinueOnError)
 	downTo := fs.Int64("down-to", -1, "revert migrations newer than this version instead of applying pending ones")
 	if err := fs.Parse(args); err != nil {
-		return err
+		return fmt.Errorf("parse flags: %w", err)
 	}
 	if fs.NArg() > 0 {
 		return fmt.Errorf("migrate: unexpected arguments %q", fs.Args())
