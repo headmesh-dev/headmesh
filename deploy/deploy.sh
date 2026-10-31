@@ -21,7 +21,10 @@
 #   --init-env          create missing deploy/env/<env>/*.env files from the examples, generating secrets
 #   --skip-checks       don't run lint and tests before building
 #   --dry-run           build, upload and validate, show nginx drift; switch nothing and reload nothing
-#   --rollback          switch the target back to its previous release (site) or colour (services); builds nothing
+#   --rollback          switch the target back to its previous release (site) or colour (services); builds nothing.
+#                       The backend's schema follows: migrations the newer release added are reverted (after a
+#                       database dump), or reapplied when rolling forward again
+#   --keep-schema       with --rollback: switch the backend's colour but leave the schema as it is
 #   --status            show what is live in each environment; builds nothing
 #   --keep N            releases to keep per component (default 5; live and rollback releases are never removed)
 #   --allow-dirty       deploy uncommitted changes (refused for prod)
@@ -68,7 +71,8 @@ usage() { awk 'NR > 1 && /^#/ { sub(/^# ?/, ""); print; next } NR > 1 { exit }' 
 # ── arguments ─────────────────────────────────────────────────────────────────────────────────────────────────────
 
 ENV_ARG="" TARGET_ARG="" HOST="${HM_DEPLOY_HOST:-}" IDENTITY="${HM_DEPLOY_IDENTITY:-}"
-BOOTSTRAP=0 NGINX_OVERWRITE=0 INIT_ENV=0 SKIP_CHECKS=0 DRY_RUN=0 ROLLBACK=0 STATUS=0 KEEP=5 ALLOW_DIRTY=0 YES=0
+BOOTSTRAP=0 NGINX_OVERWRITE=0 INIT_ENV=0 SKIP_CHECKS=0 DRY_RUN=0 ROLLBACK=0 KEEP_SCHEMA=0 STATUS=0 KEEP=5 ALLOW_DIRTY=0
+YES=0
 
 while [[ $# -gt 0 ]]; do
   case "$1" in
@@ -88,6 +92,7 @@ while [[ $# -gt 0 ]]; do
     --skip-checks) SKIP_CHECKS=1; shift ;;
     --dry-run) DRY_RUN=1; shift ;;
     --rollback) ROLLBACK=1; shift ;;
+    --keep-schema) KEEP_SCHEMA=1; shift ;;
     --status) STATUS=1; shift ;;
     --allow-dirty) ALLOW_DIRTY=1; shift ;;
     --yes | -y) YES=1; shift ;;
@@ -111,6 +116,7 @@ case "${TARGET_ARG}" in
 esac
 [[ "${KEEP}" =~ ^[0-9]+$ && "${KEEP}" -ge 2 ]] || die "--keep must be a number ≥ 2"
 (( ROLLBACK + STATUS + DRY_RUN <= 1 )) || die "--rollback, --status and --dry-run don't combine"
+(( KEEP_SCHEMA <= ROLLBACK )) || die "--keep-schema only applies to --rollback"
 [[ -n "${HOST}" || -n "${HM_DEPLOY_REMOTE:-}" ]] || die "no server: set HM_DEPLOY_HOST in deploy/env/local.env (see local.env.example) or pass --host"
 
 has_target() { local t; for t in "${TARGETS[@]}"; do [[ "$t" == "$1" ]] && return 0; done; return 1; }
@@ -469,7 +475,9 @@ deploy_env() {
 
 rollback_env() {
   local env="$1"
-  if has_target backend; then ctl rollback backend "${env}"; fi
+  if has_target backend; then
+    if [[ ${KEEP_SCHEMA} == 1 ]]; then ctl rollback backend "${env}" keep-schema; else ctl rollback backend "${env}"; fi
+  fi
   if has_target frontend; then
     ctl rollback marketing "${env}"
     ctl rollback waitlist "${env}"

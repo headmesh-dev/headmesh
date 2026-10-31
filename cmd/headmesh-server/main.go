@@ -3,6 +3,7 @@
 //
 //	headmesh-server serve [-recovery]     run the API and the cell endpoint (-recovery after a restore)
 //	headmesh-server migrate               apply database migrations (as the schema owner)
+//	headmesh-server migrate -down-to N    revert migrations newer than N (a deploy rollback; schema owner)
 //	headmesh-server bootstrap ...         create a cell, an org and an admin API key
 //	headmesh-server keygen -out FILE      create the Ed25519 operation-signing key
 //	headmesh-server ca-init -dir DIR      create the CA that signs cell client certificates
@@ -61,7 +62,7 @@ func run(args []string) int {
 	case "serve":
 		err = serve(ctx, logger, args[1:])
 	case "migrate":
-		err = migrate(ctx)
+		err = migrate(ctx, args[1:])
 	case "bootstrap":
 		err = bootstrap(ctx, args[1:])
 	case "keygen":
@@ -246,7 +247,15 @@ func authenticateCell(ctx context.Context) (string, error) {
 	return cn, nil
 }
 
-func migrate(ctx context.Context) error {
+func migrate(ctx context.Context, args []string) error {
+	fs := flag.NewFlagSet("migrate", flag.ContinueOnError)
+	downTo := fs.Int64("down-to", -1, "revert migrations newer than this version instead of applying pending ones")
+	if err := fs.Parse(args); err != nil {
+		return fmt.Errorf("parse flags: %w", err)
+	}
+	if fs.NArg() > 0 {
+		return fmt.Errorf("migrate: unexpected arguments %q", fs.Args())
+	}
 	dsn := os.Getenv("HEADMESH_MIGRATE_DATABASE_URL")
 	if dsn == "" {
 		return errors.New("HEADMESH_MIGRATE_DATABASE_URL (schema owner) is required")
@@ -256,6 +265,9 @@ func migrate(ctx context.Context) error {
 		return fmt.Errorf("database: %w", err)
 	}
 	defer pool.Close()
+	if *downTo >= 0 {
+		return store.MigrateDownTo(ctx, pool, *downTo)
+	}
 	return store.Migrate(ctx, pool)
 }
 

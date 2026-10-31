@@ -74,13 +74,41 @@ func (s *Store) Tx(ctx context.Context, scope Scope, fn func(q *dbq.Queries, tx 
 
 // Migrate applies all pending migrations. It must run as the schema owner, not as the application role.
 func Migrate(ctx context.Context, pool *pgxpool.Pool) error {
+	return withGoose(pool, func(conn *sql.DB) error { return goose.UpContext(ctx, conn, "migrations") })
+}
+
+// MigrateDownTo reverts applied migrations newer than version, newest first, using each one's Down section. A
+// deploy rollback calls it with the release it rolls back from, because only that release embeds those migrations.
+// Like Migrate, it must run as the schema owner.
+func MigrateDownTo(ctx context.Context, pool *pgxpool.Pool, version int64) error {
+	if version < 0 {
+		return fmt.Errorf("migrate: bad target version %d", version)
+	}
+	return withGoose(pool, func(conn *sql.DB) error { return goose.DownToContext(ctx, conn, "migrations", version) })
+}
+
+// SchemaVersion returns the newest applied migration (0 for an empty database).
+func SchemaVersion(ctx context.Context, pool *pgxpool.Pool) (int64, error) {
+	var v int64
+	err := withGoose(pool, func(conn *sql.DB) error {
+		var err error
+		v, err = goose.GetDBVersionContext(ctx, conn)
+		if err != nil {
+			return fmt.Errorf("schema version: %w", err)
+		}
+		return nil
+	})
+	return v, err
+}
+
+func withGoose(pool *pgxpool.Pool, fn func(*sql.DB) error) error {
 	goose.SetBaseFS(db.Migrations)
 	if err := goose.SetDialect("postgres"); err != nil {
 		return fmt.Errorf("goose dialect: %w", err)
 	}
 	conn := stdlib.OpenDBFromPool(pool)
 	defer func(c *sql.DB) { _ = c.Close() }(conn)
-	if err := goose.UpContext(ctx, conn, "migrations"); err != nil {
+	if err := fn(conn); err != nil {
 		return fmt.Errorf("migrate: %w", err)
 	}
 	return nil
