@@ -6,7 +6,7 @@ for (const colorScheme of ["light", "dark"] as const) {
     for (const path of ["/", "/docs/"]) {
       await page.goto(path);
       const samples = await page.evaluate(async () => {
-        const links = [...document.querySelectorAll<HTMLLinkElement>('link[rel="icon"]')];
+        const links = [...document.querySelectorAll<HTMLLinkElement>('link[rel~="icon"]')];
         const icon = links.filter((link) => !link.media || matchMedia(link.media).matches).at(-1);
         if (!icon) throw new Error("No favicon for this colour scheme");
         const image = new Image();
