@@ -2,8 +2,8 @@
 # End-to-end test of the deploy pipeline: deploy.sh → bootstrap.sh → deployctl.sh, unchanged, against a throwaway
 # Ubuntu 26.04 container with systemd standing in for hm-prod-1. It builds the real site, waitlist service and
 # headmesh-server, deploys them twice (blue, then green), and checks nginx, health, a real waitlist sign-up, the
-# database roles, nginx drift handling, the nginx -t guard, dry runs, rollback, and prod's Headscale cell hs1 with
-# its cell agent connected to the backend.
+# database roles, nginx drift handling, the nginx -t guard, dry runs, rollback (the backend's schema included), and
+# prod's Headscale cell hs1 with its cell agent connected to the backend.
 #
 #   deploy/tests/e2e.sh             needs Docker (privileged containers), Go, Node and pnpm; takes a few minutes
 #   HM_E2E_KEEP=1 deploy/tests/e2e.sh   leave the container running afterwards
@@ -157,6 +157,26 @@ deploy --env test --target frontend --rollback
 check "the waitlist is back on blue" test "$(live test waitlist.active)" = blue
 check "the site is on the previous release" test "$(live test marketing.active)" != "${live_before}"
 check "site serves after rollback" test "$(code test.headmesh.dev /)" = 200
+
+say "A backend rollback takes the schema with it"
+schema() { psql_su -d headmesh_test -c 'select max(version_id) from goose_db_version where is_applied'; }
+latest="$(schema)"
+check "each colour's schema version is recorded" test "$(live test backend-green.schema)" = "${latest}"
+# Both colours run this checkout; pretend blue's release predates the newest migration.
+on bash -c "echo $((latest - 1)) > /var/lib/headmesh/test/state/backend-blue.schema"
+deploy --env test --target backend --rollback
+check "the backend is back on blue" test "$(live test backend.active)" = blue
+check "the newest migration was reverted" test "$(schema)" = "$((latest - 1))"
+check "…after a root-only database dump" test "$(on bash -c 'stat -c "%a %U" /var/lib/headmesh/test/backups/headmesh_test-*-rollback.dump | tail -n 1')" = "600 root"
+check "the app role kept its grants" test "$(psql_su -d headmesh_test -c "select has_table_privilege('headmesh_test_app','audit_events','INSERT')")" = t
+check "the API is ready on the reverted schema" test "$(code api-test.headmesh.dev /readyz)" = 204
+deploy --env test --target backend --rollback
+check "rolling forward again moves to green" test "$(live test backend.active)" = green
+check "…and reapplies the migration" test "$(schema)" = "${latest}"
+deploy --env test --target backend --rollback --keep-schema
+check "--keep-schema switches the colour" test "$(live test backend.active)" = blue
+check "…and leaves the schema alone" test "$(schema)" = "${latest}"
+check "--keep-schema is refused without --rollback" bash -c "! '${DEPLOY}' --env test --target backend --keep-schema >/dev/null 2>&1"
 
 say "prod backend alongside test"
 deploy --env prod --init-env

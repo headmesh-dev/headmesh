@@ -9,10 +9,12 @@
 #   nginx-diff       <env> <staging-dir>               show what nginx-apply would change, change nothing
 #   activate-static  <env> <release>                   atomically switch the marketing site to a release
 #   activate-service <service> <env> <release> [drain] blue-green switch of waitlist or backend
-#   rollback         <component> <env>                 back to the previous release (marketing) or colour (services)
+#   rollback         <component> <env> [keep-schema]   back to the previous release (marketing) or colour (services);
+#                                                      the backend's schema follows to what that colour ran with
 #   status           [env...]                          releases, colours, units and health
 #   prune            <env> <keep>                      delete old releases (never the live or rollback ones)
 #   backup           <env>                             copy the waitlist database (also run daily by a timer)
+#                                                      (Postgres is dumped before every schema change instead)
 #   smoke            <env>                             request each vhost through nginx on loopback
 #   cell-agent       <env>                             register the env's Headscale cell, renew the agent's
 #                                                      certificate, configure and (re)start the cell agent
@@ -412,18 +414,59 @@ refresh_backend_tls() {
 
 # Migrations run as the schema owner. Afterwards the app role gets exactly what the integration tests give it:
 # read and write on every table except the append-only audit log, which it can only read and insert into.
-run_migrations() {
+migrate_as_owner() {
   local env="$1" binary="$2" db="headmesh_$1" app="headmesh_$1_app"
+  shift 2
   [[ -f "${HM_ETC_ROOT}/${env}/db-owner.env" ]] || die "${HM_ETC_ROOT}/${env}/db-owner.env is missing; run deploy.sh --bootstrap first"
-  log "backend ${env}: applying database migrations"
   systemd-run --quiet --pipe --wait --collect \
     -p User="${HM_SERVICE_USER}" -p EnvironmentFile="${HM_ETC_ROOT}/${env}/db-owner.env" \
-    "${binary}" migrate
+    "${binary}" migrate "$@"
   runuser -u postgres -- psql -X -q -v ON_ERROR_STOP=1 -d "${db}" <<SQL
 GRANT SELECT, INSERT, UPDATE, DELETE ON ALL TABLES IN SCHEMA public TO ${app};
 REVOKE UPDATE, DELETE, TRUNCATE ON audit_events FROM ${app};
 REVOKE ALL ON goose_db_version FROM ${app};
 SQL
+}
+
+# schema_version <env>: the newest applied migration in the env's database.
+schema_version() {
+  psql_env "$1" -c "SELECT coalesce(max(version_id), 0) FROM goose_db_version WHERE is_applied"
+}
+
+# run_migrations <env> <binary> <colour>: dump the database, apply the release's pending migrations, and record the
+# schema version the colour runs with, so a rollback to that colour can put the schema back.
+run_migrations() {
+  local env="$1" binary="$2" colour="$3"
+  pg_backup "${env}" deploy
+  log "backend ${env}: applying database migrations"
+  migrate_as_owner "${env}" "${binary}"
+  state_set "${env}" "backend-${colour}.schema" "$(schema_version "${env}")"
+  log "backend ${env}: schema at migration $(state_get "${env}" "backend-${colour}.schema") for ${colour}"
+}
+
+# revert_schema <env> <binary> <version>: dump the database, then revert migrations newer than <version> with the
+# release that added them (an older release doesn't embed them, so it can't).
+revert_schema() {
+  local env="$1" binary="$2" version="$3" now
+  pg_backup "${env}" rollback
+  log "backend ${env}: reverting the schema from migration $(schema_version "${env}") to ${version}"
+  migrate_as_owner "${env}" "${binary}" -down-to "${version}"
+  now="$(schema_version "${env}")"
+  # Releases from before schema rollback ignore -down-to and only apply pending migrations, which changes nothing.
+  [[ "${now}" == "${version}" ]] ||
+    die "backend ${env}: the schema is still at migration ${now}, not ${version}; ${binary} can't revert it. The service rollback is done; restore the dump above or revert by hand"
+}
+
+# pg_backup <env> <label>: a custom-format dump of the env's Postgres database (pg_restore reads it), taken before
+# every schema change. Root-only, because it holds every tenant's data; the newest 14 are kept.
+pg_backup() {
+  local env="$1" label="$2" dir out
+  dir="${HM_STATE_ROOT}/${env}/backups"
+  install -d -o "${HM_SERVICE_USER}" -g "${HM_SERVICE_USER}" -m 0750 "${dir}"
+  out="${dir}/headmesh_${env}-$(date -u +%Y%m%dT%H%M%SZ)-${label}.dump"
+  (umask 077 && runuser -u postgres -- pg_dump -Fc -d "headmesh_${env}" >"${out}")
+  find "${dir}" -name "headmesh_${env}-*.dump" -type f | sort | head -n -14 | xargs -r rm -f
+  log "backend ${env}: database dumped to ${out}"
 }
 
 cmd_backup() {
@@ -476,7 +519,7 @@ cmd_activate_service() {
     cmd_backup "${env}"
   else
     ensure_backend_secrets "${env}" "${target}/headmesh-server"
-    run_migrations "${env}" "${target}/headmesh-server"
+    run_migrations "${env}" "${target}/headmesh-server" "${idle}"
   fi
 
   install -d -m 0755 "${HM_SRV_ROOT}/slots"
@@ -508,7 +551,7 @@ cmd_activate_service() {
 }
 
 cmd_rollback() {
-  local component="$1" env="$2"
+  local component="$1" env="$2" keep_schema="${3:-}"
   require_env "${env}"
   if [[ "${component}" == marketing ]]; then
     local previous
@@ -518,13 +561,25 @@ cmd_rollback() {
     return
   fi
   require_service "${component}"
-  local active previous unit
+  [[ -z "${keep_schema}" || ("${keep_schema}" == keep-schema && "${component}" == backend) ]] ||
+    die "rollback: unexpected argument '${keep_schema}'"
+  local active previous unit current="" wanted=""
   active="$(state_get "${env}" "${component}.active")"
   previous="$(hm_other_colour "${active}")"
   [[ -n "${active}" && -L "$(slot_path "${component}" "${env}" "${previous}")" ]] ||
     die "${component} ${env}: no previous colour to roll back to"
   unit="$(unit_name "${component}" "${env}" "${previous}")"
   log "${component} ${env}: rolling back from ${active} to ${previous} ($(basename "$(readlink "$(slot_path "${component}" "${env}" "${previous}")")"))"
+  if [[ "${component}" == backend && -z "${keep_schema}" ]]; then
+    current="$(schema_version "${env}")"
+    wanted="$(state_get "${env}" "backend-${previous}.schema")"
+    if [[ -z "${wanted}" ]]; then
+      log "backend ${env}: ${previous} has no recorded schema version (deployed before schema rollback); keeping migration ${current}"
+    elif ((wanted > current)); then
+      # Rolling forward again: the newer release brings its migrations back before it starts, as on a deploy.
+      run_migrations "${env}" "$(slot_path backend "${env}" "${previous}")/headmesh-server" "${previous}"
+    fi
+  fi
   write_instance_env "${component}" "${env}" "${previous}"
   systemctl restart "${unit}"
   wait_healthy "$(health_url "${env}" "${component}" "${previous}")" || {
@@ -537,6 +592,12 @@ cmd_rollback() {
   systemctl enable --quiet "${unit}"
   systemctl disable --quiet --now "$(unit_name "${component}" "${env}" "${active}")" || true
   log "${component} ${env}: rolled back to ${previous}"
+  # Reverting goes last: the older release is already live, and it doesn't use what the newer migrations added.
+  if [[ -n "${wanted}" ]] && ((wanted < current)); then
+    revert_schema "${env}" "$(slot_path backend "${env}" "${active}")/headmesh-server" "${wanted}"
+  elif [[ -n "${keep_schema}" ]]; then
+    log "backend ${env}: keep-schema: the schema stays at migration $(schema_version "${env}")"
+  fi
 }
 
 # ── housekeeping ───────────────────────────────────────────────────────────────────────────────────────────────
@@ -599,9 +660,10 @@ cmd_status() {
       for colour in "${HM_COLOURS[@]}"; do
         unit="$(unit_name "${service}" "${env}" "${colour}")"
         url="$(health_url "${env}" "${service}" "${colour}")"
-        printf '     %-5s %-8s %-40s %s\n' "${colour}" "$(systemctl is-active "${unit}" 2>/dev/null || true)" \
+        printf '     %-5s %-8s %-40s %-9s %s\n' "${colour}" "$(systemctl is-active "${unit}" 2>/dev/null || true)" \
           "$(basename "$(readlink "$(slot_path "${service}" "${env}" "${colour}")" 2>/dev/null || echo -)")" \
-          "$(if curl -fs -o /dev/null --max-time 2 "${url}" 2>/dev/null; then echo ready; else echo 'not ready'; fi)"
+          "$(if curl -fs -o /dev/null --max-time 2 "${url}" 2>/dev/null; then echo ready; else echo 'not ready'; fi)" \
+          "$([[ "${service}" == backend ]] && echo "schema $(state_get "${env}" "backend-${colour}.schema" | grep . || echo '?')")"
       done
     done
   done

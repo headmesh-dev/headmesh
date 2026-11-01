@@ -61,7 +61,7 @@ deploy/deploy.sh --env test --target all                 # build and deploy ever
 deploy/deploy.sh --env prod --target frontend            # headmesh.dev only; asks you to type "prod"
 deploy/deploy.sh --env all --target backend --yes        # the API in both environments, no prompt
 deploy/deploy.sh --env test --target frontend --dry-run  # build, upload, show nginx drift; switch nothing
-deploy/deploy.sh --env prod --target backend --rollback  # back to the previous colour
+deploy/deploy.sh --env prod --target backend --rollback  # back to the previous colour, and its schema
 deploy/deploy.sh --status                                # releases, colours, unit and health state
 ```
 
@@ -76,11 +76,30 @@ deploy/deploy.sh --status                                # releases, colours, un
 | `--init-env`        | Create missing `deploy/env/<env>/*.env` from the examples, generating `WAITLIST_SECRET`                         |
 | `--skip-checks`     | Skip lint and tests                                                                                             |
 | `--dry-run`         | Build, upload and validate; no switch, no reload                                                                |
-| `--rollback`        | Previous site release and previous service colour; builds nothing                                               |
+| `--rollback`        | Previous site release and previous service colour; builds nothing. The backend's schema follows (below)         |
+| `--keep-schema`     | With `--rollback`: switch the backend's colour but leave the schema as it is                                    |
 | `--status`          | What's live; builds nothing                                                                                     |
 | `--keep N`          | Releases kept per component (default 5)                                                                         |
 | `--allow-dirty`     | Deploy uncommitted changes (test only)                                                                          |
 | `--yes`             | Don't prompt before touching prod                                                                               |
+
+### Rollback and the database schema
+
+Both backend colours share one database, so switching colours alone would leave the newer release's migrations in
+place. Every backend deploy records the schema version each colour runs with
+(`/var/lib/headmesh/<env>/state/backend-<colour>.schema`). `--rollback` then follows the colour it switches to:
+
+- **Back to an older release:** the older colour goes live first, and then the newer release, the only one that
+  embeds the newer migrations, reverts them with their `-- +goose Down` sections (`headmesh-server migrate
+  -down-to N`). The older code runs on the newer schema for those few seconds, which is why migrations stay additive.
+- **Forward again:** the newer release reapplies its migrations before it starts, as on a deploy.
+- **A colour with no recorded version** (deployed before this existed) keeps the schema, and the rollback says so.
+
+Reverting a migration can drop data written since the deploy (a dropped column takes its values with it), so
+`deployctl` dumps the database before every schema change, up or down, to
+`/var/lib/headmesh/<env>/backups/headmesh_<env>-<time>-<deploy|rollback>.dump` (root-only, newest 14 kept). Restore
+one with `pg_restore --clean --if-exists -d headmesh_<env>`. Use `--keep-schema` when the newer schema should stay,
+for example when the older release reads it fine and reverting would lose data you want.
 
 ## Configuration
 

@@ -166,6 +166,38 @@ func TestMigrationsRoundTrip(t *testing.T) {
 	}
 }
 
+// A deploy rollback reverts the schema with each migration's Down section, so every migration must revert cleanly
+// and apply again afterwards.
+func TestMigrationsRevertAndReapply(t *testing.T) {
+	e := setup(t)
+	ctx := context.Background()
+	latest, err := store.SchemaVersion(ctx, e.owner)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if latest < 4 {
+		t.Fatalf("schema version %d, want at least 4", latest)
+	}
+	for v := latest - 1; v >= 0; v-- {
+		if err := store.MigrateDownTo(ctx, e.owner, v); err != nil {
+			t.Fatalf("down to %d: %v", v, err)
+		}
+		got, err := store.SchemaVersion(ctx, e.owner)
+		if err != nil || got != v {
+			t.Fatalf("after down to %d: version %d, err %v", v, got, err)
+		}
+	}
+	if err := store.Migrate(ctx, e.owner); err != nil {
+		t.Fatalf("reapply: %v", err)
+	}
+	if got, err := store.SchemaVersion(ctx, e.owner); err != nil || got != latest {
+		t.Fatalf("after reapply: version %d, want %d (err %v)", got, latest, err)
+	}
+	if err := store.MigrateDownTo(ctx, e.owner, -1); err == nil {
+		t.Fatal("a negative target version was accepted")
+	}
+}
+
 func TestRowLevelSecurityIsolatesTenants(t *testing.T) {
 	e := setup(t)
 	s := seed(t, e)
