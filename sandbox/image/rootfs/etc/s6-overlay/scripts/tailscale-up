@@ -36,7 +36,7 @@ backend=$(ts status --json --peers=false 2>/dev/null | jq -r '.BackendState // e
 # LocalAPI can answer before tailscaled has loaded the persisted identity.
 # NoState during that window is not a logout and must not skip prefs/DNS setup.
 for ((attempt = 0; attempt < 40; attempt++)); do
-	[[ $backend == NoState || -z $backend ]] || break
+	[[ $backend == NoState || $backend == Starting || -z $backend ]] || break
 	sleep 0.25
 	backend=$(ts status --json --peers=false 2>/dev/null | jq -r '.BackendState // empty')
 done
