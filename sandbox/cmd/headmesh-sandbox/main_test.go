@@ -2,6 +2,7 @@ package main
 
 import (
 	"os"
+	"os/exec"
 	"path/filepath"
 	"slices"
 	"strings"
@@ -9,6 +10,47 @@ import (
 
 	"github.com/headmesh-dev/headmesh/sandbox/config"
 )
+
+func TestMaskProbeDistinguishesHiddenAndVisibleFilesAndDirectories(t *testing.T) {
+	root := t.TempDir()
+	for _, tc := range []struct {
+		name string
+		dir  bool
+		full bool
+		want string
+	}{
+		{"empty-file", false, false, "0"},
+		{"visible-file", false, true, "7"},
+		{"empty-dir", true, false, "0"},
+		{"visible-dir", true, true, "directory-visible"},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			path := filepath.Join(root, tc.name)
+			if tc.dir {
+				if err := os.Mkdir(path, 0o700); err != nil {
+					t.Fatal(err)
+				}
+				if tc.full {
+					if err := os.WriteFile(filepath.Join(path, "entry"), []byte("visible"), 0o600); err != nil {
+						t.Fatal(err)
+					}
+				}
+			} else {
+				var content []byte
+				if tc.full {
+					content = []byte("visible")
+				}
+				if err := os.WriteFile(path, content, 0o600); err != nil {
+					t.Fatal(err)
+				}
+			}
+			out, err := exec.Command("sh", "-c", maskProbe(path)).CombinedOutput()
+			if err != nil || strings.TrimSpace(string(out)) != tc.want {
+				t.Fatalf("probe = %q, %v; want %q", out, err, tc.want)
+			}
+		})
+	}
+}
 
 func TestSecretEnv(t *testing.T) {
 	a := &app{root: t.TempDir()}

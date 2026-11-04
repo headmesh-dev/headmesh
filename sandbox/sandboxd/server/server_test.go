@@ -194,6 +194,26 @@ func TestToolsListBothProtocols(t *testing.T) {
 			if tool.Annotations == nil || tool.Annotations.DestructiveHint == nil || tool.Description == "" {
 				t.Errorf("%s: %s lacks annotations or description", v, tool.Name)
 			}
+			// MCP's properties map contains schema objects. An unconstrained Go
+			// `any` becomes boolean `true`, which is valid general JSON Schema
+			// but rejected by clients implementing MCP's narrower tool schema.
+			encoded, err := json.Marshal(tool.OutputSchema)
+			if err != nil {
+				t.Fatalf("%s output schema: %v", tool.Name, err)
+			}
+			var schema struct {
+				Type       string                     `json:"type"`
+				Properties map[string]json.RawMessage `json:"properties"`
+			}
+			if err := json.Unmarshal(encoded, &schema); err != nil || schema.Type != "object" {
+				t.Fatalf("%s output schema is not an object: %s", tool.Name, encoded)
+			}
+			for property, definition := range schema.Properties {
+				var object map[string]json.RawMessage
+				if err := json.Unmarshal(definition, &object); err != nil || object == nil {
+					t.Errorf("%s.%s needs a schema object, got %s", tool.Name, property, definition)
+				}
+			}
 		}
 		slices.Sort(names)
 		if !slices.Equal(names, allTools) {
@@ -388,6 +408,35 @@ func TestHTTPAuthAndOrigin(t *testing.T) {
 	_ = resp.Body.Close()
 	if meta["resource"] != "http://asus-sandbox.mesh.xcelsior.ca:8780/mcp" {
 		t.Fatalf("metadata %v", meta)
+	}
+}
+
+func TestCORSPreflightPreservesOriginAndBearerChecks(t *testing.T) {
+	s := &Server{cfg: &config.Config{}}
+	s.cfg.Sandboxd.AllowedOrigins = []string{"https://client.example"}
+	h := s.originCheck(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
+		w.WriteHeader(http.StatusUnauthorized)
+	}))
+	for _, tc := range []struct {
+		method string
+		origin string
+		status int
+	}{
+		{http.MethodOptions, "", http.StatusNoContent},
+		{http.MethodOptions, "https://client.example", http.StatusNoContent},
+		{http.MethodOptions, "https://evil.example", http.StatusForbidden},
+		{http.MethodPost, "https://client.example", http.StatusUnauthorized},
+	} {
+		r := httptest.NewRequest(tc.method, "/mcp", nil)
+		r.Header.Set("Origin", tc.origin)
+		w := httptest.NewRecorder()
+		h.ServeHTTP(w, r)
+		if w.Code != tc.status {
+			t.Fatalf("%s %s: got %d, want %d", tc.method, tc.origin, w.Code, tc.status)
+		}
+		if tc.status == http.StatusNoContent && !strings.Contains(w.Header().Get("Access-Control-Allow-Headers"), "Authorization") {
+			t.Fatal("preflight did not permit the bearer header")
+		}
 	}
 }
 

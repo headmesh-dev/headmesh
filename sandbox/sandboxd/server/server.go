@@ -240,11 +240,12 @@ func (s *Server) MCP() *mcp.Server { return s.mcp }
 func (s *Server) Tokens() *authn.Store { return s.tokens }
 
 func (s *Server) streamable() http.Handler {
-	return mcp.NewStreamableHTTPHandler(func(*http.Request) *mcp.Server { return s.mcp }, &mcp.StreamableHTTPOptions{
+	transport := mcp.NewStreamableHTTPHandler(func(*http.Request) *mcp.Server { return s.mcp }, &mcp.StreamableHTTPOptions{
 		Stateless:           true,
 		Logger:              slog.New(levelFilter{h: s.opts.Logger.Handler(), min: slog.LevelWarn}),
 		MaxRequestBodyBytes: MaxRequestBytes,
 	})
+	return methodErrors(transport)
 }
 
 // resourceMetadataURL is where clients find the RFC 9728 document.
@@ -274,6 +275,19 @@ func (s *Server) originCheck(next http.Handler) http.Handler {
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		if o := r.Header.Get("Origin"); o != "" && !slices.Contains(s.cfg.Sandboxd.AllowedOrigins, o) {
 			http.Error(w, "origin not allowed", http.StatusForbidden)
+			return
+		}
+		origin := r.Header.Get("Origin")
+		if origin == "" {
+			origin = "*"
+		}
+		w.Header().Set("Access-Control-Allow-Origin", origin)
+		w.Header().Add("Vary", "Origin")
+		w.Header().Set("Access-Control-Allow-Methods", "GET, POST, DELETE, OPTIONS")
+		w.Header().Set("Access-Control-Allow-Headers", "Authorization, Content-Type, Accept, Mcp-Session-Id, MCP-Protocol-Version")
+		w.Header().Set("Access-Control-Expose-Headers", "Mcp-Session-Id, WWW-Authenticate")
+		if r.Method == http.MethodOptions {
+			w.WriteHeader(http.StatusNoContent)
 			return
 		}
 		next.ServeHTTP(w, r)

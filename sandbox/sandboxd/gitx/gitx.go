@@ -13,6 +13,8 @@ import (
 	"slices"
 	"strings"
 	"time"
+
+	"github.com/headmesh-dev/headmesh/sandbox/sandboxd/agents"
 )
 
 // Git runs git commands.
@@ -80,21 +82,21 @@ type FileStatus struct {
 
 // Status is the git_status output.
 type Status struct {
-	Repo       string       `json:"repo"`
-	Branch     string       `json:"branch"`
-	Head       string       `json:"head"`
-	Upstream   string       `json:"upstream,omitempty"`
-	Ahead      int          `json:"ahead"`
-	Behind     int          `json:"behind"`
-	Staged     int          `json:"staged"`
-	Unstaged   int          `json:"unstaged"`
-	Untracked  int          `json:"untracked"`
-	Unmerged   int          `json:"unmerged"`
-	Clean      bool         `json:"clean"`
-	InProgress string       `json:"in_progress,omitempty"`
-	Files      []FileStatus `json:"files"`
-	Truncated  bool         `json:"truncated"`
-	Agents     any          `json:"other_agents,omitempty"`
+	Repo       string         `json:"repo"`
+	Branch     string         `json:"branch"`
+	Head       string         `json:"head"`
+	Upstream   string         `json:"upstream,omitempty"`
+	Ahead      int            `json:"ahead"`
+	Behind     int            `json:"behind"`
+	Staged     int            `json:"staged"`
+	Unstaged   int            `json:"unstaged"`
+	Untracked  int            `json:"untracked"`
+	Unmerged   int            `json:"unmerged"`
+	Clean      bool           `json:"clean"`
+	InProgress string         `json:"in_progress,omitempty"`
+	Files      []FileStatus   `json:"files"`
+	Truncated  bool           `json:"truncated"`
+	Agents     []agents.Agent `json:"other_agents,omitempty"`
 }
 
 // MaxStatusFiles caps the file list.

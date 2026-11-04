@@ -210,7 +210,7 @@ func (a *app) doctor(ctx context.Context, cfg *config.Config) []Check {
 		if _, err := os.Stat(p); err != nil {
 			continue
 		}
-		if out, _ := exec("agent", "wc -c < "+shellQuote(p)+" 2>/dev/null || echo unreadable"); out != "0" && out != "unreadable" {
+		if out, _ := exec("agent", maskProbe(p)); out != "0" && out != "unreadable" {
 			add("masks", "fail", p+" is visible inside ("+out+" bytes)", "headmesh-sandbox render && headmesh-sandbox recreate")
 		} else {
 			masked++
@@ -228,6 +228,18 @@ func (a *app) doctor(ctx context.Context, cfg *config.Config) []Check {
 		add("entry: "+ep.Name, st, ep.State+" "+ep.Detail, ep.Hint)
 	}
 	return cs
+}
+
+// Directory masks are empty, read-only tmpfs mounts. Treat them as directories
+// rather than feeding them to wc, and keep expected permission errors out of
+// the probe output that doctor interprets.
+func maskProbe(path string) string {
+	p := shellQuote(path)
+	return "{ if [ -d " + p + " ]; then " +
+		"if [ ! -r " + p + " ] || [ ! -x " + p + " ]; then printf unreadable; " +
+		"elif [ -z \"$(find " + p + " -mindepth 1 -maxdepth 1 -print -quit)\" ]; then printf 0; " +
+		"else printf directory-visible; fi; " +
+		"else wc -c < " + p + " || printf unreadable; fi; } 2>/dev/null"
 }
 
 func short8(s string) string {

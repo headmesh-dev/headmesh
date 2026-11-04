@@ -28,7 +28,12 @@ x-base: &base
   logging:
     driver: local
     options: { max-size: "20m", max-file: "5" }
-  secrets: [ts_authkey, github_token, claude_env_secret, openai_tunnel_key, github_ssh_key]
+  secrets:
+    - { source: ts_authkey, mode: 0400 }
+    - { source: github_token, mode: 0400 }
+    - { source: claude_env_secret, mode: 0400 }
+    - { source: openai_tunnel_key, mode: 0400 }
+    - { source: github_ssh_key, mode: 0400 }
   volumes:
     - hm-cache-mise:/cache/mise
     - hm-cache-uv:/cache/uv
