@@ -96,3 +96,5 @@ to that domain, in `deploy/env/prod/waitlist.env`.
 ## Security
 
 See [SECURITY.md](.github/SECURITY.md). Please report vulnerabilities privately.
+
+[![M8ven Score](https://m8ven.ai/badge/mcp/headmesh-dev-headmesh-1fj5r7?v=5a0bc7acffbc4b8b13fdee00dccfe133)](https://m8ven.ai/mcp/headmesh-dev-headmesh-1fj5r7?s=readme?variant=verified)
