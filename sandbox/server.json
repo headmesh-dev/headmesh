@@ -1,0 +1,39 @@
+{
+  "$schema": "https://static.modelcontextprotocol.io/schemas/2025-12-11/server.schema.json",
+  "name": "io.github.headmesh-dev/headmesh-sandbox",
+  "title": "Headmesh Agent Sandbox",
+  "description": "Run commands, edit files and manage Git and persistent sessions in your own isolated sandbox.",
+  "version": "0.1.0",
+  "websiteUrl": "https://headmesh.dev",
+  "repository": {
+    "url": "https://github.com/headmesh-dev/headmesh",
+    "source": "github",
+    "subfolder": "sandbox"
+  },
+  "remotes": [
+    {
+      "type": "streamable-http",
+      "url": "https://{sandbox_host}/mcp",
+      "variables": {
+        "sandbox_host": {
+          "description": "Your deployed Headmesh sandbox hostname",
+          "isRequired": true
+        }
+      },
+      "headers": [
+        {
+          "name": "Authorization",
+          "description": "A scoped bearer token issued by your own Headmesh sandbox",
+          "value": "Bearer {sandbox_token}",
+          "variables": {
+            "sandbox_token": {
+              "description": "The private hms_ token for this client",
+              "isSecret": true,
+              "isRequired": true
+            }
+          }
+        }
+      ]
+    }
+  ]
+}
