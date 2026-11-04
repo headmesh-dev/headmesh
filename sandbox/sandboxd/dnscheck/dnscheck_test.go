@@ -5,6 +5,7 @@ import (
 	"errors"
 	"strings"
 	"testing"
+	"time"
 
 	"github.com/headmesh-dev/headmesh/sandbox/sandboxd/netcheck"
 )
@@ -12,6 +13,36 @@ import (
 type fakeTS struct {
 	state string
 	ping  bool
+}
+
+func TestStartupRetriesTransientMissingRecord(t *testing.T) {
+	calls := 0
+	ch := &Checker{
+		TS: fakeTS{state: "Running"}, RetryFor: time.Second,
+		Lookup: func(context.Context, string) ([]string, error) {
+			calls++
+			if calls == 1 {
+				return nil, errors.New("record not received yet")
+			}
+			return []string{"100.64.0.4"}, nil
+		},
+	}
+	res := ch.Run(context.Background(), "tower.example", "100.64.0.4")
+	if calls != 2 || res.Status != "ok" {
+		t.Fatalf("calls %d, result %+v", calls, res)
+	}
+}
+
+func TestStartupRetryStillFailsWhenDNSNeverArrives(t *testing.T) {
+	ch := &Checker{
+		TS: fakeTS{state: "Running"}, RetryFor: 20 * time.Millisecond,
+		Lookup: func(context.Context, string) ([]string, error) {
+			return nil, errors.New("no such host")
+		},
+	}
+	if res := ch.Run(context.Background(), "missing.example", "100.64.0.4"); res.Status != "failed" {
+		t.Fatalf("unavailable DNS was treated as healthy: %+v", res)
+	}
 }
 
 func (f fakeTS) Status(context.Context) netcheck.Node { return netcheck.Node{BackendState: f.state} }

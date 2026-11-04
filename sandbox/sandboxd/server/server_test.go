@@ -21,6 +21,7 @@ import (
 	"github.com/modelcontextprotocol/go-sdk/mcp"
 
 	"github.com/headmesh-dev/headmesh/sandbox/config"
+	"github.com/headmesh-dev/headmesh/sandbox/internal/sockclient"
 	"github.com/headmesh-dev/headmesh/sandbox/internal/testutil"
 	"github.com/headmesh-dev/headmesh/sandbox/sandboxd/audit"
 	"github.com/headmesh-dev/headmesh/sandbox/sandboxd/authn"
@@ -437,6 +438,24 @@ func TestCORSPreflightPreservesOriginAndBearerChecks(t *testing.T) {
 		if tc.status == http.StatusNoContent && !strings.Contains(w.Header().Get("Access-Control-Allow-Headers"), "Authorization") {
 			t.Fatal("preflight did not permit the bearer header")
 		}
+	}
+}
+
+func TestLivenessDoesNotHideFailedNetworkReadiness(t *testing.T) {
+	f := newFixture(t)
+	path := filepath.Join(f.srv.opts.RunDir, "dns-check.json")
+	if err := os.MkdirAll(filepath.Dir(path), 0o750); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.WriteFile(path, []byte(`{"status":"failed","message":"diagnostic DNS outage"}`), 0o600); err != nil {
+		t.Fatal(err)
+	}
+	client := sockclient.New(f.sock)
+	if live, err := client.Liveness(context.Background()); err != nil || !live.OK {
+		t.Fatalf("working daemon must remain live: %+v, %v", live, err)
+	}
+	if ready, err := client.Health(context.Background()); err != nil || ready.OK || len(ready.Problems) == 0 {
+		t.Fatalf("DNS outage must remain visible in readiness: %+v, %v", ready, err)
 	}
 }
 

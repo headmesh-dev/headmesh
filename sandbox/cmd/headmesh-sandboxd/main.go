@@ -216,13 +216,21 @@ func listenUnix(ctx context.Context, path string) (net.Listener, error) {
 func healthCmd() *cobra.Command {
 	var sock string
 	var timeout time.Duration
+	var liveness bool
 	cmd := &cobra.Command{
 		Use:   "health",
 		Short: "Exit 0 when sandboxd is healthy (Docker HEALTHCHECK, s6 readiness)",
 		RunE: func(cmd *cobra.Command, _ []string) error {
 			ctx, cancel := context.WithTimeout(cmd.Context(), timeout)
 			defer cancel()
-			h, err := sockclient.New(sock).Health(ctx)
+			client := sockclient.New(sock)
+			var h sockclient.Health
+			var err error
+			if liveness {
+				h, err = client.Liveness(ctx)
+			} else {
+				h, err = client.Health(ctx)
+			}
 			if err != nil {
 				_, _ = fmt.Fprintln(cmd.ErrOrStderr(), err)
 				return exitCode(1)
@@ -237,6 +245,7 @@ func healthCmd() *cobra.Command {
 	}
 	cmd.Flags().StringVar(&sock, "unix", sockclient.DefaultSocket, "sandboxd socket")
 	cmd.Flags().DurationVar(&timeout, "timeout", 5*time.Second, "give up after")
+	cmd.Flags().BoolVar(&liveness, "liveness", false, "check daemon liveness without external network readiness")
 	return cmd
 }
 
@@ -286,7 +295,10 @@ func dnsCheckCmd() *cobra.Command {
 			if name != "" && !strings.Contains(name, ".") {
 				name += "." + cfg.Tailnet.MagicDNSSuffix
 			}
-			ch := &dnscheck.Checker{TS: netcheck.Tailscale{Socket: envOr("TS_SOCKET", "/run/tailscale/tailscaled.sock")}}
+			ch := &dnscheck.Checker{
+				TS:       netcheck.Tailscale{Socket: envOr("TS_SOCKET", "/run/tailscale/tailscaled.sock")},
+				RetryFor: 10 * time.Second,
+			}
 			ctx, cancel := context.WithTimeout(cmd.Context(), 30*time.Second)
 			defer cancel()
 			res := ch.Run(ctx, name, cfg.Tailnet.DNSCheckIP)

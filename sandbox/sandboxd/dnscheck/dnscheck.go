@@ -22,6 +22,9 @@ type Checker struct {
 	}
 	Lookup func(ctx context.Context, host string) ([]string, error)
 	Now    func() time.Time
+	// RetryFor allows MagicDNS records to arrive after tailscaled enters
+	// Running. Zero performs one lookup, as on an explicit diagnostic probe.
+	RetryFor time.Duration
 }
 
 // Run checks name (fully qualified) and ip.
@@ -46,9 +49,30 @@ func (c *Checker) Run(ctx context.Context, name, ip string) status.DNSCheck {
 		res.Message = "tailnet.dns_check_name is empty"
 		return res
 	}
-	lctx, cancel := context.WithTimeout(ctx, 5*time.Second)
-	addrs, lerr := lookup(lctx, name)
-	cancel()
+	lookupCtx := ctx
+	if c.RetryFor > 0 {
+		var cancel context.CancelFunc
+		lookupCtx, cancel = context.WithTimeout(ctx, c.RetryFor)
+		defer cancel()
+	}
+	var addrs []string
+	var lerr error
+lookupLoop:
+	for {
+		lctx, cancel := context.WithTimeout(lookupCtx, 5*time.Second)
+		addrs, lerr = lookup(lctx, name)
+		cancel()
+		if lerr == nil && len(addrs) > 0 || c.RetryFor <= 0 {
+			break
+		}
+		timer := time.NewTimer(250 * time.Millisecond)
+		select {
+		case <-lookupCtx.Done():
+			timer.Stop()
+			break lookupLoop
+		case <-timer.C:
+		}
+	}
 	res.Resolved = addrs
 	if ip != "" {
 		res.IPPingOK = c.TS.Ping(ctx, ip).OK

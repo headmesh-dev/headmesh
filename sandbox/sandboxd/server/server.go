@@ -299,6 +299,9 @@ func (s *Server) originCheck(next http.Handler) http.Handler {
 // socket's file permissions (UID 1000 on both sides).
 func (s *Server) UnixHandler() http.Handler {
 	mux := http.NewServeMux()
+	mux.HandleFunc("GET /healthz", func(w http.ResponseWriter, _ *http.Request) {
+		writeJSON(w, http.StatusOK, map[string]bool{"ok": true})
+	})
 	mux.Handle("/mcp", s.streamable())
 	mux.HandleFunc("GET /v1/health", s.handleHealth)
 	mux.HandleFunc("GET /v1/status", func(w http.ResponseWriter, r *http.Request) {

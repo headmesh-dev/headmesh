@@ -109,6 +109,14 @@ func (c *Client) Health(ctx context.Context) (Health, error) {
 	return h, err
 }
 
+// Liveness checks the local daemon without requiring external network
+// readiness. Supervisors must not kill working file/session tools on a DNS fault.
+func (c *Client) Liveness(ctx context.Context) (Health, error) {
+	var h Health
+	err := c.do(ctx, http.MethodGet, "/healthz", nil, &h)
+	return h, err
+}
+
 // Status returns the raw status report.
 func (c *Client) Status(ctx context.Context, probeReach bool) (json.RawMessage, error) {
 	path := "/v1/status"
