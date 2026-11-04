@@ -25,6 +25,12 @@ type config struct {
 	Recovery bool
 	// HEADMESH_RECOVERY_TIMEOUT: how long recovery mode waits for enforce-mode cells to confirm a current policy.
 	RecoveryTimeout time.Duration
+	// External browser sign-in. Empty credentials keep a provider disabled.
+	GitHubClientID     string
+	GitHubSecretFile   string
+	HuggingFaceEnabled bool
+	HFClientID         string
+	HFSecretFile       string
 }
 
 func env(key, def string) string {
@@ -36,18 +42,23 @@ func env(key, def string) string {
 
 func loadConfig() (config, error) {
 	c := config{
-		DatabaseURL:       os.Getenv("HEADMESH_DATABASE_URL"),
-		Listen:            env("HEADMESH_LISTEN", ":8080"),
-		CellListen:        env("HEADMESH_CELL_LISTEN", ":7443"),
-		TLSCertFile:       os.Getenv("HEADMESH_TLS_CERT"),
-		TLSKeyFile:        os.Getenv("HEADMESH_TLS_KEY"),
-		CellCAFile:        os.Getenv("HEADMESH_CELL_CA"),
-		OpSigningKeyFile:  os.Getenv("HEADMESH_OP_SIGNING_KEY"),
-		PublicURL:         strings.TrimRight(env("HEADMESH_PUBLIC_URL", "https://api.headmesh.dev"), "/"),
-		InstallURL:        env("HEADMESH_INSTALL_URL", "https://get.headmesh.dev"),
-		TrustForwardedFor: os.Getenv("HEADMESH_TRUST_FORWARDED_FOR") == "true",
-		Recovery:          os.Getenv("HEADMESH_RECOVERY") == "true",
-		RecoveryTimeout:   5 * time.Minute,
+		DatabaseURL:        os.Getenv("HEADMESH_DATABASE_URL"),
+		Listen:             env("HEADMESH_LISTEN", ":8080"),
+		CellListen:         env("HEADMESH_CELL_LISTEN", ":7443"),
+		TLSCertFile:        os.Getenv("HEADMESH_TLS_CERT"),
+		TLSKeyFile:         os.Getenv("HEADMESH_TLS_KEY"),
+		CellCAFile:         os.Getenv("HEADMESH_CELL_CA"),
+		OpSigningKeyFile:   os.Getenv("HEADMESH_OP_SIGNING_KEY"),
+		PublicURL:          strings.TrimRight(env("HEADMESH_PUBLIC_URL", "https://api.headmesh.dev"), "/"),
+		InstallURL:         env("HEADMESH_INSTALL_URL", "https://get.headmesh.dev"),
+		TrustForwardedFor:  os.Getenv("HEADMESH_TRUST_FORWARDED_FOR") == "true",
+		Recovery:           os.Getenv("HEADMESH_RECOVERY") == "true",
+		RecoveryTimeout:    5 * time.Minute,
+		GitHubClientID:     os.Getenv("HEADMESH_GITHUB_CLIENT_ID"),
+		GitHubSecretFile:   os.Getenv("HEADMESH_GITHUB_CLIENT_SECRET_FILE"),
+		HuggingFaceEnabled: os.Getenv("HEADMESH_HF_LOGIN_ENABLED") == "true",
+		HFClientID:         os.Getenv("HEADMESH_HF_CLIENT_ID"),
+		HFSecretFile:       os.Getenv("HEADMESH_HF_CLIENT_SECRET_FILE"),
 	}
 	if v := os.Getenv("HEADMESH_RECOVERY_TIMEOUT"); v != "" {
 		d, err := time.ParseDuration(v)

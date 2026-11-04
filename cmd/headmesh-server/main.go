@@ -38,6 +38,7 @@ import (
 	"github.com/jackc/pgx/v5/pgxpool"
 
 	"github.com/headmesh-dev/headmesh/api"
+	"github.com/headmesh-dev/headmesh/api/login"
 	"github.com/headmesh-dev/headmesh/core/cellserver"
 	"github.com/headmesh-dev/headmesh/gen/cell/v1/cellv1connect"
 	"github.com/headmesh-dev/headmesh/internal/service"
@@ -129,6 +130,25 @@ func serve(ctx context.Context, logger *slog.Logger, args []string) error {
 	router.Use(middleware.RequestID, middleware.Recoverer, middleware.Timeout(60*time.Second), recovery.Middleware)
 	api.Health(router, st, recovery)
 	api.New(router, api.Options{Service: svc, Logger: logger, TrustForwardedFor: cfg.TrustForwardedFor, Version: version}) //nolint:contextcheck // handlers use each request's context
+	githubSecret, err := loginSecret(cfg.GitHubSecretFile)
+	if err != nil {
+		return err
+	}
+	hfSecret, err := loginSecret(cfg.HFSecretFile)
+	if err != nil {
+		return err
+	}
+	providers, err := login.Providers(ctx, login.Config{
+		PublicURL: cfg.PublicURL, GitHubClientID: cfg.GitHubClientID, GitHubSecret: githubSecret,
+		HuggingFace: cfg.HuggingFaceEnabled, HFClientID: cfg.HFClientID, HFSecret: hfSecret,
+	})
+	if err != nil {
+		return err
+	}
+	loginHandler := (&login.Handler{PublicURL: cfg.PublicURL, Store: &login.Store{Pool: pool}, Providers: providers}).HTTP()
+	for _, path := range []string{"/oauth/login", "/oauth/login/*", "/oauth/callback/*", "/oauth/account", "/oauth/logout", "/.well-known/oauth-cimd"} {
+		router.Handle(path, loginHandler)
+	}
 	apiServer := &http.Server{
 		Addr: cfg.Listen, Handler: router, ReadHeaderTimeout: 10 * time.Second, ReadTimeout: 30 * time.Second,
 		WriteTimeout: 90 * time.Second, IdleTimeout: 120 * time.Second, MaxHeaderBytes: 64 << 10,
@@ -191,6 +211,28 @@ func serve(ctx context.Context, logger *slog.Logger, args []string) error {
 		return nil
 	}
 	return err
+}
+
+func loginSecret(path string) (string, error) {
+	if path == "" {
+		return "", nil
+	}
+	info, err := os.Stat(path)
+	if err != nil {
+		return "", errors.New("OAuth client secret file is unavailable")
+	}
+	if !info.Mode().IsRegular() || info.Mode().Perm()&0o077 != 0 {
+		return "", errors.New("OAuth client secret file must be a private regular file (0600)")
+	}
+	b, err := os.ReadFile(path)
+	if err != nil {
+		return "", errors.New("OAuth client secret file could not be read")
+	}
+	secret := strings.TrimSpace(string(b))
+	if secret == "" {
+		return "", errors.New("OAuth client secret file is empty")
+	}
+	return secret, nil
 }
 
 // recoverControlPlane runs recovery mode (plan §13.4) on a control plane restored from backup: audit the grants
