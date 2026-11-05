@@ -35,9 +35,10 @@ after 12 hours, rotate on sign-in/linking, and are revoked at logout.
 Matching emails never automatically merge accounts. Sign in with the original
 provider, then explicitly link the other provider from the account page.
 
-Browser login is one part of MCP OAuth. These routes alone do not issue MCP
-access or refresh tokens. Continue using scoped sandbox bearer credentials
-until the authorization and resource servers are deployed and verified together.
+Browser login establishes identity. The separately configured
+[MCP authorization and resource servers](mcp-oauth.md) issue and validate sandbox
+access tokens after an explicit grant and consent. Both components must be
+deployed and verified together before relying on OAuth for MCP access.
 
 ## MCP Registry
 

@@ -31,6 +31,9 @@ type config struct {
 	HuggingFaceEnabled bool
 	HFClientID         string
 	HFSecretFile       string
+	OAuthEnabled       bool
+	OAuthSigningKey    string
+	OAuthCryptoKey     string
 }
 
 func env(key, def string) string {
@@ -59,6 +62,9 @@ func loadConfig() (config, error) {
 		HuggingFaceEnabled: os.Getenv("HEADMESH_HF_LOGIN_ENABLED") == "true",
 		HFClientID:         os.Getenv("HEADMESH_HF_CLIENT_ID"),
 		HFSecretFile:       os.Getenv("HEADMESH_HF_CLIENT_SECRET_FILE"),
+		OAuthEnabled:       os.Getenv("HEADMESH_OAUTH_ENABLED") == "true",
+		OAuthSigningKey:    os.Getenv("HEADMESH_OAUTH_SIGNING_KEY_FILE"),
+		OAuthCryptoKey:     os.Getenv("HEADMESH_OAUTH_CRYPTO_KEY_FILE"),
 	}
 	if v := os.Getenv("HEADMESH_RECOVERY_TIMEOUT"); v != "" {
 		d, err := time.ParseDuration(v)
@@ -69,6 +75,9 @@ func loadConfig() (config, error) {
 	}
 	if c.DatabaseURL == "" {
 		return c, errors.New("HEADMESH_DATABASE_URL is required")
+	}
+	if c.OAuthEnabled && (c.OAuthSigningKey == "" || c.OAuthCryptoKey == "" || c.OAuthSigningKey == c.OpSigningKeyFile || c.OAuthSigningKey == c.OAuthCryptoKey) {
+		return c, errors.New("OAuth needs separate signing and encryption key files, distinct from the operation-signing key")
 	}
 	return c, nil
 }

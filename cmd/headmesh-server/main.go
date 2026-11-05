@@ -16,6 +16,7 @@ import (
 	"context"
 	"crypto/ed25519"
 	"crypto/rand"
+	"crypto/subtle"
 	"crypto/tls"
 	"crypto/x509"
 	"encoding/base64"
@@ -39,6 +40,7 @@ import (
 
 	"github.com/headmesh-dev/headmesh/api"
 	"github.com/headmesh-dev/headmesh/api/login"
+	"github.com/headmesh-dev/headmesh/api/oauth"
 	"github.com/headmesh-dev/headmesh/core/cellserver"
 	"github.com/headmesh-dev/headmesh/gen/cell/v1/cellv1connect"
 	"github.com/headmesh-dev/headmesh/internal/service"
@@ -53,7 +55,7 @@ func run(args []string) int {
 	logger := slog.New(slog.NewJSONHandler(os.Stderr, &slog.HandlerOptions{Level: logLevel()}))
 	slog.SetDefault(logger)
 	if len(args) == 0 {
-		fmt.Fprintln(os.Stderr, "usage: headmesh-server serve|migrate|bootstrap|keygen|ca-init|cell-cert|version")
+		fmt.Fprintln(os.Stderr, "usage: headmesh-server serve|migrate|bootstrap|oauth-grant|keygen|ca-init|cell-cert|version")
 		return 2
 	}
 	ctx, stop := signal.NotifyContext(context.Background(), os.Interrupt, syscall.SIGTERM)
@@ -66,6 +68,8 @@ func run(args []string) int {
 		err = migrate(ctx, args[1:])
 	case "bootstrap":
 		err = bootstrap(ctx, args[1:])
+	case "oauth-grant":
+		err = oauthGrant(ctx, args[1:])
 	case "keygen":
 		err = keygen(args[1:])
 	case "ca-init":
@@ -145,9 +149,35 @@ func serve(ctx context.Context, logger *slog.Logger, args []string) error {
 	if err != nil {
 		return err
 	}
-	loginHandler := (&login.Handler{PublicURL: cfg.PublicURL, Store: &login.Store{Pool: pool}, Providers: providers}).HTTP()
+	accounts := &login.Store{Pool: pool}
+	loginHandler := (&login.Handler{PublicURL: cfg.PublicURL, Store: accounts, Providers: providers}).HTTP()
 	for _, path := range []string{"/oauth/login", "/oauth/login/*", "/oauth/callback/*", "/oauth/account", "/oauth/logout", "/.well-known/oauth-cimd"} {
 		router.Handle(path, loginHandler)
+	}
+	if cfg.OAuthEnabled {
+		signingSeed, err := oauthKey(cfg.OAuthSigningKey)
+		if err != nil {
+			return err
+		}
+		cryptoKey, err := oauthKey(cfg.OAuthCryptoKey)
+		if err != nil {
+			return err
+		}
+		if signingSeed == cryptoKey || subtle.ConstantTimeCompare(signingSeed[:], signer.Seed()) == 1 {
+			return errors.New("OAuth signing, OAuth encryption, and operation-signing keys must be independently generated")
+		}
+		storage, err := oauth.NewStorage(ctx, pool, cfg.PublicURL, ed25519.NewKeyFromSeed(signingSeed[:]))
+		if err != nil {
+			return err
+		}
+		authorization, err := oauth.NewHandler(storage, accounts, cryptoKey)
+		if err != nil {
+			return err
+		}
+		handler := authorization.HTTP()
+		for _, path := range []string{"/.well-known/oauth-authorization-server", "/.well-known/openid-configuration", "/oauth/authorize", "/oauth/authorize/*", "/oauth/token", "/oauth/revoke", "/oauth/register", "/oauth/consent", "/oauth/jwks", "/oauth/userinfo", "/oauth/token-status"} {
+			router.Handle(path, handler)
+		}
 	}
 	router.Get("/favicon.ico", func(w http.ResponseWriter, r *http.Request) {
 		http.Redirect(w, r, "https://headmesh.dev/favicon.ico", http.StatusTemporaryRedirect)
@@ -214,6 +244,20 @@ func serve(ctx context.Context, logger *slog.Logger, args []string) error {
 		return nil
 	}
 	return err
+}
+
+func oauthKey(path string) ([32]byte, error) {
+	var key [32]byte
+	value, err := loginSecret(path)
+	if err != nil {
+		return key, err
+	}
+	data, err := base64.StdEncoding.DecodeString(value)
+	if err != nil || len(data) != len(key) {
+		return key, errors.New("OAuth key file must contain a base64-encoded 32-byte key")
+	}
+	copy(key[:], data)
+	return key, nil
 }
 
 func loginSecret(path string) (string, error) {
