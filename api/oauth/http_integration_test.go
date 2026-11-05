@@ -149,6 +149,9 @@ func (s *testSystem) authorization(t *testing.T, scopes string) (string, string,
 	if w.Code != http.StatusOK {
 		t.Fatalf("consent %d: %s", w.Code, w.Body.String())
 	}
+	if !strings.Contains(w.Header().Get("Content-Security-Policy"), "form-action 'self' https://chatgpt.com;") {
+		t.Fatal("consent CSP would block the registered callback after a form redirect")
+	}
 	match := regexp.MustCompile(`name="csrf" value="([^"]+)"`).FindStringSubmatch(w.Body.String())
 	if len(match) != 2 {
 		t.Fatalf("missing CSRF field: %s", w.Body.String())

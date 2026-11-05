@@ -324,6 +324,10 @@ func (h *Handler) consent(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	redirect, _ := url.Parse(auth.GetRedirectURI())
+	// Browsers apply form-action to a form submission's redirect chain too.
+	// Permit the already validated callback origin, without allowing arbitrary
+	// external form destinations or weakening script-src.
+	w.Header().Set("Content-Security-Policy", "default-src 'none'; style-src 'unsafe-inline'; img-src 'self' https://headmesh.dev; form-action 'self' "+redirect.Scheme+"://"+redirect.Host+"; frame-ancestors 'none'; base-uri 'none'")
 	w.Header().Set("Content-Type", "text/html; charset=utf-8")
 	_ = consentPage.Execute(w, consentData{Request: id, CSRF: csrf, Client: client.Name, Redirect: redirect.Scheme + "://" + redirect.Host, Resource: auth.Resource, Email: user.Email, Scopes: auth.GetScopes()})
 }
