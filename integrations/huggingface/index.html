@@ -1,0 +1,71 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <meta name="description" content="Connect AI assistants to Xcelsior GPU compute and your own Headmesh development sandbox through MCP.">
+    <title>Xcelsior and Headmesh · MCP setup</title>
+    <style>
+      :root { color-scheme: dark; font-family: system-ui, sans-serif; background: #101318; color: #edf0f5; }
+      * { box-sizing: border-box; }
+      body { margin: 0; line-height: 1.65; }
+      main { width: min(70rem, 100%); margin: auto; padding: clamp(1.25rem, 5vw, 4rem); }
+      header { max-width: 46rem; margin-bottom: 2.5rem; }
+      .eyebrow { color: #a7bce7; font-size: .8rem; letter-spacing: .12em; text-transform: uppercase; }
+      h1 { font-size: clamp(2rem, 5vw, 3.5rem); letter-spacing: -.04em; line-height: 1.15; margin: .7rem 0 1rem; }
+      h2 { margin: 0 0 .75rem; font-size: 1.6rem; }
+      h3 { font-size: 1rem; margin-top: 1.75rem; }
+      p, li { color: #bac2cf; }
+      a { color: #bbceff; text-underline-offset: .2em; }
+      a:focus-visible { outline: 3px solid #9ab6ff; outline-offset: 4px; }
+      .cards { display: grid; grid-template-columns: repeat(auto-fit, minmax(min(100%, 23rem), 1fr)); gap: 1.25rem; }
+      article { border: 1px solid #384253; border-radius: 1rem; padding: 1.75rem; background: #161b23; min-width: 0; }
+      code { font-family: ui-monospace, monospace; font-size: .875rem; overflow-wrap: anywhere; }
+      .endpoint { padding: .9rem; border: 1px solid #384253; border-radius: .5rem; background: #101318; }
+      .links { display: flex; flex-wrap: wrap; gap: .6rem 1.25rem; }
+      .note { margin-top: 2rem; padding-top: 1rem; border-top: 1px solid #384253; font-size: .9rem; }
+      footer { margin-top: 2.5rem; font-size: .875rem; }
+    </style>
+  </head>
+  <body>
+    <main>
+      <header>
+        <p class="eyebrow">Model Context Protocol · Connection guides</p>
+        <h1>Compute and a workspace.<br>Connected to your assistant.</h1>
+        <p>Use Xcelsior for GPU compute and Headmesh for an isolated development sandbox. Add a server to your MCP client, sign in, and review its requested access.</p>
+      </header>
+      <section class="cards" aria-label="MCP servers">
+        <article aria-labelledby="xcelsior">
+          <h2 id="xcelsior">Xcelsior</h2>
+          <p>Discover GPU compute, inspect pricing, and manage your instances through scoped tools.</p>
+          <h3>Streamable HTTP endpoint</h3>
+          <p class="endpoint"><code>https://mcp.xcelsior.ca/mcp</code></p>
+          <ol>
+            <li>Add this endpoint as a remote MCP server in your assistant.</li>
+            <li>Complete Xcelsior's OAuth flow and review the requested scopes.</li>
+            <li>Use discovery and management tools within your account's permissions. Provisioning compute requires the applicable account balance.</li>
+          </ol>
+          <p class="links"><a href="https://xcelsior.ca" target="_blank" rel="noopener">Xcelsior</a><a href="https://github.com/aabiro/xcelsior" target="_blank" rel="noopener">Source</a><a href="https://registry.modelcontextprotocol.io/v0.1/servers/io.github.aabiro%2Fxcelsior/versions/latest" target="_blank" rel="noopener">Registry entry</a></p>
+        </article>
+        <article aria-labelledby="headmesh">
+          <h2 id="headmesh">Headmesh</h2>
+          <p>Read and edit files, run commands, manage Git and keep sessions in your own isolated development sandbox.</p>
+          <h3>Your Streamable HTTP endpoint</h3>
+          <p class="endpoint"><code>https://YOUR_SANDBOX_HOST/mcp</code></p>
+          <ol>
+            <li>Deploy your sandbox and configure its public HTTPS endpoint.</li>
+            <li>Configure Headmesh OAuth and explicitly grant your linked account access to that sandbox.</li>
+            <li>Add your endpoint to the assistant, sign in with GitHub or Hugging Face, and approve the scopes you need.</li>
+          </ol>
+          <p>Existing per-client sandbox bearer credentials remain supported. Keep credentials in your client's private settings.</p>
+          <p class="links"><a href="https://headmesh.dev" target="_blank" rel="noopener">Headmesh</a><a href="https://github.com/headmesh-dev/headmesh/blob/main/docs/mcp-oauth.md" target="_blank" rel="noopener">OAuth setup</a><a href="https://github.com/headmesh-dev/headmesh" target="_blank" rel="noopener">Source</a><a href="https://registry.modelcontextprotocol.io/v0.1/servers/io.github.headmesh-dev%2Fheadmesh-sandbox/versions/latest" target="_blank" rel="noopener">Registry entry</a></p>
+        </article>
+      </section>
+      <aside class="note">
+        <p>Sign-in establishes your identity. Sandbox access requires a separate grant. This documentation page supplies no shared machine or credential; your assistant connects directly to the service you configure.</p>
+        <p>The Space is static and makes no model or inference calls. Each service's normal usage and account terms apply.</p>
+      </aside>
+      <footer><a href="https://github.com/headmesh-dev/headmesh/tree/main/integrations/huggingface" target="_blank" rel="noopener">Documentation source</a> · <a href="https://headmesh.dev/privacy" target="_blank" rel="noopener">Headmesh privacy</a> · <a href="https://xcelsior.ca/privacy" target="_blank" rel="noopener">Xcelsior privacy</a></footer>
+    </main>
+  </body>
+</html>
