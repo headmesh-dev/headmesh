@@ -223,8 +223,11 @@ func New(o Options) (*Server, error) {
 
 	// Stateless mode logs a connect/disconnect pair per request at INFO.
 	sdkLog := slog.New(levelFilter{h: o.Logger.Handler(), min: slog.LevelWarn})
+	// VS Code builds its tool prefix from Title (else Name), lowercased and cut
+	// to 13 characters, so the title stays one word: "mcp_headmesh_exec", not
+	// "mcp_headmesh_agen_exec". The longer name is the description and README.
 	s.mcp = mcp.NewServer(&mcp.Implementation{
-		Name: "headmesh-sandboxd", Title: "Headmesh agent sandbox", Version: o.Version,
+		Name: "headmesh-sandboxd", Title: "Headmesh", Version: o.Version,
 		Description: "Shell, files, git, sessions and tailnet access inside Aaryn's persistent agent sandbox.",
 		WebsiteURL:  "https://headmesh.dev",
 		Icons:       serverIcons(cfg.Sandboxd.PublicURL),

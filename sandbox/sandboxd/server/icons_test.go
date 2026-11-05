@@ -20,6 +20,10 @@ func TestServerIconsAdvertisedAndServed(t *testing.T) {
 	if info.Title == "" || info.Description == "" || info.WebsiteURL != "https://headmesh.dev" {
 		t.Errorf("serverInfo is missing display fields: %+v", info)
 	}
+	// VS Code: "mcp_" + title lowercased, unsafe runs to "_", cut to 13 chars.
+	if prefix := strings.ToLower(info.Title); len(prefix) > 13 || strings.ContainsAny(prefix, " /") {
+		t.Errorf("title %q would be truncated or mangled in VS Code tool names", info.Title)
+	}
 	got := info.Icons
 	if len(got) != 2 {
 		t.Fatalf("serverInfo.icons = %+v, want light and dark", got)
