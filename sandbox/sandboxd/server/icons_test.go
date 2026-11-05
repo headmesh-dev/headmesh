@@ -16,7 +16,11 @@ func TestServerIconsAdvertisedAndServed(t *testing.T) {
 	f := newFixture(t)
 	base := strings.TrimSuffix(f.srv.cfg.Sandboxd.PublicURL, "/")
 	cs := f.connect(t, f.fullToken, "2025-11-25")
-	got := cs.InitializeResult().ServerInfo.Icons
+	info := cs.InitializeResult().ServerInfo
+	if info.Title == "" || info.Description == "" || info.WebsiteURL != "https://headmesh.dev" {
+		t.Errorf("serverInfo is missing display fields: %+v", info)
+	}
+	got := info.Icons
 	if len(got) != 2 {
 		t.Fatalf("serverInfo.icons = %+v, want light and dark", got)
 	}

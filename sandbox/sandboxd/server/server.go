@@ -226,6 +226,7 @@ func New(o Options) (*Server, error) {
 	s.mcp = mcp.NewServer(&mcp.Implementation{
 		Name: "headmesh-sandboxd", Title: "Headmesh agent sandbox", Version: o.Version,
 		Description: "Shell, files, git, sessions and tailnet access inside Aaryn's persistent agent sandbox.",
+		WebsiteURL:  "https://headmesh.dev",
 		Icons:       serverIcons(cfg.Sandboxd.PublicURL),
 	}, &mcp.ServerOptions{
 		Instructions: guidelines.Instructions(s.guide),
