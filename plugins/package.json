@@ -12,7 +12,8 @@
     "gen": "node gen/gen.ts",
     "gen:check": "node gen/gen.ts --check",
     "validate": "node gen/validate.ts",
-    "check": "pnpm run gen:check && pnpm run validate"
+    "check": "pnpm run gen:check && pnpm run validate",
+    "package:submissions": "node gen/package-submissions.ts"
   },
   "devDependencies": {
     "ajv": "8.20.0",

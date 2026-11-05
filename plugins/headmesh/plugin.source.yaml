@@ -38,16 +38,17 @@ userConfig:
 mcpServers:
   headmesh-sandbox:
     # Portable mcp.json can't take placeholders or secrets, so Codex gets the default URL with
-    # no token. Codex users shadow it with `codex mcp add headmesh-sandbox --url … --bearer-token-env-var …`
-    # (see plugins/README.md). From M3 the sandbox does OAuth and this needs no override.
+    # no token. OAuth-enabled sandboxes now use discovery; older bearer-only
+    # installations can still use the override documented in plugins/README.md.
     url: https://asus.sbx.headmesh.dev/mcp
     claude:
       url: ${user_config.sandbox_url}
       headers:
         Authorization: Bearer ${user_config.sandbox_token}
     openaiAuth:
-      type: api_key
-      headerScheme: bearer
+      type: oauth
+      client:
+        mode: cimd
 
 openai:
   interface:

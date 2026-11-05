@@ -85,7 +85,7 @@ Codex reads `.agents/plugins/marketplace.json`. The ChatGPT desktop app also lis
 codex mcp add headmesh-sandbox --url https://asus.sbx.headmesh.dev/mcp --bearer-token-env-var HEADMESH_SANDBOX_TOKEN
 ```
 
-Then export `HEADMESH_SANDBOX_TOKEN` in the shell that starts Codex. From milestone M3 the sandbox signs you in with OAuth, and this step goes away.
+Then export `HEADMESH_SANDBOX_TOKEN` in the shell that starts Codex for a bearer-only sandbox. OAuth-enabled sandboxes can instead use `codex mcp login headmesh-sandbox`; see [MCP OAuth setup](../docs/mcp-oauth.md).
 
 To turn a plugin on for everyone working in a repository, add it to that repository's `.codex/config.toml`:
 
@@ -149,6 +149,8 @@ To try your working copy, add it as a local marketplace: `claude plugin marketpl
 CI is `.github/workflows/plugins.yml`. Besides the checks above, it installs `xcelsior@headmesh` into both Claude Code and Codex in a clean Ubuntu 26.04 container and checks the resulting MCP server definition.
 
 ### Release
+
+Public directory upload drafts are built separately; see [SUBMISSIONS.md](SUBMISSIONS.md).
 
 Bump `version` in the plugin's `plugin.source.yaml`, run `pnpm --dir plugins gen`, commit, then tag:
 
