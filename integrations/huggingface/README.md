@@ -12,7 +12,7 @@ tags:
   - developer-tools
   - oauth
   - gpu
-short_description: Connect AI assistants to GPU compute and your own development sandbox.
+short_description: GPU compute and isolated development sandboxes through MCP.
 ---
 
 # Xcelsior and Headmesh MCP
