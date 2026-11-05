@@ -10,6 +10,13 @@
     "source": "github",
     "subfolder": "sandbox"
   },
+  "icons": [
+    {
+      "src": "https://headmesh.dev/brand/headmesh-v1/icons/icon-512.png",
+      "mimeType": "image/png",
+      "sizes": ["512x512"]
+    }
+  ],
   "remotes": [
     {
       "type": "streamable-http",

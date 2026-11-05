@@ -226,6 +226,7 @@ func New(o Options) (*Server, error) {
 	s.mcp = mcp.NewServer(&mcp.Implementation{
 		Name: "headmesh-sandboxd", Title: "Headmesh agent sandbox", Version: o.Version,
 		Description: "Shell, files, git, sessions and tailnet access inside Aaryn's persistent agent sandbox.",
+		Icons:       serverIcons(cfg.Sandboxd.PublicURL),
 	}, &mcp.ServerOptions{
 		Instructions: guidelines.Instructions(s.guide),
 		Logger:       sdkLog,
@@ -260,7 +261,7 @@ func (s *Server) resourceMetadataURL() string {
 }
 
 // Handler serves the tailnet listener: /mcp (authenticated), RFC 9728
-// metadata, signed artifact downloads and a bare /healthz.
+// metadata, signed artifact downloads, the server icons and a bare /healthz.
 func (s *Server) Handler() http.Handler {
 	mux := http.NewServeMux()
 	mcpH := authn.Middleware(s.tokens, s.rs, s.resourceMetadataURL(), s.streamable())
@@ -269,6 +270,7 @@ func (s *Server) Handler() http.Handler {
 	mux.Handle("/.well-known/oauth-protected-resource", meta)
 	mux.Handle("/.well-known/oauth-protected-resource/mcp", meta)
 	mux.Handle("/artifacts/", s.artifacts.Handler())
+	handleIcons(mux)
 	mux.HandleFunc("/healthz", func(w http.ResponseWriter, _ *http.Request) {
 		w.Header().Set("Content-Type", "application/json")
 		_, _ = w.Write([]byte(`{"ok":true}` + "\n"))
