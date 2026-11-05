@@ -142,6 +142,24 @@ func (s *Store) Session(ctx context.Context, token string) (User, error) {
 	return user, nil
 }
 
+// LinkedProviders lists only the authenticated user's own identity bindings.
+func (s *Store) LinkedProviders(ctx context.Context, userID string) ([]string, error) {
+	rows, err := s.Pool.Query(ctx, `SELECT provider FROM login_identities WHERE user_id=$1::uuid ORDER BY provider`, userID)
+	if err != nil {
+		return nil, fmt.Errorf("load linked identities: %w", err)
+	}
+	defer rows.Close()
+	var providers []string
+	for rows.Next() {
+		var provider string
+		if err := rows.Scan(&provider); err != nil {
+			return nil, fmt.Errorf("read linked identity: %w", err)
+		}
+		providers = append(providers, provider)
+	}
+	return providers, rows.Err()
+}
+
 func (s *Store) Logout(ctx context.Context, token string) error {
 	_, err := s.Pool.Exec(ctx, `UPDATE browser_sessions SET revoked_at=$2 WHERE token_hash=$1 AND revoked_at IS NULL`, digest(token), time.Now())
 	if err != nil {

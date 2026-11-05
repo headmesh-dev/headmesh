@@ -8,6 +8,7 @@ import (
 	"net/http"
 	"net/http/httptest"
 	"net/url"
+	"slices"
 	"strings"
 	"sync"
 	"testing"
@@ -108,6 +109,10 @@ func TestBrowserLoginStorage(t *testing.T) {
 		if err != nil || linked.ID != user.ID {
 			t.Fatalf("linked provider did not sign into same account: %v", err)
 		}
+		providers, err := s.LinkedProviders(ctx, user.ID)
+		if err != nil || !slices.Equal(providers, []string{"github", "huggingface"}) {
+			t.Fatalf("linked providers %v err %v", providers, err)
+		}
 	})
 	t.Run("no sandbox or org access created", func(t *testing.T) {
 		var count int
@@ -200,6 +205,21 @@ func TestBrowserHTTPFlowAndCSRF(t *testing.T) {
 			}
 			if _, err := s.Session(context.Background(), cookie.Value); err != nil {
 				t.Fatal(err)
+			}
+			// Visiting login with a current session must not restart federation.
+			loginReq := httptest.NewRequest(http.MethodGet, "https://headmesh.test/oauth/login", nil)
+			loginReq.AddCookie(cookie)
+			loginResp := httptest.NewRecorder()
+			h.ServeHTTP(loginResp, loginReq)
+			if loginResp.Code != http.StatusSeeOther || loginResp.Header().Get("Location") != "/oauth/account" {
+				t.Fatal("active session was shown sign-in again")
+			}
+			accountReq := httptest.NewRequest(http.MethodGet, "https://headmesh.test/oauth/account", nil)
+			accountReq.AddCookie(cookie)
+			accountResp := httptest.NewRecorder()
+			h.ServeHTTP(accountResp, accountReq)
+			if !strings.Contains(accountResp.Body.String(), "GitHub · Connected") || strings.Contains(accountResp.Body.String(), "Link GitHub to this account") {
+				t.Fatal("linked provider was offered again")
 			}
 		}
 	}

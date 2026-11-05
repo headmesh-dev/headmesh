@@ -23,6 +23,7 @@ type Accounts interface {
 	ConsumeFlow(context.Context, string, string, string) (Flow, error)
 	Complete(context.Context, Identity, string, string) (User, string, error)
 	Session(context.Context, string) (User, error)
+	LinkedProviders(context.Context, string) ([]string, error)
 	Logout(context.Context, string) error
 }
 
@@ -64,6 +65,12 @@ func (h *Handler) provider(name string) Provider {
 }
 
 func (h *Handler) page(w http.ResponseWriter, r *http.Request) {
+	if token := cookieValue(r, SessionCookie); token != "" {
+		if _, err := h.Store.Session(r.Context(), token); err == nil {
+			http.Redirect(w, r, safeNext(r.URL.Query().Get("next")), http.StatusSeeOther)
+			return
+		}
+	}
 	var providers []string
 	for _, p := range h.Providers {
 		providers = append(providers, p.Name())
@@ -173,11 +180,18 @@ func (h *Handler) account(w http.ResponseWriter, r *http.Request) {
 		http.Redirect(w, r, "/oauth/login", http.StatusSeeOther)
 		return
 	}
+	linked, err := h.Store.LinkedProviders(r.Context(), user.ID)
+	if err != nil {
+		http.Error(w, "Unable to load linked accounts", http.StatusServiceUnavailable)
+		return
+	}
 	var providers []string
 	for _, p := range h.Providers {
-		providers = append(providers, p.Name())
+		if !slices.Contains(linked, p.Name()) {
+			providers = append(providers, p.Name())
+		}
 	}
-	h.render(w, http.StatusOK, pageData{User: &user, Providers: providers, Next: "/oauth/account"})
+	h.render(w, http.StatusOK, pageData{User: &user, Providers: providers, Connected: linked, Next: "/oauth/account"})
 }
 
 func (h *Handler) logout(w http.ResponseWriter, r *http.Request) {
@@ -202,6 +216,7 @@ func (h *Handler) cimd(w http.ResponseWriter, _ *http.Request) {
 type pageData struct {
 	User      *User
 	Providers []string
+	Connected []string
 	Next      string
 }
 
@@ -212,7 +227,7 @@ var page = template.Must(template.New("login").Funcs(template.FuncMap{"label": f
 	return "Hugging Face"
 }}).Parse(`<!doctype html><html lang="en"><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><link rel="icon" type="image/svg+xml" href="https://headmesh.dev/favicon.svg"><title>Headmesh · Sign in</title>
 <style>body{margin:0;background:#101318;color:#edf0f5;font:16px/1.6 system-ui,sans-serif;display:grid;place-items:center;min-height:100vh}main{max-width:30rem;padding:2.5rem}h1{letter-spacing:-.04em}p{color:#bac2cf}button{width:100%;padding:.9rem 1.2rem;border:1px solid #495264;background:#202733;color:inherit;border-radius:.6rem;font:inherit;cursor:pointer}button:hover{background:#303c4e}button:focus-visible,a:focus-visible{outline:3px solid #9ab6ff;outline-offset:3px}form{margin:1rem 0}a{color:#bbceff}.brand{font-weight:650;color:inherit;text-decoration:none}.small{font-size:.875rem}</style>
-<main><a class="brand" href="https://headmesh.dev">Headmesh</a>{{if .User}}<h1>You’re signed in</h1><p>{{.User.Name}}<br>{{.User.Email}}</p><p>Sandbox access is granted separately. Sign-in alone does not grant access to a machine.</p>{{range .Providers}}<form method="post" action="/oauth/login/{{.}}"><input type="hidden" name="intent" value="link"><input type="hidden" name="next" value="{{$.Next}}"><button>Link {{label .}} to this account</button></form>{{end}}<form method="post" action="/oauth/logout"><button>Sign out</button></form>{{else}}<h1>Sign in to Headmesh</h1><p>Use your account to continue. You’ll review access before connecting an app to a sandbox.</p>{{range .Providers}}<form method="post" action="/oauth/login/{{.}}"><input type="hidden" name="next" value="{{$.Next}}"><button>Continue with {{label .}}</button></form>{{else}}<p>Sign-in providers haven’t been configured yet.</p>{{end}}{{end}}<p class="small"><a href="https://headmesh.dev/privacy">Privacy</a> · <a href="https://headmesh.dev/terms">Terms</a></p></main></html>`))
+<main><a class="brand" href="https://headmesh.dev">Headmesh</a>{{if .User}}<h1>You’re signed in</h1><p>{{.User.Name}}<br>{{.User.Email}}</p>{{if .Connected}}<h2>Connected accounts</h2>{{range .Connected}}<p>{{label .}} · Connected</p>{{end}}{{end}}<p>Sandbox access is granted separately. Sign-in alone does not grant access to a machine.</p>{{range .Providers}}<form method="post" action="/oauth/login/{{.}}"><input type="hidden" name="intent" value="link"><input type="hidden" name="next" value="{{$.Next}}"><button>Link {{label .}} to this account</button></form>{{end}}<form method="post" action="/oauth/logout"><button>Sign out</button></form>{{else}}<h1>Sign in to Headmesh</h1><p>Use your account to continue. You’ll review access before connecting an app to a sandbox.</p>{{range .Providers}}<form method="post" action="/oauth/login/{{.}}"><input type="hidden" name="next" value="{{$.Next}}"><button>Continue with {{label .}}</button></form>{{else}}<p>Sign-in providers haven’t been configured yet.</p>{{end}}{{end}}<p class="small"><a href="https://headmesh.dev/privacy">Privacy</a> · <a href="https://headmesh.dev/terms">Terms</a></p></main></html>`))
 
 func (h *Handler) render(w http.ResponseWriter, status int, data pageData) {
 	w.Header().Set("Content-Type", "text/html; charset=utf-8")
