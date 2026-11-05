@@ -21,5 +21,6 @@ Gradient backgrounds use mint-to-cyan with a solid black mark, including its sha
 PNG corners outside the rounded and circular backgrounds remain transparent. Squares have sharp, opaque corners.
 
 Favicons use the standalone mark with a transparent background, including the spaces under the arches and between
-the legs. The site selects favicon.svg or favicon-dark.svg for light and dark browser tabs. The 16, 32 and 48 px
+the legs. The site selects favicon.svg or favicon-dark.svg for light and dark browser tabs. The mark fills its
+square viewBox. PNGs cover 16, 32, 48, 64, 128, 256 and 512 px; the ICO includes every size through 256 px. The
 PNGs and ICO frames use the light-theme foreground and preserve the same transparent gaps.

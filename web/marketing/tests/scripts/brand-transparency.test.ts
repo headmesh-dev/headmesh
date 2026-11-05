@@ -43,23 +43,24 @@ describe("transparent favicons", () => {
   it.each(["favicon.svg", "favicon-dark.svg"])("keeps %s identical to the brand kit with clear gaps", (filename) => {
     const svg = read(filename);
     expect(svg.equals(read(`icons/${filename}`, kitRoot))).toBe(true);
+    expect(svg.toString()).toContain('viewBox="88 88 336 336"');
     const image = new Resvg(svg, { font: { loadSystemFonts: false }, fitTo: { mode: "width", value: 512 } }).render();
-    expectClearGaps(image, (x, y) => [x, y]);
+    expectClearGaps(image, (x, y) => [((x - 88) * 512) / 336, ((y - 88) * 512) / 336]);
   });
 
   it("preserves the gaps in every PNG and ICO frame", () => {
     const ico = read("favicon.ico");
     expect(ico.equals(read("icons/favicon.ico", kitRoot))).toBe(true);
-    expect(ico.readUInt16LE(4)).toBe(3);
-    for (const [index, size] of [16, 32, 48].entries()) {
+    expect(ico.readUInt16LE(4)).toBe(6);
+    for (const [index, size] of [16, 32, 48, 64, 128, 256].entries()) {
       const entry = 6 + index * 16;
-      expect(ico[entry]).toBe(size);
-      expect(ico[entry + 1]).toBe(size);
+      expect(ico[entry]).toBe(size === 256 ? 0 : size);
+      expect(ico[entry + 1]).toBe(size === 256 ? 0 : size);
       const length = ico.readUInt32LE(entry + 8);
       const offset = ico.readUInt32LE(entry + 12);
       const png = read(`icons/favicon-${size}.png`, kitRoot);
       expect(ico.subarray(offset, offset + length).equals(png)).toBe(true);
-      expectClearGaps(pngImage(png, size), (x, y) => [(x * size) / 512, (y * size) / 512]);
+      expectClearGaps(pngImage(png, size), (x, y) => [((x - 88) * size) / 336, ((y - 88) * size) / 336]);
     }
   });
 });

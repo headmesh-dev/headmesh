@@ -47,12 +47,12 @@
   {
     "file": "selected-brand/icons/favicon-dark.svg",
     "source": "public/brand/headmesh-v1/icons/favicon-dark.svg",
-    "sha256": "45c6db7b9e207f2842eb0055ad84a79f89409005ca01d5d639443a4864bfd13f"
+    "sha256": "2c2ff74d4d22809f73f219077228840945bc652e0fd93b90ec3223fec54f316f"
   },
   {
     "file": "selected-brand/icons/favicon.svg",
     "source": "public/brand/headmesh-v1/icons/favicon.svg",
-    "sha256": "8ce0bab66c396454e454482e975e536290b44ff6b9993760ceb91692743b50eb"
+    "sha256": "5ad37b074def2c87e0c7f770dbfa95a4da07557a210fed13499c70773946af7e"
   },
   {
     "file": "selected-brand/logos/lockup-horizontal-black-on-gradient.svg",
@@ -292,12 +292,12 @@
   {
     "file": "site/favicon.svg",
     "source": "public/favicon.svg",
-    "sha256": "8ce0bab66c396454e454482e975e536290b44ff6b9993760ceb91692743b50eb"
+    "sha256": "5ad37b074def2c87e0c7f770dbfa95a4da07557a210fed13499c70773946af7e"
   },
   {
     "file": "site/favicon-dark.svg",
     "source": "public/favicon-dark.svg",
-    "sha256": "45c6db7b9e207f2842eb0055ad84a79f89409005ca01d5d639443a4864bfd13f"
+    "sha256": "2c2ff74d4d22809f73f219077228840945bc652e0fd93b90ec3223fec54f316f"
   },
   {
     "file": "selected-brand/logos/manifest.json",
