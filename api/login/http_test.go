@@ -34,4 +34,7 @@ func TestCIMDHasExactPublicCallbackAndNoSecrets(t *testing.T) {
 	if w.Code != http.StatusOK || meta.ClientID != "https://headmesh.test/.well-known/oauth-cimd" || len(meta.Redirects) != 1 || meta.Redirects[0] != "https://headmesh.test/oauth/callback/huggingface" || meta.Auth != "none" {
 		t.Fatalf("invalid CIMD %+v", meta)
 	}
+	if got := w.Header().Get("Cache-Control"); got != "no-store, no-transform" {
+		t.Fatalf("auth payload can be rewritten: %q", got)
+	}
 }

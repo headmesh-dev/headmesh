@@ -149,6 +149,9 @@ func serve(ctx context.Context, logger *slog.Logger, args []string) error {
 	for _, path := range []string{"/oauth/login", "/oauth/login/*", "/oauth/callback/*", "/oauth/account", "/oauth/logout", "/.well-known/oauth-cimd"} {
 		router.Handle(path, loginHandler)
 	}
+	router.Get("/favicon.ico", func(w http.ResponseWriter, r *http.Request) {
+		http.Redirect(w, r, "https://headmesh.dev/favicon.ico", http.StatusTemporaryRedirect)
+	})
 	apiServer := &http.Server{
 		Addr: cfg.Listen, Handler: router, ReadHeaderTimeout: 10 * time.Second, ReadTimeout: 30 * time.Second,
 		WriteTimeout: 90 * time.Second, IdleTimeout: 120 * time.Second, MaxHeaderBytes: 64 << 10,

@@ -44,11 +44,11 @@ func (h *Handler) HTTP() http.Handler {
 	mux.HandleFunc("GET /.well-known/oauth-cimd", h.cimd)
 	protected := http.NewCrossOriginProtection().Handler(mux)
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		w.Header().Set("Cache-Control", "no-store")
+		w.Header().Set("Cache-Control", "no-store, no-transform")
 		w.Header().Set("Referrer-Policy", "no-referrer")
 		w.Header().Set("X-Content-Type-Options", "nosniff")
 		w.Header().Set("X-Frame-Options", "DENY")
-		w.Header().Set("Content-Security-Policy", "default-src 'none'; style-src 'unsafe-inline'; form-action 'self' https://github.com https://huggingface.co; frame-ancestors 'none'; base-uri 'none'")
+		w.Header().Set("Content-Security-Policy", "default-src 'none'; style-src 'unsafe-inline'; img-src 'self' https://headmesh.dev; form-action 'self' https://github.com https://huggingface.co; frame-ancestors 'none'; base-uri 'none'")
 		r.Body = http.MaxBytesReader(w, r.Body, 16<<10)
 		protected.ServeHTTP(w, r)
 	})
@@ -210,7 +210,7 @@ var page = template.Must(template.New("login").Funcs(template.FuncMap{"label": f
 		return "GitHub"
 	}
 	return "Hugging Face"
-}}).Parse(`<!doctype html><html lang="en"><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>Headmesh · Sign in</title>
+}}).Parse(`<!doctype html><html lang="en"><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><link rel="icon" type="image/svg+xml" href="https://headmesh.dev/favicon.svg"><title>Headmesh · Sign in</title>
 <style>body{margin:0;background:#101318;color:#edf0f5;font:16px/1.6 system-ui,sans-serif;display:grid;place-items:center;min-height:100vh}main{max-width:30rem;padding:2.5rem}h1{letter-spacing:-.04em}p{color:#bac2cf}button{width:100%;padding:.9rem 1.2rem;border:1px solid #495264;background:#202733;color:inherit;border-radius:.6rem;font:inherit;cursor:pointer}button:hover{background:#303c4e}button:focus-visible,a:focus-visible{outline:3px solid #9ab6ff;outline-offset:3px}form{margin:1rem 0}a{color:#bbceff}.brand{font-weight:650;color:inherit;text-decoration:none}.small{font-size:.875rem}</style>
 <main><a class="brand" href="https://headmesh.dev">Headmesh</a>{{if .User}}<h1>You’re signed in</h1><p>{{.User.Name}}<br>{{.User.Email}}</p><p>Sandbox access is granted separately. Sign-in alone does not grant access to a machine.</p>{{range .Providers}}<form method="post" action="/oauth/login/{{.}}"><input type="hidden" name="intent" value="link"><input type="hidden" name="next" value="{{$.Next}}"><button>Link {{label .}} to this account</button></form>{{end}}<form method="post" action="/oauth/logout"><button>Sign out</button></form>{{else}}<h1>Sign in to Headmesh</h1><p>Use your account to continue. You’ll review access before connecting an app to a sandbox.</p>{{range .Providers}}<form method="post" action="/oauth/login/{{.}}"><input type="hidden" name="next" value="{{$.Next}}"><button>Continue with {{label .}}</button></form>{{else}}<p>Sign-in providers haven’t been configured yet.</p>{{end}}{{end}}<p class="small"><a href="https://headmesh.dev/privacy">Privacy</a> · <a href="https://headmesh.dev/terms">Terms</a></p></main></html>`))
 
