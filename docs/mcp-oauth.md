@@ -28,7 +28,7 @@ Configure browser sign-in as described in [browser-sign-in.md](browser-sign-in.m
 Public metadata is served at `/.well-known/oauth-authorization-server` and
 `/.well-known/openid-configuration` under `HEADMESH_PUBLIC_URL`.
 
-An operator with `HEADMESH_DATABASE_OWNER_URL` can grant a linked identity access:
+An operator with `HEADMESH_MIGRATE_DATABASE_URL` can grant a linked identity access:
 
 ```sh
 headmesh-server oauth-grant -provider github -subject PROVIDER_NUMERIC_ID \

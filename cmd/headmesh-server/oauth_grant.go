@@ -41,9 +41,9 @@ func oauthGrant(ctx context.Context, args []string) error {
 	if !*revoke && (*name == "" || !slices.Contains(scopes, "sandbox:read")) {
 		return errors.New("a name and sandbox:read scope are required")
 	}
-	dsn := env("HEADMESH_DATABASE_OWNER_URL", "")
+	dsn := env("HEADMESH_MIGRATE_DATABASE_URL", "")
 	if dsn == "" {
-		return errors.New("HEADMESH_DATABASE_OWNER_URL is required for operator grant management")
+		return errors.New("HEADMESH_MIGRATE_DATABASE_URL (schema owner) is required for operator grant management")
 	}
 	pool, err := pgxpool.New(ctx, dsn)
 	if err != nil {
