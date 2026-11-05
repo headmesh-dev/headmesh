@@ -160,15 +160,20 @@ func Middleware(store *Store, rs ResourceServer, resourceMetadataURL string, h h
 		AllowMissingExpiration: true,
 		ClockSkew:              time.Minute,
 	})(h)
+	scopes := AllScopes
+	if rs != nil {
+		scopes = rs.Metadata().ScopesSupported
+	}
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		inner.ServeHTTP(&challengeWriter{ResponseWriter: w}, r)
+		inner.ServeHTTP(&challengeWriter{ResponseWriter: w, scopes: scopes}, r)
 	})
 }
 
 // challengeWriter appends scope="..." to the SDK's Bearer challenge.
 type challengeWriter struct {
 	http.ResponseWriter
-	wrote bool
+	wrote  bool
+	scopes []string
 }
 
 func (c *challengeWriter) WriteHeader(code int) {
@@ -183,7 +188,7 @@ func (c *challengeWriter) WriteHeader(code int) {
 			if ch == "Bearer" {
 				sep = " "
 			}
-			ch += sep + fmt.Sprintf("scope=%q", strings.Join(AllScopes, " "))
+			ch += sep + fmt.Sprintf("scope=%q", strings.Join(c.scopes, " "))
 		}
 		h.Set("WWW-Authenticate", ch)
 	}

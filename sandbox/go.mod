@@ -3,6 +3,7 @@ module github.com/headmesh-dev/headmesh/sandbox
 go 1.26.8
 
 require (
+	github.com/go-jose/go-jose/v4 v4.1.4
 	github.com/google/go-cmp v0.7.0
 	github.com/google/jsonschema-go v0.4.3
 	github.com/knadh/koanf/parsers/toml/v2 v2.2.2

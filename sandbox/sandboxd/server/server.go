@@ -185,6 +185,12 @@ func New(o Options) (*Server, error) {
 		resource = strings.TrimSuffix(cfg.Sandboxd.PublicURL, "/") + "/mcp"
 	}
 	s.rs = authn.StubResourceServer{Resource: resource, AuthorizationServers: oa.AuthorizationServers, JWKSURL: oa.JWKSURL}
+	if oa.Enabled {
+		s.rs, err = authn.NewOAuthResourceServer(oa.Issuer, resource, oa.JWKSURL)
+		if err != nil {
+			return nil, fmt.Errorf("OAuth resource server: %w", err)
+		}
+	}
 
 	s.guide = guidelines.FromConfig(cfg, o.Mode, o.YOLOExpiresAt)
 	tmpl := ""

@@ -116,7 +116,9 @@ tunnel_max_response_bytes = 8388608
 # Redact likely secrets (gitleaks when installed, plus built-in patterns) from tool output.
 redact_output = false
 
-# OAuth 2.1 resource server (M3). Bearer tokens keep working when enabled.
+# OAuth 2.1 resource server. Requires a deployed Headmesh authorization server
+# and an explicit resource grant. Bearer tokens keep working when enabled.
+# See docs/mcp-oauth.md in the control-plane repository.
 [sandboxd.oauth]
 enabled = false
 issuer = ""
