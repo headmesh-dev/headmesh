@@ -130,7 +130,7 @@ export default defineConfig({
         SiteTitle: "./src/components/DocsSiteTitle.astro",
         PageTitle: "./src/components/DocsPageTitle.astro",
       },
-      favicon: "/favicon.svg?v=transparent-1",
+      favicon: "/favicon.svg?v=fullsize-1",
       disable404Route: true,
       pagefind: false,
       social: [{ icon: "github", label: "GitHub", href: REPO_URL }],

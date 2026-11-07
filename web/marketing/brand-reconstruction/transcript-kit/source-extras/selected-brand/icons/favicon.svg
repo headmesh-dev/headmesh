@@ -1,5 +1,5 @@
 <?xml version="1.0" encoding="UTF-8"?>
-<svg xmlns="http://www.w3.org/2000/svg" width="512" height="512" viewBox="0 0 512 512" role="img" aria-labelledby="title desc" data-background="transparent">
+<svg xmlns="http://www.w3.org/2000/svg" width="512" height="512" viewBox="88 88 336 336" role="img" aria-labelledby="title desc" data-background="transparent">
   <title id="title">Headmesh favicon</title>
   <desc id="desc">Headmesh identity artwork: the shared-leg arch mark represents two private meshes joined by a temporary grant.</desc>
   <defs><linearGradient id="faviconLeg" x1="222" y1="280" x2="290" y2="424" gradientUnits="userSpaceOnUse"><stop stop-color="#0A7A5C"/><stop offset="1" stop-color="#0A70B0"/></linearGradient></defs>

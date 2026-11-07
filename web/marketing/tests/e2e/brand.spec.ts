@@ -17,7 +17,9 @@ for (const colorScheme of ["light", "dark"] as const) {
         const context = canvas.getContext("2d");
         if (!context) throw new Error("No 2D canvas context");
         context.drawImage(image, 0, 0, 512, 512);
-        const pixel = (x: number, y: number) => [...context.getImageData(x, y, 1, 1).data];
+        const pixel = (x: number, y: number) => [
+          ...context.getImageData(((x - 88) * 512) / 336, ((y - 88) * 512) / 336, 1, 1).data,
+        ];
         return {
           path: new URL(icon.href).pathname,
           version: new URL(icon.href).searchParams.get("v"),
@@ -26,16 +28,16 @@ for (const colorScheme of ["light", "dark"] as const) {
         };
       });
       expect(samples.path).toBe(colorScheme === "dark" ? "/favicon-dark.svg" : "/favicon.svg");
-      expect(samples.version).toBe("transparent-1");
+      expect(samples.version).toBe("fullsize-1");
       expect(samples.gaps).toEqual([0, 0, 0]);
       expect(samples.leg).toEqual(colorScheme === "dark" ? [242, 246, 249, 255] : [7, 11, 18, 255]);
       expect(await cspViolations(page)).toEqual([]);
     }
-    const ico = await request.get("/favicon.ico?v=transparent-1");
+    const ico = await request.get("/favicon.ico?v=fullsize-1");
     expect(ico.status()).toBe(200);
     const bytes = await ico.body();
     expect(bytes.readUInt16LE(2)).toBe(1);
-    expect(bytes.readUInt16LE(4)).toBe(3);
+    expect(bytes.readUInt16LE(4)).toBe(6);
     expect(problems.console).toEqual([]);
   });
 }

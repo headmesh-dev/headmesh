@@ -114,7 +114,11 @@ function faviconSvg({ dark = false } = {}) {
   const end = dark ? colors.cyan : colors.blue;
   const defs = `<linearGradient id="faviconLeg" x1="222" y1="280" x2="290" y2="424" gradientUnits="userSpaceOnUse"><stop stop-color="${start}"/><stop offset="1" stop-color="${end}"/></linearGradient>`;
   const body = markPaths(dark ? colors.white : colors.ink, "faviconLeg").trim();
-  return svgDocument(512, 512, "Headmesh favicon", body, defs, ' data-background="transparent"');
+  // The mark spans 88..424 on both axes; use the whole favicon canvas.
+  return svgDocument(512, 512, "Headmesh favicon", body, defs, ' data-background="transparent"').replace(
+    'viewBox="0 0 512 512"',
+    'viewBox="88 88 336 336"',
+  );
 }
 
 const logoStyles = [
@@ -604,9 +608,9 @@ await Promise.all([
 ]);
 
 const icoEntries = [];
-for (const size of [16, 32, 48]) {
+for (const size of [16, 32, 48, 64, 128, 256, 512]) {
   const png = await renderPng(favicon, `icons/favicon-${size}.png`, size);
-  icoEntries.push({ size, png });
+  if (size <= 256) icoEntries.push({ size, png });
 }
 const ico = makeIco(icoEntries);
 await Promise.all([save("icons/favicon.ico", ico), writeFile(path.join(publicRoot, "favicon.ico"), ico)]);
@@ -670,7 +674,8 @@ Gradient backgrounds use mint-to-cyan with a solid black mark, including its sha
 PNG corners outside the rounded and circular backgrounds remain transparent. Squares have sharp, opaque corners.
 
 Favicons use the standalone mark with a transparent background, including the spaces under the arches and between
-the legs. The site selects favicon.svg or favicon-dark.svg for light and dark browser tabs. The 16, 32 and 48 px
+the legs. The site selects favicon.svg or favicon-dark.svg for light and dark browser tabs. The mark fills its
+square viewBox. PNGs cover 16, 32, 48, 64, 128, 256 and 512 px; the ICO includes every size through 256 px. The
 PNGs and ICO frames use the light-theme foreground and preserve the same transparent gaps.
 `,
 );
