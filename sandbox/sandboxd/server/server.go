@@ -414,20 +414,13 @@ func writeJSON(w http.ResponseWriter, code int, v any) {
 
 var errForbidden = errors.New("forbidden")
 
-// toolSpec describes a tool's metadata and policy.
+// toolSpec describes a tool or resource policy entry for invoke and /v1/call.
 type toolSpec struct {
-	name, title, desc string
-	scope             string
-	readOnly          bool
-	destructive       bool
-	idempotent        bool
-	openWorld         bool
+	name  string
+	scope string
 }
 
-func (sp toolSpec) annotations() *mcp.ToolAnnotations {
-	d, o := sp.destructive, sp.openWorld
-	return &mcp.ToolAnnotations{Title: sp.title, ReadOnlyHint: sp.readOnly, DestructiveHint: &d, IdempotentHint: sp.idempotent, OpenWorldHint: &o}
-}
+func boolPtr(v bool) *bool { return &v }
 
 type restTool struct {
 	spec toolSpec
@@ -437,8 +430,10 @@ type restTool struct {
 // callTimeout bounds a call when the tool doesn't choose its own.
 const callTimeout = 2 * time.Minute
 
-// addTool registers fn as an MCP tool and as POST /v1/call/<name>.
-func addTool[In, Out any](s *Server, sp toolSpec, timeout func(In) time.Duration, fn func(ctx context.Context, c authn.Caller, in In) (Out, error)) {
+// wrapTool registers fn as POST /v1/call/<name> and returns its MCP handler so
+// each tool calls mcp.AddTool directly with literal &mcp.Tool metadata.
+func wrapTool[In, Out any](s *Server, name, scope string, timeout func(In) time.Duration, fn func(ctx context.Context, c authn.Caller, in In) (Out, error)) mcp.ToolHandlerFor[In, Out] {
+	sp := toolSpec{name: name, scope: scope}
 	run := func(ctx context.Context, caller authn.Caller, in In) (Out, error) {
 		var zero Out
 		d := callTimeout
@@ -451,24 +446,23 @@ func addTool[In, Out any](s *Server, sp toolSpec, timeout func(In) time.Duration
 		}
 		return out.(Out), nil
 	}
-	mcp.AddTool(s.mcp, &mcp.Tool{Name: sp.name, Title: sp.title, Description: sp.desc, Annotations: sp.annotations()},
-		func(ctx context.Context, req *mcp.CallToolRequest, in In) (*mcp.CallToolResult, Out, error) {
-			var ti *auth.TokenInfo
-			if req.Extra != nil {
-				ti = req.Extra.TokenInfo
-			}
-			out, err := run(ctx, authn.FromTokenInfo(ti), in)
-			return nil, out, err
-		})
-	s.tools[sp.name] = &restTool{spec: sp, call: func(ctx context.Context, c authn.Caller, raw json.RawMessage) (any, error) {
+	s.tools[name] = &restTool{spec: sp, call: func(ctx context.Context, c authn.Caller, raw json.RawMessage) (any, error) {
 		var in In
 		dec := json.NewDecoder(bytes.NewReader(raw))
 		dec.DisallowUnknownFields()
 		if err := dec.Decode(&in); err != nil {
-			return nil, fmt.Errorf("arguments for %s: %w", sp.name, err)
+			return nil, fmt.Errorf("arguments for %s: %w", name, err)
 		}
 		return run(ctx, c, in)
 	}}
+	return func(ctx context.Context, req *mcp.CallToolRequest, in In) (*mcp.CallToolResult, Out, error) {
+		var ti *auth.TokenInfo
+		if req.Extra != nil {
+			ti = req.Extra.TokenInfo
+		}
+		out, err := run(ctx, authn.FromTokenInfo(ti), in)
+		return nil, out, err
+	}
 }
 
 // invoke enforces scope, limits, deadline and response size, and audits.

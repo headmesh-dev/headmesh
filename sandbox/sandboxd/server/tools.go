@@ -7,6 +7,8 @@ import (
 	"fmt"
 	"time"
 
+	"github.com/modelcontextprotocol/go-sdk/mcp"
+
 	"github.com/headmesh-dev/headmesh/sandbox/sandboxd/agents"
 	"github.com/headmesh-dev/headmesh/sandbox/sandboxd/artifacts"
 	"github.com/headmesh-dev/headmesh/sandbox/sandboxd/authn"
@@ -294,19 +296,35 @@ func (s *Server) repo(name string) (string, error) {
 func (s *Server) registerTools() {
 	read, exec, write := authn.ScopeRead, authn.ScopeExec, authn.ScopeWrite
 
-	addTool(s, toolSpec{
-		name: "sandbox_status", title: "Sandbox status", scope: read, readOnly: true, idempotent: true,
-		desc: "Mode (and YOLO TTL), boot_id and start times, tailnet identity and reachability, entry-point health, sessions and processes (running / exited / lost after a restart), active agents per repo, git summary, GPU and cache usage.",
-	},
+	mcp.AddTool(s.mcp, &mcp.Tool{
+		Name:        "sandbox_status",
+		Title:       "Sandbox status",
+		Description: "Mode (and YOLO TTL), boot_id and start times, tailnet identity and reachability, entry-point health, sessions and processes (running / exited / lost after a restart), active agents per repo, git summary, GPU and cache usage.",
+		Annotations: &mcp.ToolAnnotations{
+			Title:           "Sandbox status",
+			ReadOnlyHint:    true,
+			DestructiveHint: boolPtr(false),
+			IdempotentHint:  true,
+			OpenWorldHint:   boolPtr(false),
+		},
+	}, wrapTool(s, "sandbox_status", read,
 		func(in StatusIn) time.Duration { return 30 * time.Second },
 		func(ctx context.Context, _ authn.Caller, in StatusIn) (status.Report, error) {
 			return s.status.Collect(ctx, status.Options{ProbeReach: in.ProbeReach}), nil
-		})
+		}))
 
-	addTool(s, toolSpec{
-		name: "exec", title: "Run a command", scope: exec, destructive: true, openWorld: true,
-		desc: "Run a shell command (bash -lc) as user agent. Returns exit code, duration and the last 64 KB of stdout and stderr; the full output stays on disk (stdout_path/stderr_path, readable with fs_read). Use process_start or session_create for anything long-running.",
-	},
+	mcp.AddTool(s.mcp, &mcp.Tool{
+		Name:        "exec",
+		Title:       "Run a command",
+		Description: "Run a shell command (bash -lc) as user agent. Returns exit code, duration and the last 64 KB of stdout and stderr; the full output stays on disk (stdout_path/stderr_path, readable with fs_read). Use process_start or session_create for anything long-running.",
+		Annotations: &mcp.ToolAnnotations{
+			Title:           "Run a command",
+			ReadOnlyHint:    false,
+			DestructiveHint: boolPtr(true),
+			IdempotentHint:  false,
+			OpenWorldHint:   boolPtr(true),
+		},
+	}, wrapTool(s, "exec", exec,
 		func(in ExecIn) time.Duration { return time.Duration(max(in.TimeoutS, 0)+60) * time.Second },
 		func(ctx context.Context, c authn.Caller, in ExecIn) (ExecOut, error) {
 			t, note := s.execTimeout(c, in.TimeoutS)
@@ -316,28 +334,52 @@ func (s *Server) registerTools() {
 			}
 			res.Stdout, res.Stderr = s.redact(ctx, res.Stdout), s.redact(ctx, res.Stderr)
 			return ExecOut{Result: res, TimeoutS: t, Note: note}, err
-		})
+		}))
 
-	addTool(s, toolSpec{
-		name: "session_create", title: "Create an interactive session", scope: exec, openWorld: true,
-		desc: "Start an interactive terminal session (a tmux window) that survives client disconnects and sandboxd restarts. Aaryn can watch it live with `headmesh-sandbox attach`.",
-	},
+	mcp.AddTool(s.mcp, &mcp.Tool{
+		Name:        "session_create",
+		Title:       "Create an interactive session",
+		Description: "Start an interactive terminal session (a tmux window) that survives client disconnects and sandboxd restarts. Aaryn can watch it live with `headmesh-sandbox attach`.",
+		Annotations: &mcp.ToolAnnotations{
+			Title:           "Create an interactive session",
+			ReadOnlyHint:    false,
+			DestructiveHint: boolPtr(false),
+			IdempotentHint:  false,
+			OpenWorldHint:   boolPtr(true),
+		},
+	}, wrapTool(s, "session_create", exec,
 		nil, func(ctx context.Context, c authn.Caller, in SessionCreateIn) (sessions.Info, error) {
 			return s.sessions.Create(ctx, sessions.CreateOpts{Name: in.Name, CWD: in.CWD, Shell: in.Shell, Env: in.Env, Cols: in.Cols, Rows: in.Rows, Client: c.Client})
-		})
+		}))
 
-	addTool(s, toolSpec{
-		name: "session_send", title: "Type into a session", scope: exec, destructive: true, openWorld: true,
-		desc: "Type text and/or tmux key names (C-c, Enter, Up…) into a running session.",
-	},
+	mcp.AddTool(s.mcp, &mcp.Tool{
+		Name:        "session_send",
+		Title:       "Type into a session",
+		Description: "Type text and/or tmux key names (C-c, Enter, Up…) into a running session.",
+		Annotations: &mcp.ToolAnnotations{
+			Title:           "Type into a session",
+			ReadOnlyHint:    false,
+			DestructiveHint: boolPtr(true),
+			IdempotentHint:  false,
+			OpenWorldHint:   boolPtr(true),
+		},
+	}, wrapTool(s, "session_send", exec,
 		nil, func(ctx context.Context, _ authn.Caller, in SessionSendIn) (sessions.Info, error) {
 			return s.sessions.Send(ctx, in.ID, in.Input, in.Enter, in.Keys)
-		})
+		}))
 
-	addTool(s, toolSpec{
-		name: "session_read", title: "Read session output", scope: read, readOnly: true, idempotent: true,
-		desc: "Read a session's output from a byte offset, long-polling up to wait_ms for new output. Returns data, next_offset, alive and exit_code; truncated/more tell you how to fetch the rest.",
-	},
+	mcp.AddTool(s.mcp, &mcp.Tool{
+		Name:        "session_read",
+		Title:       "Read session output",
+		Description: "Read a session's output from a byte offset, long-polling up to wait_ms for new output. Returns data, next_offset, alive and exit_code; truncated/more tell you how to fetch the rest.",
+		Annotations: &mcp.ToolAnnotations{
+			Title:           "Read session output",
+			ReadOnlyHint:    true,
+			DestructiveHint: boolPtr(false),
+			IdempotentHint:  true,
+			OpenWorldHint:   boolPtr(false),
+		},
+	}, wrapTool(s, "session_read", read,
 		func(in SessionReadIn) time.Duration {
 			return time.Duration(min(max(in.WaitMS, 0), 30000))*time.Millisecond + 30*time.Second
 		},
@@ -345,60 +387,108 @@ func (s *Server) registerTools() {
 			r, err := s.sessions.Read(ctx, in.ID, sessions.ReadOpts{Offset: in.Offset, MaxBytes: in.MaxBytes, Wait: time.Duration(in.WaitMS) * time.Millisecond, Raw: in.Raw, Screen: in.Screen})
 			r.Data, r.Screen = s.redact(ctx, r.Data), s.redact(ctx, r.Screen)
 			return r, err
-		})
+		}))
 
-	addTool(s, toolSpec{
-		name: "session_list", title: "List sessions", scope: read, readOnly: true, idempotent: true,
-		desc: "All sessions with state running, exited(code) or lost (with the reason, e.g. container restarted at …).",
-	},
+	mcp.AddTool(s.mcp, &mcp.Tool{
+		Name:        "session_list",
+		Title:       "List sessions",
+		Description: "All sessions with state running, exited(code) or lost (with the reason, e.g. container restarted at …).",
+		Annotations: &mcp.ToolAnnotations{
+			Title:           "List sessions",
+			ReadOnlyHint:    true,
+			DestructiveHint: boolPtr(false),
+			IdempotentHint:  true,
+			OpenWorldHint:   boolPtr(false),
+		},
+	}, wrapTool(s, "session_list", read,
 		nil, func(ctx context.Context, _ authn.Caller, _ EmptyIn) (SessionListOut, error) {
 			list, err := s.sessions.List(ctx)
 			if list == nil {
 				list = []sessions.Info{}
 			}
 			return SessionListOut{Sessions: list, Counts: sessions.Summary(list)}, err
-		})
+		}))
 
-	addTool(s, toolSpec{
-		name: "session_kill", title: "Signal or close a session", scope: exec, destructive: true,
-		desc: "Send a signal to every process in the session (default HUP) and optionally close its window.",
-	},
+	mcp.AddTool(s.mcp, &mcp.Tool{
+		Name:        "session_kill",
+		Title:       "Signal or close a session",
+		Description: "Send a signal to every process in the session (default HUP) and optionally close its window.",
+		Annotations: &mcp.ToolAnnotations{
+			Title:           "Signal or close a session",
+			ReadOnlyHint:    false,
+			DestructiveHint: boolPtr(true),
+			IdempotentHint:  false,
+			OpenWorldHint:   boolPtr(false),
+		},
+	}, wrapTool(s, "session_kill", exec,
 		nil, func(ctx context.Context, _ authn.Caller, in SessionKillIn) (sessions.Info, error) {
 			return s.sessions.Kill(ctx, in.ID, in.Signal, in.Remove)
-		})
+		}))
 
-	addTool(s, toolSpec{
-		name: "session_resize", title: "Resize a session", scope: exec, idempotent: true,
-		desc: "Change a session's terminal size.",
-	},
+	mcp.AddTool(s.mcp, &mcp.Tool{
+		Name:        "session_resize",
+		Title:       "Resize a session",
+		Description: "Change a session's terminal size.",
+		Annotations: &mcp.ToolAnnotations{
+			Title:           "Resize a session",
+			ReadOnlyHint:    false,
+			DestructiveHint: boolPtr(false),
+			IdempotentHint:  true,
+			OpenWorldHint:   boolPtr(false),
+		},
+	}, wrapTool(s, "session_resize", exec,
 		nil, func(ctx context.Context, _ authn.Caller, in SessionResizeIn) (sessions.Info, error) {
 			return s.sessions.Resize(ctx, in.ID, in.Cols, in.Rows)
-		})
+		}))
 
-	addTool(s, toolSpec{
-		name: "process_start", title: "Start a background process", scope: exec, openWorld: true,
-		desc: "Start a detached command (bash -lc, own session and process group), logging stdout and stderr to a file. It keeps running after this call and after client disconnects.",
-	},
+	mcp.AddTool(s.mcp, &mcp.Tool{
+		Name:        "process_start",
+		Title:       "Start a background process",
+		Description: "Start a detached command (bash -lc, own session and process group), logging stdout and stderr to a file. It keeps running after this call and after client disconnects.",
+		Annotations: &mcp.ToolAnnotations{
+			Title:           "Start a background process",
+			ReadOnlyHint:    false,
+			DestructiveHint: boolPtr(false),
+			IdempotentHint:  false,
+			OpenWorldHint:   boolPtr(true),
+		},
+	}, wrapTool(s, "process_start", exec,
 		nil, func(ctx context.Context, c authn.Caller, in ProcessStartIn) (procs.Info, error) {
 			return s.procs.Start(ctx, procs.StartOpts{Name: in.Name, Command: in.Command, CWD: in.CWD, Env: in.Env, Client: c.Client})
-		})
+		}))
 
-	addTool(s, toolSpec{
-		name: "process_list", title: "List background processes", scope: read, readOnly: true, idempotent: true,
-		desc: "Background processes with state running, exited(code) or lost.",
-	},
+	mcp.AddTool(s.mcp, &mcp.Tool{
+		Name:        "process_list",
+		Title:       "List background processes",
+		Description: "Background processes with state running, exited(code) or lost.",
+		Annotations: &mcp.ToolAnnotations{
+			Title:           "List background processes",
+			ReadOnlyHint:    true,
+			DestructiveHint: boolPtr(false),
+			IdempotentHint:  true,
+			OpenWorldHint:   boolPtr(false),
+		},
+	}, wrapTool(s, "process_list", read,
 		nil, func(context.Context, authn.Caller, EmptyIn) (ProcessListOut, error) {
 			list, err := s.procs.List()
 			if list == nil {
 				list = []procs.Info{}
 			}
 			return ProcessListOut{Processes: list}, err
-		})
+		}))
 
-	addTool(s, toolSpec{
-		name: "process_logs", title: "Read process logs", scope: read, readOnly: true, idempotent: true,
-		desc: "The last lines of a process log, or bytes from an offset (since).",
-	},
+	mcp.AddTool(s.mcp, &mcp.Tool{
+		Name:        "process_logs",
+		Title:       "Read process logs",
+		Description: "The last lines of a process log, or bytes from an offset (since).",
+		Annotations: &mcp.ToolAnnotations{
+			Title:           "Read process logs",
+			ReadOnlyHint:    true,
+			DestructiveHint: boolPtr(false),
+			IdempotentHint:  true,
+			OpenWorldHint:   boolPtr(false),
+		},
+	}, wrapTool(s, "process_logs", read,
 		nil, func(ctx context.Context, _ authn.Caller, in ProcessLogsIn) (procs.LogsResult, error) {
 			since := int64(-1)
 			if in.Since != nil {
@@ -407,55 +497,103 @@ func (s *Server) registerTools() {
 			r, err := s.procs.Logs(in.ID, in.Tail, since, in.MaxBytes)
 			r.Data = s.redact(ctx, r.Data)
 			return r, err
-		})
+		}))
 
-	addTool(s, toolSpec{
-		name: "process_stop", title: "Stop a background process", scope: exec, destructive: true, idempotent: true,
-		desc: "Signal the process group (default TERM), then KILL after grace_s.",
-	},
+	mcp.AddTool(s.mcp, &mcp.Tool{
+		Name:        "process_stop",
+		Title:       "Stop a background process",
+		Description: "Signal the process group (default TERM), then KILL after grace_s.",
+		Annotations: &mcp.ToolAnnotations{
+			Title:           "Stop a background process",
+			ReadOnlyHint:    false,
+			DestructiveHint: boolPtr(true),
+			IdempotentHint:  true,
+			OpenWorldHint:   boolPtr(false),
+		},
+	}, wrapTool(s, "process_stop", exec,
 		func(ProcessStopIn) time.Duration { return 90 * time.Second },
 		func(ctx context.Context, _ authn.Caller, in ProcessStopIn) (procs.Info, error) {
 			return s.procs.Stop(ctx, in.ID, in.Signal, time.Duration(in.GraceS)*time.Second)
-		})
+		}))
 
-	addTool(s, toolSpec{
-		name: "fs_read", title: "Read a file", scope: read, readOnly: true, idempotent: true,
-		desc: "Read a text file with line numbers (like cat -n). Binary files are detected and not dumped. Up to 2 MB per call; next_offset continues.",
-	},
+	mcp.AddTool(s.mcp, &mcp.Tool{
+		Name:        "fs_read",
+		Title:       "Read a file",
+		Description: "Read a text file with line numbers (like cat -n). Binary files are detected and not dumped. Up to 2 MB per call; next_offset continues.",
+		Annotations: &mcp.ToolAnnotations{
+			Title:           "Read a file",
+			ReadOnlyHint:    true,
+			DestructiveHint: boolPtr(false),
+			IdempotentHint:  true,
+			OpenWorldHint:   boolPtr(false),
+		},
+	}, wrapTool(s, "fs_read", read,
 		nil, func(ctx context.Context, _ authn.Caller, in FsReadIn) (fsx.ReadResult, error) {
 			r, err := s.fs.Read(in.Path, in.Offset, in.Limit)
 			r.Content = s.redact(ctx, r.Content)
 			return r, err
-		})
+		}))
 
-	addTool(s, toolSpec{
-		name: "fs_write", title: "Write a file", scope: write, destructive: true, idempotent: true,
-		desc: "Replace a file atomically (temp file + rename), keeping its mode and owner. Refuses read-only mounts and names the writable ones.",
-	},
+	mcp.AddTool(s.mcp, &mcp.Tool{
+		Name:        "fs_write",
+		Title:       "Write a file",
+		Description: "Replace a file atomically (temp file + rename), keeping its mode and owner. Refuses read-only mounts and names the writable ones.",
+		Annotations: &mcp.ToolAnnotations{
+			Title:           "Write a file",
+			ReadOnlyHint:    false,
+			DestructiveHint: boolPtr(true),
+			IdempotentHint:  true,
+			OpenWorldHint:   boolPtr(false),
+		},
+	}, wrapTool(s, "fs_write", write,
 		nil, func(_ context.Context, _ authn.Caller, in FsWriteIn) (fsx.WriteResult, error) {
 			return s.fs.Write(in.Path, in.Content, in.Encoding, in.Mode, in.CreateDirs)
-		})
+		}))
 
-	addTool(s, toolSpec{
-		name: "fs_edit", title: "Edit a file", scope: write, destructive: true,
-		desc: "Replace exact text in a file. old_string must match exactly once unless replace_all is set.",
-	},
+	mcp.AddTool(s.mcp, &mcp.Tool{
+		Name:        "fs_edit",
+		Title:       "Edit a file",
+		Description: "Replace exact text in a file. old_string must match exactly once unless replace_all is set.",
+		Annotations: &mcp.ToolAnnotations{
+			Title:           "Edit a file",
+			ReadOnlyHint:    false,
+			DestructiveHint: boolPtr(true),
+			IdempotentHint:  false,
+			OpenWorldHint:   boolPtr(false),
+		},
+	}, wrapTool(s, "fs_edit", write,
 		nil, func(_ context.Context, _ authn.Caller, in FsEditIn) (fsx.WriteResult, error) {
 			return s.fs.Edit(in.Path, in.OldString, in.NewString, in.ReplaceAll)
-		})
+		}))
 
-	addTool(s, toolSpec{
-		name: "fs_list", title: "List a directory", scope: read, readOnly: true, idempotent: true,
-		desc: "List entries to a depth, filtered by glob. Skips hidden entries unless include_hidden; never descends into .git.",
-	},
+	mcp.AddTool(s.mcp, &mcp.Tool{
+		Name:        "fs_list",
+		Title:       "List a directory",
+		Description: "List entries to a depth, filtered by glob. Skips hidden entries unless include_hidden; never descends into .git.",
+		Annotations: &mcp.ToolAnnotations{
+			Title:           "List a directory",
+			ReadOnlyHint:    true,
+			DestructiveHint: boolPtr(false),
+			IdempotentHint:  true,
+			OpenWorldHint:   boolPtr(false),
+		},
+	}, wrapTool(s, "fs_list", read,
 		nil, func(_ context.Context, _ authn.Caller, in FsListIn) (fsx.ListResult, error) {
 			return s.fs.List(in.Path, in.Depth, in.Glob, in.IncludeHidden, in.Limit)
-		})
+		}))
 
-	addTool(s, toolSpec{
-		name: "fs_search", title: "Search files", scope: read, readOnly: true, idempotent: true,
-		desc: "Search file contents with ripgrep (respects .gitignore). Fixed string by default; set regex for a regular expression.",
-	},
+	mcp.AddTool(s.mcp, &mcp.Tool{
+		Name:        "fs_search",
+		Title:       "Search files",
+		Description: "Search file contents with ripgrep (respects .gitignore). Fixed string by default; set regex for a regular expression.",
+		Annotations: &mcp.ToolAnnotations{
+			Title:           "Search files",
+			ReadOnlyHint:    true,
+			DestructiveHint: boolPtr(false),
+			IdempotentHint:  true,
+			OpenWorldHint:   boolPtr(false),
+		},
+	}, wrapTool(s, "fs_search", read,
 		func(FsSearchIn) time.Duration { return 75 * time.Second },
 		func(ctx context.Context, _ authn.Caller, in FsSearchIn) (fsx.SearchResult, error) {
 			r, err := s.fs.Search(ctx, fsx.SearchOpts{Pattern: in.Pattern, Path: in.Path, Glob: in.Glob, Regex: in.Regex, CaseInsensitive: in.CaseInsensitive, MaxResults: in.MaxResults, Context: in.Context})
@@ -463,34 +601,66 @@ func (s *Server) registerTools() {
 				r.Matches[i].Text = s.redact(ctx, r.Matches[i].Text)
 			}
 			return r, err
-		})
+		}))
 
-	addTool(s, toolSpec{
-		name: "fs_stat", title: "Describe a path", scope: read, readOnly: true, idempotent: true,
-		desc: "Type, size, mode, owner, mtime, symlink target, mount point, and whether the mount is read-only.",
-	},
-		nil, func(_ context.Context, _ authn.Caller, in PathIn) (fsx.StatResult, error) { return s.fs.Stat(in.Path) })
+	mcp.AddTool(s.mcp, &mcp.Tool{
+		Name:        "fs_stat",
+		Title:       "Describe a path",
+		Description: "Type, size, mode, owner, mtime, symlink target, mount point, and whether the mount is read-only.",
+		Annotations: &mcp.ToolAnnotations{
+			Title:           "Describe a path",
+			ReadOnlyHint:    true,
+			DestructiveHint: boolPtr(false),
+			IdempotentHint:  true,
+			OpenWorldHint:   boolPtr(false),
+		},
+	}, wrapTool(s, "fs_stat", read,
+		nil, func(_ context.Context, _ authn.Caller, in PathIn) (fsx.StatResult, error) { return s.fs.Stat(in.Path) }))
 
-	addTool(s, toolSpec{
-		name: "fs_move", title: "Move or rename", scope: write, destructive: true,
-		desc: "Rename within one filesystem. Refuses to replace an existing destination unless overwrite is set.",
-	},
+	mcp.AddTool(s.mcp, &mcp.Tool{
+		Name:        "fs_move",
+		Title:       "Move or rename",
+		Description: "Rename within one filesystem. Refuses to replace an existing destination unless overwrite is set.",
+		Annotations: &mcp.ToolAnnotations{
+			Title:           "Move or rename",
+			ReadOnlyHint:    false,
+			DestructiveHint: boolPtr(true),
+			IdempotentHint:  false,
+			OpenWorldHint:   boolPtr(false),
+		},
+	}, wrapTool(s, "fs_move", write,
 		nil, func(_ context.Context, _ authn.Caller, in FsMoveIn) (fsx.MoveResult, error) {
 			return s.fs.Move(in.Src, in.Dst, in.Overwrite)
-		})
+		}))
 
-	addTool(s, toolSpec{
-		name: "fs_delete", title: "Delete to trash", scope: write, destructive: true,
-		desc: "Move a file or directory to <mount>/.headmesh-trash/<timestamp>/ so it can be restored with fs_move.",
-	},
+	mcp.AddTool(s.mcp, &mcp.Tool{
+		Name:        "fs_delete",
+		Title:       "Delete to trash",
+		Description: "Move a file or directory to <mount>/.headmesh-trash/<timestamp>/ so it can be restored with fs_move.",
+		Annotations: &mcp.ToolAnnotations{
+			Title:           "Delete to trash",
+			ReadOnlyHint:    false,
+			DestructiveHint: boolPtr(true),
+			IdempotentHint:  false,
+			OpenWorldHint:   boolPtr(false),
+		},
+	}, wrapTool(s, "fs_delete", write,
 		nil, func(_ context.Context, _ authn.Caller, in FsDeleteIn) (fsx.DeleteResult, error) {
 			return s.fs.Delete(in.Path, in.Recursive)
-		})
+		}))
 
-	addTool(s, toolSpec{
-		name: "git_status", title: "Git status", scope: read, readOnly: true, idempotent: true,
-		desc: "Branch, ahead/behind, staged/unstaged/untracked files (porcelain v2), any rebase or merge in progress, and other agents active in the repo.",
-	},
+	mcp.AddTool(s.mcp, &mcp.Tool{
+		Name:        "git_status",
+		Title:       "Git status",
+		Description: "Branch, ahead/behind, staged/unstaged/untracked files (porcelain v2), any rebase or merge in progress, and other agents active in the repo.",
+		Annotations: &mcp.ToolAnnotations{
+			Title:           "Git status",
+			ReadOnlyHint:    true,
+			DestructiveHint: boolPtr(false),
+			IdempotentHint:  true,
+			OpenWorldHint:   boolPtr(false),
+		},
+	}, wrapTool(s, "git_status", read,
 		nil, func(ctx context.Context, _ authn.Caller, in RepoIn) (gitx.Status, error) {
 			p, err := s.repo(in.Repo)
 			if err != nil {
@@ -502,12 +672,20 @@ func (s *Server) registerTools() {
 			}
 			st.Agents = s.agents.ActiveIn(p, "")
 			return st, nil
-		})
+		}))
 
-	addTool(s, toolSpec{
-		name: "git_sync", title: "Fetch and rebase", scope: write, openWorld: true,
-		desc: "git fetch, then pull --rebase --autostash. On conflict it reports the files and stops (aborting the rebase by default). Never force-pushes.",
-	},
+	mcp.AddTool(s.mcp, &mcp.Tool{
+		Name:        "git_sync",
+		Title:       "Fetch and rebase",
+		Description: "git fetch, then pull --rebase --autostash. On conflict it reports the files and stops (aborting the rebase by default). Never force-pushes.",
+		Annotations: &mcp.ToolAnnotations{
+			Title:           "Fetch and rebase",
+			ReadOnlyHint:    false,
+			DestructiveHint: boolPtr(false),
+			IdempotentHint:  false,
+			OpenWorldHint:   boolPtr(true),
+		},
+	}, wrapTool(s, "git_sync", write,
 		func(GitSyncIn) time.Duration { return 5 * time.Minute },
 		func(ctx context.Context, _ authn.Caller, in GitSyncIn) (gitx.SyncResult, error) {
 			p, err := s.repo(in.Repo)
@@ -516,12 +694,20 @@ func (s *Server) registerTools() {
 			}
 			abort := in.AbortOnConflict == nil || *in.AbortOnConflict
 			return s.git.Sync(ctx, p, abort)
-		})
+		}))
 
-	addTool(s, toolSpec{
-		name: "git_push_safe", title: "Rebase and push", scope: write, openWorld: true,
-		desc: "Rebase the current branch on <remote>/<branch>, run the hooks, and push without force. Conflicts and rejected pushes are reported, never forced.",
-	},
+	mcp.AddTool(s.mcp, &mcp.Tool{
+		Name:        "git_push_safe",
+		Title:       "Rebase and push",
+		Description: "Rebase the current branch on <remote>/<branch>, run the hooks, and push without force. Conflicts and rejected pushes are reported, never forced.",
+		Annotations: &mcp.ToolAnnotations{
+			Title:           "Rebase and push",
+			ReadOnlyHint:    false,
+			DestructiveHint: boolPtr(false),
+			IdempotentHint:  false,
+			OpenWorldHint:   boolPtr(true),
+		},
+	}, wrapTool(s, "git_push_safe", write,
 		func(GitPushIn) time.Duration { return 5 * time.Minute },
 		func(ctx context.Context, _ authn.Caller, in GitPushIn) (gitx.PushResult, error) {
 			p, err := s.repo(in.Repo)
@@ -529,12 +715,20 @@ func (s *Server) registerTools() {
 				return gitx.PushResult{}, err
 			}
 			return s.git.PushSafe(ctx, p, in.Remote, in.Branch)
-		})
+		}))
 
-	addTool(s, toolSpec{
-		name: "artifact_put", title: "Store an artifact", scope: write,
-		desc: "Store text, base64 content, or a copy of a file. Returns an id and a signed download URL valid for 1 hour (tailnet only).",
-	},
+	mcp.AddTool(s.mcp, &mcp.Tool{
+		Name:        "artifact_put",
+		Title:       "Store an artifact",
+		Description: "Store text, base64 content, or a copy of a file. Returns an id and a signed download URL valid for 1 hour (tailnet only).",
+		Annotations: &mcp.ToolAnnotations{
+			Title:           "Store an artifact",
+			ReadOnlyHint:    false,
+			DestructiveHint: boolPtr(false),
+			IdempotentHint:  false,
+			OpenWorldHint:   boolPtr(false),
+		},
+	}, wrapTool(s, "artifact_put", write,
 		nil, func(_ context.Context, c authn.Caller, in ArtifactPutIn) (artifacts.Meta, error) {
 			set := 0
 			for _, v := range []string{in.Content, in.ContentBase64, in.Path} {
@@ -561,21 +755,37 @@ func (s *Server) registerTools() {
 			default:
 				return s.artifacts.Put(in.Name, []byte(in.Content), "", c.Client)
 			}
-		})
+		}))
 
-	addTool(s, toolSpec{
-		name: "artifact_list", title: "List artifacts", scope: read, readOnly: true, idempotent: true,
-		desc: "Artifacts, newest first, with fresh signed URLs.",
-	},
+	mcp.AddTool(s.mcp, &mcp.Tool{
+		Name:        "artifact_list",
+		Title:       "List artifacts",
+		Description: "Artifacts, newest first, with fresh signed URLs.",
+		Annotations: &mcp.ToolAnnotations{
+			Title:           "List artifacts",
+			ReadOnlyHint:    true,
+			DestructiveHint: boolPtr(false),
+			IdempotentHint:  true,
+			OpenWorldHint:   boolPtr(false),
+		},
+	}, wrapTool(s, "artifact_list", read,
 		nil, func(_ context.Context, _ authn.Caller, in ArtifactListIn) (ArtifactListOut, error) {
 			list, err := s.artifacts.List(in.Prefix, in.Limit)
 			return ArtifactListOut{Artifacts: list}, err
-		})
+		}))
 
-	addTool(s, toolSpec{
-		name: "artifact_get", title: "Read an artifact", scope: read, readOnly: true, idempotent: true,
-		desc: "Read an artifact from an offset (text as UTF-8, binary as base64), with a fresh signed URL.",
-	},
+	mcp.AddTool(s.mcp, &mcp.Tool{
+		Name:        "artifact_get",
+		Title:       "Read an artifact",
+		Description: "Read an artifact from an offset (text as UTF-8, binary as base64), with a fresh signed URL.",
+		Annotations: &mcp.ToolAnnotations{
+			Title:           "Read an artifact",
+			ReadOnlyHint:    true,
+			DestructiveHint: boolPtr(false),
+			IdempotentHint:  true,
+			OpenWorldHint:   boolPtr(false),
+		},
+	}, wrapTool(s, "artifact_get", read,
 		nil, func(ctx context.Context, c authn.Caller, in ArtifactGetIn) (artifacts.Content, error) {
 			maxB := in.MaxBytes
 			if c.Tunnel() && (maxB <= 0 || maxB > 2<<20) {
@@ -586,21 +796,37 @@ func (s *Server) registerTools() {
 				r.Data = s.redact(ctx, r.Data)
 			}
 			return r, err
-		})
+		}))
 
-	addTool(s, toolSpec{
-		name: "net_check", title: "Check reachability", scope: read, readOnly: true, idempotent: true, openWorld: true,
-		desc: "Resolve a name with the system resolver and MagicDNS, tailscale ping it (direct or DERP), and test a TCP port.",
-	},
+	mcp.AddTool(s.mcp, &mcp.Tool{
+		Name:        "net_check",
+		Title:       "Check reachability",
+		Description: "Resolve a name with the system resolver and MagicDNS, tailscale ping it (direct or DERP), and test a TCP port.",
+		Annotations: &mcp.ToolAnnotations{
+			Title:           "Check reachability",
+			ReadOnlyHint:    true,
+			DestructiveHint: boolPtr(false),
+			IdempotentHint:  true,
+			OpenWorldHint:   boolPtr(true),
+		},
+	}, wrapTool(s, "net_check", read,
 		func(NetCheckIn) time.Duration { return 20 * time.Second },
 		func(ctx context.Context, _ authn.Caller, in NetCheckIn) (netcheck.Result, error) {
 			return s.net.Check(ctx, in.Target, in.Port)
-		})
+		}))
 
-	addTool(s, toolSpec{
-		name: "agents_register", title: "Register this agent", scope: read,
-		desc: "Announce your entry point, task and repos. Returns the other agents active in the same repos and the protocol to follow. Heartbeat at least every 2 minutes.",
-	},
+	mcp.AddTool(s.mcp, &mcp.Tool{
+		Name:        "agents_register",
+		Title:       "Register this agent",
+		Description: "Announce your entry point, task and repos. Returns the other agents active in the same repos and the protocol to follow. Heartbeat at least every 2 minutes.",
+		Annotations: &mcp.ToolAnnotations{
+			Title:           "Register this agent",
+			ReadOnlyHint:    false,
+			DestructiveHint: boolPtr(false),
+			IdempotentHint:  false,
+			OpenWorldHint:   boolPtr(false),
+		},
+	}, wrapTool(s, "agents_register", read,
 		nil, func(_ context.Context, c authn.Caller, in AgentsRegisterIn) (agents.RegisterResult, error) {
 			repos := make([]string, 0, len(in.Repos))
 			for _, r := range in.Repos {
@@ -611,20 +837,36 @@ func (s *Server) registerTools() {
 				repos = append(repos, p)
 			}
 			return s.agents.Register(in.Agent, in.Task, repos, c.Client, in.Session)
-		})
+		}))
 
-	addTool(s, toolSpec{
-		name: "agents_heartbeat", title: "Agent heartbeat", scope: read, idempotent: true,
-		desc: "Keep a registration alive (active means a heartbeat in the last 2 minutes).",
-	},
+	mcp.AddTool(s.mcp, &mcp.Tool{
+		Name:        "agents_heartbeat",
+		Title:       "Agent heartbeat",
+		Description: "Keep a registration alive (active means a heartbeat in the last 2 minutes).",
+		Annotations: &mcp.ToolAnnotations{
+			Title:           "Agent heartbeat",
+			ReadOnlyHint:    false,
+			DestructiveHint: boolPtr(false),
+			IdempotentHint:  true,
+			OpenWorldHint:   boolPtr(false),
+		},
+	}, wrapTool(s, "agents_heartbeat", read,
 		nil, func(_ context.Context, _ authn.Caller, in AgentsHeartbeatIn) (agents.RegisterResult, error) {
 			return s.agents.Heartbeat(in.ID, in.Task)
-		})
+		}))
 
-	addTool(s, toolSpec{
-		name: "agents_list", title: "List agents", scope: read, readOnly: true, idempotent: true,
-		desc: "Registered agents (optionally for one repo) with whether each is active.",
-	},
+	mcp.AddTool(s.mcp, &mcp.Tool{
+		Name:        "agents_list",
+		Title:       "List agents",
+		Description: "Registered agents (optionally for one repo) with whether each is active.",
+		Annotations: &mcp.ToolAnnotations{
+			Title:           "List agents",
+			ReadOnlyHint:    true,
+			DestructiveHint: boolPtr(false),
+			IdempotentHint:  true,
+			OpenWorldHint:   boolPtr(false),
+		},
+	}, wrapTool(s, "agents_list", read,
 		nil, func(_ context.Context, _ authn.Caller, in AgentsListIn) (AgentsListOut, error) {
 			repo := ""
 			if in.Repo != "" {
@@ -636,16 +878,24 @@ func (s *Server) registerTools() {
 			}
 			list, err := s.agents.List(repo)
 			return AgentsListOut{Agents: list}, err
-		})
+		}))
 
-	addTool(s, toolSpec{
-		name: "agents_unregister", title: "Unregister this agent", scope: read, idempotent: true,
-		desc: "Remove a registration and release its repo locks when the task ends.",
-	},
+	mcp.AddTool(s.mcp, &mcp.Tool{
+		Name:        "agents_unregister",
+		Title:       "Unregister this agent",
+		Description: "Remove a registration and release its repo locks when the task ends.",
+		Annotations: &mcp.ToolAnnotations{
+			Title:           "Unregister this agent",
+			ReadOnlyHint:    false,
+			DestructiveHint: boolPtr(false),
+			IdempotentHint:  true,
+			OpenWorldHint:   boolPtr(false),
+		},
+	}, wrapTool(s, "agents_unregister", read,
 		nil, func(_ context.Context, _ authn.Caller, in IDIn) (OKOut, error) {
 			if err := s.agents.Unregister(in.ID); err != nil {
 				return OKOut{}, err
 			}
 			return OKOut{OK: true, Message: "unregistered " + in.ID}, nil
-		})
+		}))
 }
