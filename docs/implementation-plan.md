@@ -99,7 +99,7 @@ public beta sign-up on hs1, **Gate C** general availability.
 | Audit | Per-org hash chain, verify, NDJSON export, offline verify | Signed daily anchor (T-17) |
 | CLI (`cli/`) | `join`, `invite`, `devices ls`, `grant create/ls/revoke`, `rule add/set/ls/rm`, `service add/ls/rm`, `access check`, `audit tail/export/verify`; GoReleaser with cosign, SBOM, provenance, deb and rpm | `login`, `logout`, `whoami`, `status`, `up`, `down`, `switch`, `leave`, `devices rename/rm`, `grant extend`, `rules apply/preview`, `doctor`, `update`; keyring (today only `HEADMESH_API_KEY`); testscript goldens; Homebrew, npm and `install.sh` |
 | E2E (`test/e2e`) | Real Headscale and Tailscale: cross-tenant isolation, netmap invisibility, a grant opens exactly its port, established-flow cut, revocation latency | Quarantine of a rogue node; p99 over many revocations (the test fails only above 15 s); nightly runs on Hetzner; mixed node kinds |
-| Deploy (`deploy/`) | nginx and systemd blue-green; hs1 on Headscale 0.29.6; cell agent enforcing; certbot DNS-01; Hetzner Cloud Firewall; break-glass WireGuard; `deploy/tests/e2e.sh` | Headscale 0.29.7; `sandbox-ingress.conf.tmpl` exists but `deploy.sh` doesn't use it; no `*.sbx.headmesh.dev` certificate; Alloy; OpenTofu |
+| Deploy (`deploy/`) | nginx and systemd blue-green; hs1 on Headscale 0.29.7; cell agent enforcing; certbot DNS-01; Hetzner Cloud Firewall; break-glass WireGuard; `deploy/tests/e2e.sh` | `sandbox-ingress.conf.tmpl` exists but `deploy.sh` doesn't use it; no `*.sbx.headmesh.dev` certificate; Alloy; OpenTofu |
 | Sandbox (`sandbox/`) | Image, Regular and YOLO profiles, sandboxd (31 tools), host CLI, acceptance harness, YOLO TTL, OAuth resource server; locally verified; `sandbox-v0.1.0` tagged | Host firewall and backup installed on the ASUS; enrollment; live front doors; five-route acceptance; MCP gateway |
 | Plugins | `headmesh` and `xcelsior` 0.1.0, validated, install-smoke CI, directory-submission drafts | Directory submissions and MCP Registry publication (external steps) |
 | Marketing | headmesh.dev and waitlist live | `/download` (C3), API reference, "runs on Headmesh" (after M4) |
@@ -272,11 +272,22 @@ review of the code.
   3. Run `deploy/tests/e2e.sh`, then deploy to `--env test`, then announce and upgrade prod hs1 (back up first with
      `deployctl backup`; keep the 0.29.6 package for rollback).
   4. The xcelsior cell on prod-hetzner follows, which needs Aaryn's go-ahead.
+
+  **Done 2026-11-18.**
+  - hs1 runs v0.29.7. The bootstrap now takes an online, integrity-checked database backup before each package
+    upgrade, and `deploy/tests/e2e.sh` covers the 0.29.6 → 0.29.7 upgrade path.
+  - The xcelsior cell (prod-hetzner and the ASUS standby) runs upstream `main` at `545ace56`, which carries all six
+    0.29.7 security fixes. It stays off the release tag because its database already came from a `main` build
+    past v0.29.6. Return it to a tagged release when one includes that build.
+  - Details, backups and rollback are in the internal ops notes (§5.9).
 - **Tailscale 1.104.2 → 1.104.7**: `tailscaleImage` in `test/e2e/isolation_test.go`; the sandbox
   `TAILSCALE_IMAGE` tag **and digest** plus the `tailscale version` check further down
   `sandbox/image/Dockerfile`; `TAILSCALE_VERSION` in the base-host bootstrap `deploy/compose/bootstrap.sh` (used
   on hosts that are already running, so roll it out with an announced apt upgrade, not a re-bootstrap). Find out
   why Renovate didn't propose it, and fix that in P0.5.
+
+  **Done 2026-11-18** for the pins and for tailscaled on prod-hetzner, hm-prod-1 and the ASUS. The Renovate
+  question stays open in P0.5.
 - **Hetzner credits:** check their expiry date in the Console, then schedule the P1.11 load tests and the first
   e2e runs on hourly VMs before it.
 

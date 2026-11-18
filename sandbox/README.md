@@ -146,7 +146,7 @@ hosts are tagged (§5.2).
 ### 3. Enroll the node
 
 ```bash
-# On prod-hetzner: a single-use pre-auth key that carries the tag (Headscale 0.29.6).
+# On prod-hetzner: a single-use pre-auth key that carries the tag (Headscale 0.29.7 or newer).
 sudo headscale preauthkeys create --user <owner> --tags tag:sandbox --expiration 1h
 # On the ASUS: store it and recreate.
 install -m 600 /dev/stdin /mnt/storage/headmesh/sandbox/secrets/ts_authkey   # paste, then Ctrl-D
