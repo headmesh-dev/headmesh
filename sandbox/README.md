@@ -25,8 +25,8 @@ It implements plan §6 and §7 (`docs/plan.md`).
 | `tests/e2e/` | Live test against a running container |
 | `docs/` | `container-contract.md` (the interface between image, Compose, CLI and daemon) and the ADRs |
 
-This is its own Go module, `github.com/headmesh-dev/headmesh/sandbox`; the
-root `go.work` includes it. Run `go test -race ./...` here.
+This is its own Go module, `github.com/headmesh-dev/headmesh/sandbox`, with no
+`go.work` linking it to the root module. Run `go test -race ./...` here.
 
 ## What's verified (2026-10-27)
 
@@ -64,7 +64,9 @@ All of this was run locally, without tailnet enrollment:
 
 Spike outcomes are in `docs/adr/spike-t0{1,2,3,7,8}-*.md` and
 `docs/adr/spike-t16-*.md`. Other implementation decisions are in
-`docs/adr/0001-sandbox-implementation-decisions.md`.
+`docs/adr/0001-sandbox-implementation-decisions.md`, and the post-v0.1
+third-party MCP gateway and per-UID isolation design is in
+`docs/adr/0002-self-hosted-mcp-gateway-and-isolation.md`.
 
 ## Security findings to act on
 

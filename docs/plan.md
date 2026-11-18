@@ -1,6 +1,6 @@
 # Headmesh — Technical Implementation Plan
 
-Source blueprint: `/mnt/storage/projects/Headscale Sandbox Plugin Handoff.md`.
+Source blueprint: [`docs/handoff.md`](handoff.md). Execution order and production bar: [`docs/implementation-plan.md`](implementation-plan.md).
 Plan date: 2026-10-26. Owner: Aaryn Biro (Xcelsior Compute Inc.).
 Everything below is the recommended approach. Items marked **SPIKE** are unverified facts with a time-boxed check and a named fallback (§17).
 
@@ -210,7 +210,7 @@ headmesh/
 | **M0 Prep (days 1–2)** | Fix failover standby; Xcelsior ACL hardening (approval); host prep; accounts; repo bootstrap; prod-hetzner disk automation; **prod-hetzner Ubuntu 26.04.1 upgrade (Aaryn runs, §5.7)**; **hm-prod-1 (created 2026-10-27): firewall and bootstrap (§5.8)**, then Caddy, break-glass WireGuard and an hs1 dev Headscale to build the core against | `headscale-failover status --json` shows `promotable:true`; ACL policy tests pass; repo with CI green; prod-hetzner disk under 70% with timers active; prod-hetzner on 26.04.1 with all post-checks green; hm-prod-1 reachable only through its firewall rules |
 | **M1 Sandbox + plugins + marketing (weeks 1–2)** | Track A + B (runner, Remote Control, Tunnel, SSH, **exec-server orchestrator**); Track C; marketing + waitlist live | 5/5 acceptance checks via MCP, Claude runner, Codex-SSH, **Codex exec-server** and Tunnel routes, plus the recreate bonus; plugins validated and installable; headmesh.dev live |
 | **M2 Core v0 + hs1 + CLI (weeks 2–5)** | Domain, compiler, cell agent, enrollment, grants, audit, API; hs1 on Hetzner; CLI join/invite/status | E2E isolation matrix green; revocation p99 < 5 s; `headmesh join` works on a fresh VM; first restore drill green |
-| **M3 Auth + web app + ingress (weeks 4–6)** | Users, OAuth AS, sign-up page, sandbox OAuth, Headmesh ingress for MCP | Sign-up → org → first device in < 5 minutes; Claude.ai connector to sandbox via OAuth |
+| **M3 Auth + web app + ingress (weeks 4–6)** | Users, OAuth AS, sign-up page, sandbox OAuth, Headmesh ingress for MCP, **third-party MCP gateway (§6.16, post-ingress)** | Sign-up → org → first device in < 5 minutes; Claude.ai connector to sandbox via OAuth; **pinned `mesh-only` + `wan-only` community MCPs multiplexed on `:8780/mcp` (spike T-18 green)** |
 | **M4 Xcelsior cell + integration (weeks 5–8)** | Cell agent on prod-hetzner (observe → enforce); `control_plane/headmesh`; rental grants | Provider hosts provably isolated; rentals create and revoke grants; Xcelsior live gates green |
 | **M5 Hardening + launch (weeks 8–10)** | Load tests, game day, pen-test checklist, license decision, public repo | Recovery game day under 15 minutes; launch checklist complete |
 
@@ -543,6 +543,14 @@ volumes: { hm-cache-mise: {}, hm-cache-uv: {}, hm-cache-npm: {}, hm-cache-pnpm: 
 
 **Report:** `docs/acceptance/2026-xx-xx.md` with a pass/fail table per route.
 
+### 6.16 Third-party MCP gateway and self-hosted trust isolation (M3+, `sandbox/docs/adr/0002-self-hosted-mcp-gateway-and-isolation.md`)
+
+- **Goal:** 1-click attachment of community or custom MCP servers (`postgres`, `redis`, `qdrant`, `github`, local SQLite/AST tools) inside a tenant's sandbox, multiplexed as `<name>__<tool>` behind `headmesh-sandboxd`'s single `:8780/mcp` endpoint—without paid external reputation APIs and without exposing YOLO host mounts or secrets.
+- **Discovery & pre-flight (`headmesh-sandbox mcp add <pkg>`):** queries `registry.modelcontextprotocol.io` (`server.json`), pins exact lockfile/OCI digests into `hm-cache-{npm,uv}` (no runtime `npx @latest`), runs `osv-scanner` supply-chain checks, boots an offline `--network=none` dry-run to scan `tools/list` for prompt-injection/tool-poisoning (embedded YARA/static rules + optional `tower-server:11434` semantic check), and locks `tools_sha256` in `${root}/state/mcp-lock.json` against rug-pulls.
+- **Companion sidecar (`sandbox-mcp`):** `read_only: true`, `cap_drop: [ALL]`, `no-new-privileges: true`, zero `/host`, `/home/aaryn`, `/home/agent` or git/runner secrets even in YOLO mode; shares `tailscale0` via `network_mode: "service:sandbox"` (no extra Headscale node) and talks to unprivileged `sandboxd` over `/run/hm-mcp/<name>.sock`.
+- **Per-UID egress split (`inet hm_mcp_egress`):** in-netns `nftables` (`meta skuid` across deterministic UIDs `940–989`, below `hmtunnel` `990`) enforces `offline` (`940–949`, Unix socket only), `mesh-only` (`950–969`, explicit `[mcps.<name>].reach` tailnet targets only; WAN, loopback `:8780`/`:8082`, and port `53` DNS tunneling dropped), and `wan-only` (`970–989`, public TCP `443` + DNS only; tailnet/LAN/loopback dropped).
+- **Mandatory scrubbing & audit:** all third-party MCP responses pass through `sandboxd/redact` (`gitleaks` + built-in patterns) regardless of global `redact_output`, with per-call provenance logged in `audit.jsonl`.
+
 ---
 
 ## 7. Track B — Cloud entry points
@@ -592,6 +600,7 @@ volumes: { hm-cache-mise: {}, hm-cache-uv: {}, hm-cache-npm: {}, hm-cache-pnpm: 
 - The sandbox makes **no inbound connections**; WireGuard does the transport.
 - This becomes the product feature `headmesh expose` (Headscale has no Funnel).
 - OAuth via the Headmesh authorization server (M3) lets Claude.ai custom connectors use it.
+- Once §6.16 is enabled, that single OAuth connector also serves every attached third-party MCP (`postgres__*`, `redis__*`, `github__*`) without extra ports or tailnet nodes.
 
 ### 7.6 `codex exec-server` (M1, alongside SSH and Tunnel; no extra Hetzner cost)
 - **What it gives you:** Codex driven through OpenAI's **Agents API**, executing inside the sandbox with the same files, packages, tailnet and git setup. It suits scripted or unattended Codex tasks started from the CLI, cron, CI or Xcelsior.
@@ -936,7 +945,7 @@ volumes: { hm-cache-mise: {}, hm-cache-uv: {}, hm-cache-npm: {}, hm-cache-pnpm: 
   - `onboarding.py`, `grants.py`, `isolation.py`, `webhooks.py`, `reconcile.py`, `settings.py`.
 - **Route:** `api/routes/headmesh_webhooks.py`, registered in `ALL_ROUTERS`. It verifies Standard Webhooks signatures and passes Xcelsior's guard and coverage tests.
 - **Configuration** (added to `.env.example` **and** the compose `x-api-environment` anchor): `XCELSIOR_HEADMESH_ENABLED`, `_API_URL`, `_CLIENT_ID`, `_CLIENT_SECRET` (`client_credentials`), `_PLATFORM_ORG`, `_CELL=xcelsior`, `_WEBHOOK_SECRET`.
-- **Migration `129_headmesh_links.py`** (Xcelsior style: raw `op.execute`, `IF NOT EXISTS`, up/down/up):
+- **Migration `<next>_headmesh_links.py`**, at the next free number when written (164 or later as of 2026-11-18) (Xcelsior style: raw `op.execute`, `IF NOT EXISTS`, up/down/up):
   - `headmesh_links(tenant_id, kind ∈ host_device|attempt_grant|owner_org, local_id, headmesh_id, created_at)`, unique `(kind, local_id)`, index on `tenant_id`.
   - Added to `TABLE_DOMAINS` with grants to the service roles.
 - **GPU-owner onboarding ("Connect your GPU"):**
@@ -1299,6 +1308,7 @@ volumes: { hm-cache-mise: {}, hm-cache-uv: {}, hm-cache-npm: {}, hm-cache-pnpm: 
 | T-15 | `nvidia/cuda` runtime image for Ubuntu 26.04 | Install CUDA runtime libraries per project via pip/uv wheels |
 | T-16 | `codex exec-server` as non-root in the container (add-on) | Run it in a dedicated child container with the same mounts |
 | T-17 | R2 object lock for audit anchors | Backblaze B2 object lock |
+| T-18 | Companion `sandbox-mcp` (`network_mode: "service:sandbox"`) matches per-UID `meta skuid` rules in `inet hm_mcp_egress` while hiding `/host` in YOLO and closing `mesh-only` DNS/WAN exfil (`sandbox/docs/adr/0002-*`) | Dedicated bridge IP on `hm-sbx` with host `inet headmesh_sbx` rules per container IP |
 
 ---
 

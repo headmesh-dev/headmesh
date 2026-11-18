@@ -56,7 +56,7 @@ Agents working on this code should read [AGENTS.md](AGENTS.md).
 | `web/marketing/` | headmesh.dev (deployed separately from the product) |
 | `web/app/` | Sign-up page and dashboard (embedded into `headmesh-server`) |
 | `deploy/` | Self-hosting and production deployment, recovery tooling, break-glass WireGuard |
-| `docs/` | Blueprint (`handoff.md`), implementation plan (`plan.md`), ADRs |
+| `docs/` | Blueprint (`handoff.md`), technical plan (`plan.md`), execution plan (`implementation-plan.md`), client roadmap (`client-roadmap.md`), ADRs |
 
 ## Development
 
