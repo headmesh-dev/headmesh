@@ -201,7 +201,7 @@ review of the code.
 | D7 | Downloads | Public; sign-in happens in the app; invite links open the app | C2, P2.8 |
 | D8 | DERP | Own regions before GA | P7.7 |
 | D9 | Client licence and layout | Apache-2.0 in a separate `clients/` Go module, with `NOTICE` for BSD-3 code | C0 |
-| D10 | Accounts | Start Apple (D-U-N-S), Google Play and Azure Trusted Signing now | C2, C4, C5 |
+| D10 | Accounts | Apple now (critical path); Azure Artifact Signing by about week 6; Google Play by about week 16 | C2, C4, C5 |
 | D11 | One CLI or two | One `headmesh` CLI. `cli/` stays where it is until `headmeshd` exists; move into `clients/` in C4 | C0, C4 |
 | D12 | Headscale 0.29.7 | Upgrade hs1 first, then the xcelsior cell. Production change: announce, then go-ahead | P0.2 |
 | D13 | MCP gateway topology | **One container per MCP** (`sandbox-mcp-<name>`) instead of one shared sidecar. `oci:` packages need their own container anyway, and this isolates the mounts and secrets of one MCP from another | G0 |
@@ -340,8 +340,8 @@ Long-lead items first, because they gate later phases:
 | Item | Why now |
 |---|---|
 | **Apple Developer Program**, organization enrollment for Xcelsior Compute Inc. (existing D-U-N-S); then the capabilities (Network Extensions packet tunnel, System Extension, Keychain sharing, App Groups) and a request for the `-systemextension` packet-tunnel entitlement if TN3134 requires it; an App Store Connect API key | C2 can't start without it (days to weeks) |
-| **Google Play** organization account | C5 |
-| **Azure Trusted Signing** | C4 |
+| **Google Play** organization account (US$25 once; D-U-N-S plus a website verified in Search Console). Android developer verification goes global on certified devices in 2027, so even an APK distributed outside Play needs a verified developer and a registered package name and signing key | C5 (about week 22); verify identity by about week 16 |
+| **Azure Artifact Signing** (renamed from Trusted Signing): a paid subscription (free and trial ones are refused), Basic SKU, organization identity validation for Xcelsior Compute Inc. (Canada is eligible; 1–30 business days; the legal name becomes the certificate CN) | C4 (about week 12); start by about week 6 |
 | **GitHub org:** require 2FA, base permissions none, Actions allow-list, secret scanning and push protection, private vulnerability reporting; **branch rulesets on `main`** blocking force-push and deletion (possible now the repo is public) | Supply chain |
 | **Hetzner** "Headmesh" project API token, stored only as the `recovery` environment secret and in sops; note the server limit from Console → Limits (spike T-11) | P1.7, P1.8 |
 | **Cloudflare:** DNSSEC (DS record at Porkbun); R2 enabled; scoped tokens (P1.7) | P1.7 |
@@ -704,7 +704,10 @@ code.
 
 - **Spike C1-S1** (from client roadmap §4.5): does Headscale keep the same node when a known machine key logs in with
   a new pre-auth key, and how does it set expiry on user nodes registered with a pre-auth key? Also check the
-  Headscale user-name syntax and limits for `hm-u-<user10>-<org10>`.
+  Headscale user-name syntax and limits for `hm-u-<user10>-<org10>`. Headscale 0.29.7 changed two related rules,
+  and the spike must confirm both on 0.29.7: another user's key or login on a tagged machine now creates a new
+  device for that user, instead of re-authenticating the tagged node; and an expired tagged node needs a valid
+  pre-auth key to re-register.
 - **Compiler:**
   - an org's principals become "org tags ∪ that org's Headscale users";
   - restate invariants I1–I7 over both kinds; the rapid generators produce mixed tagged and user-owned nodes;
@@ -1208,7 +1211,7 @@ C0 can start as soon as D1 and D9 are decided, in parallel with P1, because codi
   - `headmeshd` as a Windows service on Wintun, with a named-pipe LocalAPI whose ACL admits only the interactive
     user and SYSTEM;
   - the Go tray app (shared with Linux);
-  - a WiX MSI signed through Azure Trusted Signing with GitHub OIDC (no exported key);
+  - a WiX MSI signed through Azure Artifact Signing with GitHub OIDC (no exported key);
   - a signed update manifest with percentage gates, downgrade refusal and a silent MSI install; winget;
   - ADMX and ADML templates using the same keys as the macOS MDM domain;
   - `install.ps1`.
