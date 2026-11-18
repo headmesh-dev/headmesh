@@ -43,6 +43,20 @@ target "_common" {
     AGENT_UID = AGENT_UID
     AGENT_GID = AGENT_GID
   }
+  # GHCR reads the index annotations when attestations make a build an OCI
+  # index, even when the image contains only one runnable architecture.
+  annotations = [
+    "index,manifest:org.opencontainers.image.title=Headmesh agent sandbox",
+    "index,manifest:org.opencontainers.image.description=Persistent agent sandbox that joins a Headscale tailnet as its own node",
+    "index,manifest:org.opencontainers.image.source=https://github.com/headmesh-dev/headmesh",
+    "index,manifest:org.opencontainers.image.documentation=https://github.com/headmesh-dev/headmesh/tree/main/sandbox",
+    "index,manifest:org.opencontainers.image.url=https://headmesh.dev",
+    "index,manifest:org.opencontainers.image.vendor=Xcelsior Compute Inc.",
+    "index,manifest:org.opencontainers.image.licenses=Apache-2.0",
+    "index,manifest:org.opencontainers.image.version=${VERSION}",
+    "index,manifest:org.opencontainers.image.revision=${REVISION}",
+    "index,manifest:org.opencontainers.image.created=${CREATED}",
+  ]
   # Optional: a token lifts GitHub API rate limits for mise downloads.
   secret = ["type=env,id=github_token,env=GITHUB_TOKEN"]
 }

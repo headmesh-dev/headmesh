@@ -220,6 +220,8 @@ RUN set -eux; \
 LABEL org.opencontainers.image.title="headmesh-sandbox" \
       org.opencontainers.image.description="Persistent agent sandbox that joins a Headscale tailnet as its own node" \
       org.opencontainers.image.source="https://github.com/headmesh-dev/headmesh" \
+      org.opencontainers.image.documentation="https://github.com/headmesh-dev/headmesh/tree/main/sandbox" \
+      org.opencontainers.image.licenses="Apache-2.0" \
       org.opencontainers.image.url="https://github.com/headmesh-dev/headmesh/tree/main/sandbox" \
       org.opencontainers.image.vendor="Xcelsior Compute Inc." \
       org.opencontainers.image.version="${VERSION}" \
