@@ -21,21 +21,32 @@ func ParsePort(s string) (Port, error) {
 	if s == "*" {
 		return PortAny, nil
 	}
+	r, err := parseSpec(s)
+	if err != nil {
+		return "", err
+	}
+	// Specs usually arrive normalised; return the input instead of building an equal string.
+	var buf [32]byte
+	if norm := r.appendTo(buf[:0]); string(norm) != s {
+		return Port(norm), nil
+	}
+	return Port(s), nil
+}
+
+// parseSpec parses a trimmed, lower-case "proto:port" or "proto:lo-hi".
+func parseSpec(s string) (portRange, error) {
 	proto, rng, ok := strings.Cut(s, ":")
 	if !ok {
-		return "", fmt.Errorf("port %q: want proto:port, proto:lo-hi or *", s)
+		return portRange{}, fmt.Errorf("port %q: want proto:port, proto:lo-hi or *", s)
 	}
 	if !knownProtocols[proto] {
-		return "", fmt.Errorf("port %q: unknown protocol %q", s, proto)
+		return portRange{}, fmt.Errorf("port %q: unknown protocol %q", s, proto)
 	}
 	lo, hi, err := parseRange(rng)
 	if err != nil {
-		return "", fmt.Errorf("port %q: %w", s, err)
+		return portRange{}, fmt.Errorf("port %q: %w", s, err)
 	}
-	if lo == hi {
-		return Port(fmt.Sprintf("%s:%d", proto, lo)), nil
-	}
-	return Port(fmt.Sprintf("%s:%d-%d", proto, lo, hi)), nil
+	return portRange{proto: proto, lo: lo, hi: hi}, nil
 }
 
 func parseRange(s string) (lo, hi int, err error) {
@@ -75,16 +86,25 @@ func (p Port) parsed() (portRange, error) {
 	if p == PortAny {
 		return portRange{proto: "", lo: 1, hi: 65535}, nil
 	}
-	norm, err := ParsePort(string(p))
-	if err != nil {
+	s := strings.TrimSpace(strings.ToLower(string(p)))
+	if s == "*" {
+		// Only the exact "*" means any port. A padded one fails like a spec with no range.
+		_, _, err := parseRange("")
 		return portRange{}, err
 	}
-	proto, rng, _ := strings.Cut(string(norm), ":")
-	lo, hi, err := parseRange(rng)
-	if err != nil {
-		return portRange{}, err
+	return parseSpec(s)
+}
+
+// appendTo appends r's normalised spec, for example "tcp:22" or "tcp:8000-8100".
+func (r portRange) appendTo(b []byte) []byte {
+	b = append(b, r.proto...)
+	b = append(b, ':')
+	b = strconv.AppendInt(b, int64(r.lo), 10)
+	if r.hi != r.lo {
+		b = append(b, '-')
+		b = strconv.AppendInt(b, int64(r.hi), 10)
 	}
-	return portRange{proto: proto, lo: lo, hi: hi}, nil
+	return b
 }
 
 // covers reports whether r allows every connection that o allows.

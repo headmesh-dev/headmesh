@@ -34,12 +34,16 @@ func Verify(s Snapshot, at time.Time, doc Document) error {
 }
 
 func verifyIndexed(ix *index, s Snapshot, at time.Time, doc Document) error {
-	v := &verifier{ix: ix, s: s, at: at, doc: doc, active: map[grantKey][]Grant{}}
+	v := &verifier{ix: ix, s: s, at: at, doc: doc, active: map[grantKey][]activeGrant{}}
 	for _, g := range s.Grants {
 		if g.ActiveAt(at) {
-			k := grantKey{grantee: g.Grantee, grantor: g.Grantor, dst: DeviceTag(g.Dst)}
-			v.active[k] = append(v.active[k], g)
+			k := grantKey{grantee: g.Grantee, grantor: g.Grantor, dst: g.Dst}
+			v.active[k] = append(v.active[k], activeGrant{grant: g, ports: parsePorts(g.Ports)})
 		}
+	}
+	v.platformPorts = make([][]portRange, len(s.PlatformRules))
+	for i, pr := range s.PlatformRules {
+		v.platformPorts[i] = parsePorts(pr.Ports)
 	}
 	v.checkTagOwners()
 	for i, g := range doc.Grants {
@@ -59,11 +63,38 @@ type verifier struct {
 	s      Snapshot
 	at     time.Time
 	doc    Document
-	active map[grantKey][]Grant
-	errs   []error
+	active map[grantKey][]activeGrant
+	// platformPorts holds the parsed ports of each of s.PlatformRules, by index.
+	platformPorts [][]portRange
+	errs          []error
+	// Scratch space reused across grant rules.
+	ranges  []portRange
+	dstOrgs []string
+	dstOK   []bool
 }
 
+// grantKey finds the active grants that could justify an edge; dst is the destination device's Short.
 type grantKey struct{ grantee, grantor, dst string }
+
+// activeGrant is a grant active at the verified instant, with its ports parsed once.
+type activeGrant struct {
+	grant Grant
+	ports []portRange
+}
+
+// location is a place in the document, such as grants[3].dst. It is only formatted when a check fails.
+type location struct {
+	list  string
+	i     int
+	field string
+}
+
+func (l location) String() string { return l.list + "[" + strconv.Itoa(l.i) + "]" + l.field }
+
+func (l location) with(field string) location {
+	l.field = field
+	return l
+}
 
 func (v *verifier) fail(format string, args ...any) {
 	v.errs = append(v.errs, violationf(format, args...))
@@ -96,7 +127,7 @@ func (v *verifier) checkTagOwners() {
 }
 
 // principal validates p and returns its org.
-func (v *verifier) principal(where, p string) (string, bool) {
+func (v *verifier) principal(where location, p string) (string, bool) {
 	if strings.HasPrefix(p, "tag:") {
 		if _, declared := v.doc.TagOwners[p]; !declared {
 			v.fail("%s: tag %q is not declared in tagOwners", where, p)
@@ -110,12 +141,12 @@ func (v *verifier) principal(where, p string) (string, bool) {
 }
 
 func (v *verifier) checkGrantRule(i int, g GrantRule) {
-	where := fmt.Sprintf("grants[%d]", i)
+	where := location{list: "grants", i: i}
 	if len(g.Src) == 0 || len(g.Dst) == 0 || len(g.IP) == 0 {
 		v.fail("%s: src, dst and ip must all be non-empty", where)
 		return
 	}
-	ranges := make([]portRange, 0, len(g.IP))
+	ranges := v.ranges[:0]
 	for _, raw := range g.IP {
 		pr, err := Port(raw).parsed()
 		if err != nil {
@@ -124,13 +155,15 @@ func (v *verifier) checkGrantRule(i int, g GrantRule) {
 		}
 		ranges = append(ranges, pr)
 	}
-	dstOrgs := make([]string, len(g.Dst))
-	dstOK := make([]bool, len(g.Dst))
-	for j, dp := range g.Dst {
-		dstOrgs[j], dstOK[j] = v.principal(where+".dst", dp)
+	v.ranges = ranges
+	dstOrgs, dstOK := v.dstOrgs[:0], v.dstOK[:0]
+	for _, dp := range g.Dst {
+		org, ok := v.principal(where.with(".dst"), dp)
+		dstOrgs, dstOK = append(dstOrgs, org), append(dstOK, ok)
 	}
+	v.dstOrgs, v.dstOK = dstOrgs, dstOK
 	for _, sp := range g.Src {
-		so, ok := v.principal(where+".src", sp)
+		so, ok := v.principal(where.with(".src"), sp)
 		if !ok {
 			continue
 		}
@@ -154,14 +187,17 @@ func (v *verifier) checkGrantRule(i int, g GrantRule) {
 }
 
 func (v *verifier) justified(so, do, sp, dp string, want portRange) bool {
-	for _, g := range v.active[grantKey{grantee: so, grantor: do, dst: dp}] {
-		if slices.Contains(v.selectorNames(g.Grantee, g.Src), sp) && portsCover(g.Ports, want) {
-			return true
+	// Grants always target one device, so only a device tag destination can be covered by one.
+	if dst, ok := strings.CutPrefix(dp, nodeTagPrefix); ok {
+		for _, ag := range v.active[grantKey{grantee: so, grantor: do, dst: dst}] {
+			if v.selects(ag.grant.Grantee, ag.grant.Src, sp) && rangesCover(ag.ports, want) {
+				return true
+			}
 		}
 	}
-	for _, pr := range v.s.PlatformRules {
+	for i, pr := range v.s.PlatformRules {
 		if v.sideMatches(pr.Platform, pr.Src, so, sp) && v.sideMatches(pr.Platform, pr.Dst, do, dp) &&
-			portsCover(pr.Ports, want) {
+			rangesCover(v.platformPorts[i], want) {
 			return true
 		}
 	}
@@ -182,39 +218,67 @@ func (v *verifier) sideMatches(platform string, sel PlatformSelector, org, princ
 		return false
 	}
 	if sel.Role == "" {
-		return slices.Contains(v.selectorNames(org, All()), principal)
+		return v.selects(org, All(), principal)
 	}
-	return principal == RoleTag(org, sel.Role)
+	return isRoleTag(principal, org, sel.Role)
 }
 
-// selectorNames is the full set of principal names a selector may legitimately be rendered as.
-func (v *verifier) selectorNames(org string, sel Selector) []string {
+// selects reports whether p is one of the principal names sel may legitimately be rendered as for org: the
+// org tag or a user principal for All, a user principal for Users, the role tag for Role and the device tag
+// for Device. It compares in place rather than building each name.
+func (v *verifier) selects(org string, sel Selector, p string) bool {
 	switch sel.Kind {
 	case SelectAll:
-		out := []string{OrgTag(org)}
-		for _, u := range v.ix.orgs[org].Users {
-			out = append(out, userPrincipal(u))
-		}
-		return out
+		return hasName(p, orgTagPrefix, org) || v.isUserOf(org, p)
 	case SelectUsers:
-		var out []string
-		for _, u := range v.ix.orgs[org].Users {
-			out = append(out, userPrincipal(u))
-		}
-		return out
+		return v.isUserOf(org, p)
 	case SelectRole:
-		return []string{RoleTag(org, sel.Role)}
+		return isRoleTag(p, org, sel.Role)
 	case SelectDevice:
-		return []string{DeviceTag(sel.Device)}
+		return hasName(p, nodeTagPrefix, sel.Device)
 	default:
-		return nil
+		return false
 	}
 }
 
-func portsCover(ports []Port, want portRange) bool {
+// isUserOf reports whether p is the user principal of one of org's Headscale users.
+func (v *verifier) isUserOf(org, p string) bool {
+	u, ok := strings.CutSuffix(p, "@")
+	return ok && slices.Contains(v.ix.orgs[org].Users, u)
+}
+
+// hasName reports whether p == prefix + name.
+func hasName(p, prefix, name string) bool {
+	rest, ok := strings.CutPrefix(p, prefix)
+	return ok && rest == name
+}
+
+// isRoleTag reports whether p == RoleTag(org, role).
+func isRoleTag(p, org, role string) bool {
+	rest, ok := strings.CutPrefix(p, roleTagPrefix)
+	if !ok {
+		return false
+	}
+	if rest, ok = strings.CutPrefix(rest, org); !ok {
+		return false
+	}
+	return hasName(rest, "-", role)
+}
+
+// parsePorts parses ports, leaving out any that don't parse; they can't cover anything.
+func parsePorts(ports []Port) []portRange {
+	out := make([]portRange, 0, len(ports))
 	for _, p := range ports {
-		pr, err := p.parsed()
-		if err == nil && pr.covers(want) {
+		if pr, err := p.parsed(); err == nil {
+			out = append(out, pr)
+		}
+	}
+	return out
+}
+
+func rangesCover(ranges []portRange, want portRange) bool {
+	for _, r := range ranges {
+		if r.covers(want) {
 			return true
 		}
 	}
@@ -222,7 +286,7 @@ func portsCover(ports []Port, want portRange) bool {
 }
 
 func (v *verifier) checkSSH(i int, r SSHRule) {
-	where := fmt.Sprintf("ssh[%d]", i)
+	where := location{list: "ssh", i: i}
 	if r.Action != "accept" {
 		v.fail("%s: action %q; Headmesh only emits accept", where, r.Action)
 	}
@@ -230,9 +294,11 @@ func (v *verifier) checkSSH(i int, r SSHRule) {
 		v.fail("%s: root logins are never emitted", where)
 	}
 	orgs := map[string]bool{}
-	for _, p := range append(slices.Clone(r.Src), r.Dst...) {
-		if org, ok := v.principal(where, p); ok {
-			orgs[org] = true
+	for _, side := range [][]string{r.Src, r.Dst} {
+		for _, p := range side {
+			if org, ok := v.principal(where, p); ok {
+				orgs[org] = true
+			}
 		}
 	}
 	for _, p := range r.Dst {
@@ -246,19 +312,21 @@ func (v *verifier) checkSSH(i int, r SSHRule) {
 }
 
 func (v *verifier) checkTest(i int, t PolicyTest) {
-	where := fmt.Sprintf("tests[%d]", i)
-	v.principal(where+".src", t.Src)
-	for _, e := range append(slices.Clone(t.Accept), t.Deny...) {
-		// Tags contain a colon themselves ("tag:hm-o-x:22"), so the port follows the last colon.
-		idx := strings.LastIndex(e, ":")
-		if idx <= 0 {
-			v.fail("%s: entry %q has no port", where, e)
-			continue
+	where := location{list: "tests", i: i}
+	v.principal(where.with(".src"), t.Src)
+	for _, entries := range [][]string{t.Accept, t.Deny} {
+		for _, e := range entries {
+			// Tags contain a colon themselves ("tag:hm-o-x:22"), so the port follows the last colon.
+			idx := strings.LastIndex(e, ":")
+			if idx <= 0 {
+				v.fail("%s: entry %q has no port", where, e)
+				continue
+			}
+			p, port := e[:idx], e[idx+1:]
+			if n, err := strconv.Atoi(port); err != nil || n < 1 || n > 65535 {
+				v.fail("%s: entry %q has an invalid port", where, e)
+			}
+			v.principal(where, p)
 		}
-		p, port := e[:idx], e[idx+1:]
-		if n, err := strconv.Atoi(port); err != nil || n < 1 || n > 65535 {
-			v.fail("%s: entry %q has an invalid port", where, e)
-		}
-		v.principal(where, p)
 	}
 }

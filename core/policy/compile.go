@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"hash/fnv"
 	"slices"
+	"strconv"
 	"strings"
 	"time"
 )
@@ -32,10 +33,7 @@ func Compile(s Snapshot, at time.Time, opt Options) (*Compiled, error) {
 	}
 	b := &builder{ix: ix, s: s, at: at, opt: opt, live: newLiveIndex(s), tags: map[string]bool{}}
 	doc := b.build()
-	bytes, body, sum, err := render(s.Cell, doc)
-	if err != nil {
-		return nil, err
-	}
+	bytes, body, sum := render(s.Cell, doc)
 	// Re-parse the rendered JSON (the bytes differ only by a leading comment header) so Verify checks exactly
 	// what a cell would receive.
 	parsed, err := parseJSON(body)
@@ -59,14 +57,14 @@ func Compile(s Snapshot, at time.Time, opt Options) (*Compiled, error) {
 // liveIndex records which principals currently match at least one active device, so the compiler only emits
 // tags that exist and never scans the device list per selector.
 type liveIndex struct {
-	tagged map[string]int             // org -> number of active tagged devices
-	nodes  map[string]int             // org -> number of active tagged devices with a Headscale node
-	roles  map[string]map[string]bool // org -> role -> some active tagged device has it
-	users  map[string][]string        // org -> Headscale users with an active personal node (org's order)
+	tagged map[string]int               // org -> number of active tagged devices
+	nodes  map[string]int               // org -> number of active tagged devices with a Headscale node
+	roles  map[string]map[string]string // org -> role -> its role tag, if some active tagged device has the role
+	users  map[string][]string          // org -> Headscale users with an active personal node (org's order)
 }
 
 func newLiveIndex(s Snapshot) *liveIndex {
-	li := &liveIndex{tagged: map[string]int{}, nodes: map[string]int{}, roles: map[string]map[string]bool{}, users: map[string][]string{}}
+	li := &liveIndex{tagged: map[string]int{}, nodes: map[string]int{}, roles: map[string]map[string]string{}, users: map[string][]string{}}
 	liveUser := map[string]bool{}
 	for _, d := range s.Devices {
 		if d.State != DeviceActive {
@@ -81,10 +79,12 @@ func newLiveIndex(s Snapshot) *liveIndex {
 			li.nodes[d.Org]++
 		}
 		if li.roles[d.Org] == nil {
-			li.roles[d.Org] = map[string]bool{}
+			li.roles[d.Org] = map[string]string{}
 		}
 		for _, r := range d.Roles {
-			li.roles[d.Org][r] = true
+			if _, ok := li.roles[d.Org][r]; !ok {
+				li.roles[d.Org][r] = RoleTag(d.Org, r)
+			}
 		}
 	}
 	for _, o := range s.Orgs {
@@ -225,8 +225,8 @@ func (b *builder) resolve(org string, sel Selector) []string {
 		}
 		return out
 	case SelectRole:
-		if b.live.roles[org][sel.Role] {
-			return []string{RoleTag(org, sel.Role)}
+		if tag, ok := b.live.roles[org][sel.Role]; ok {
+			return []string{tag}
 		}
 		return nil
 	case SelectDevice:
@@ -276,6 +276,7 @@ func (b *builder) addTests() {
 		port = 22
 	}
 	related := b.relatedOrgs()
+	suffix := ":" + strconv.Itoa(port)
 	// Only orgs whose org tag resolves to at least one registered node: Headscale fails a test whose source or
 	// destination resolves to no addresses, which would block every policy change until a node registers.
 	var live []string
@@ -299,12 +300,12 @@ func (b *builder) addTests() {
 				if other == org || related[org][other] {
 					continue
 				}
-				t.Deny = append(t.Deny, fmt.Sprintf("%s:%d", OrgTag(other), port))
+				t.Deny = append(t.Deny, OrgTag(other)+suffix)
 				picked++
 			}
 		}
 		if b.ix.orgs[org].Template == TemplateTeam && b.live.nodes[org] >= 2 {
-			t.Accept = []string{fmt.Sprintf("%s:%d", OrgTag(org), port)}
+			t.Accept = []string{OrgTag(org) + suffix}
 		}
 		if len(t.Deny) > 0 || len(t.Accept) > 0 {
 			b.doc.Tests = append(b.doc.Tests, t)
