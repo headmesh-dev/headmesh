@@ -29,8 +29,8 @@ readonly NODE_VERSION="24.16.0"
 readonly NODE_SHA256="d804845d34eddc21dc1092b519d643ef40b1f58ec5dec5c22b1f4bd8fabde6c9"
 readonly PG_MAJOR="18"
 # Headscale for the environment that hosts a cell (plan §13.2), from the release's checksums.txt.
-readonly HEADSCALE_VERSION="0.29.6"
-readonly HEADSCALE_DEB_SHA256="a3b49916a16418c704cef89818d734bc8af0528aac965a2dd5ca4bfa4cef48e2"
+readonly HEADSCALE_VERSION="0.29.7"
+readonly HEADSCALE_DEB_SHA256="d230c5fc8db06cf1868f4ec0077b89e5e2ccf3b22a3259efa6d080db2d5f921c"
 # certbot from PyPI rather than Ubuntu's archive, whose DNS plugin needs the end-of-life cloudflare 2.x SDK. The
 # versions and hashes are in certbot-requirements.txt; bump CERTBOT_VERSION with it.
 readonly CERTBOT_VERSION="5.9.0"
@@ -268,6 +268,26 @@ public_address() {
     { grep -vE '^(100\.(6[4-9]|[7-9][0-9]|1[01][0-9]|12[0-7])\.|fd7a:)' || true; } | head -n 1
 }
 
+# headscale_backup_before_upgrade: an online copy of Headscale's SQLite database before a package change, because a
+# new release may rewrite stored data at startup (0.29.7 trims hostnames, endpoints and routes) and rolling back
+# means reinstalling the old package over this copy. Keeps the newest five; a fresh install has nothing to copy.
+readonly HEADSCALE_DB=/var/lib/headscale/db.sqlite
+readonly HEADSCALE_BACKUPS=/var/lib/headscale/backups
+headscale_backup_before_upgrade() {
+  local old bak
+  old="$(dpkg-query -W -f='${Version}' headscale 2>/dev/null || true)"
+  [[ -n "${old}" && -f "${HEADSCALE_DB}" ]] || return 0
+  install -d -o headscale -g headscale -m 0700 "${HEADSCALE_BACKUPS}"
+  bak="${HEADSCALE_BACKUPS}/db-${old}-$(date -u +%Y%m%dT%H%M%SZ).sqlite"
+  sqlite3 "${HEADSCALE_DB}" ".backup '${bak}'" || die "could not back up Headscale's database before upgrading"
+  [[ "$(sqlite3 "${bak}" 'PRAGMA integrity_check;')" == "ok" ]] || die "Headscale's database backup ${bak} is corrupt"
+  chown headscale:headscale "${bak}"
+  chmod 0600 "${bak}"
+  find "${HEADSCALE_BACKUPS}" -maxdepth 1 -name 'db-*.sqlite' -printf '%T@ %p\n' | sort -rn | tail -n +6 |
+    cut -d' ' -f2- | xargs -r rm -f --
+  log "backed up Headscale ${old}'s database to ${bak}"
+}
+
 # headscale_cell <env>: Headscale for the cell the environment hosts, configured from deploy/headscale/config.yaml.tmpl.
 # Only the cell's name in nginx is public; the gRPC API stays on loopback and the unix socket (plan §9.4).
 headscale_cell() {
@@ -275,6 +295,7 @@ headscale_cell() {
   host="$(hm_env "${env}" CELL_HOST)"
   base="$(hm_env "${env}" CELL_BASE_DOMAIN)"
   if ! dpkg-query -W -f='${Version}' headscale 2>/dev/null | grep -qx "${HEADSCALE_VERSION}"; then
+    headscale_backup_before_upgrade
     tmp="$(mktemp -d)"
     deb="${tmp}/headscale.deb"
     log "installing Headscale ${HEADSCALE_VERSION}"

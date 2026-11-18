@@ -1,4 +1,4 @@
-# Vendored Headscale v0.29.6 API: plain gRPC client stubs (the cell agent dials Headscale's unix socket).
+# Vendored Headscale v0.29.7 API (unchanged since v0.29.6): plain gRPC client stubs (the cell agent dials Headscale's unix socket).
 # Run from the repository root: buf generate --template proto/buf.gen.yaml (paths are relative to the root).
 version: v2
 managed:

@@ -34,7 +34,7 @@ readonly DOCKER_CE_VERSION="5:29.9.2-1~ubuntu.26.04~resolute"
 readonly CONTAINERD_VERSION="2.4.2-3~ubuntu.26.04~resolute"
 readonly BUILDX_VERSION="0.38.1-1~ubuntu.26.04~resolute"
 readonly COMPOSE_VERSION="5.6.1-1~ubuntu.26.04~resolute"
-readonly TAILSCALE_VERSION="1.104.2"
+readonly TAILSCALE_VERSION="1.104.7"
 
 export DEBIAN_FRONTEND=noninteractive
 

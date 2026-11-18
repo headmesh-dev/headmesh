@@ -1,5 +1,5 @@
-# Headscale v0.29.6 for a Headmesh cell (plan §13.2), rendered on the server by deploy/server/bootstrap.sh into
-# /etc/headscale/config.yaml. Upstream's config-example.yaml for v0.29.6 with these changes only:
+# Headscale v0.29.7 for a Headmesh cell (plan §13.2), rendered on the server by deploy/server/bootstrap.sh into
+# /etc/headscale/config.yaml. Upstream's config-example.yaml for v0.29.7 with these changes only:
 #   server_url (the cell's public name), trusted_proxies (nginx on loopback terminates TLS), the embedded DERP relay
 #   (region 900 "nbg", STUN on UDP 3478, the server's public addresses), policy.mode database (the cell agent sets
 #   the policy over the local socket), dns.base_domain, and no update checks.
@@ -487,7 +487,10 @@ auto_update:
 #
 # tuning:
 #   # Maximum number of pending registration entries in the auth cache.
-#   # Oldest entries are evicted when the cap is reached.
+#   # At capacity, new registrations retry without displacing pending approvals.
+#   # SSH checks can use 64 additional reserved entries. Each registration
+#   # retains at most 64 KiB of serialized data, so the default registration
+#   # payload budget is 64 MiB plus record overhead.
 #   #
 #   # register_cache_max_entries: 1024
 #

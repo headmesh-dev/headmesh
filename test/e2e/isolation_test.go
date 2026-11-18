@@ -45,8 +45,8 @@ import (
 )
 
 const (
-	headscaleImage = "headscale/headscale:v0.29.6"
-	tailscaleImage = "tailscale/tailscale:v1.104.2"
+	headscaleImage = "headscale/headscale:v0.29.7"
+	tailscaleImage = "tailscale/tailscale:v1.104.7"
 	cellName       = "e2e"
 
 	orgA = "oaaaaaaaab"

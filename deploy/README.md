@@ -18,7 +18,7 @@ The table lives in [`lib/environments.sh`](lib/environments.sh), which both side
 | `lib/environments.sh`        | Hostnames, ports and paths per environment                                                                   |
 | `nginx/`                     | Templates for the vhosts, the stream (TCP) proxy for cell endpoints, shared http settings and snippets       |
 | `systemd/`                   | Template units: `headmesh-waitlist@<env>-<colour>`, `headmesh-backend@<env>-<colour>`, `headmesh-backup@<env>`, `headmesh-cellcert@<env>` |
-| `headscale/`                 | The cell's Headscale configuration (v0.29.6 `config-example.yaml` with Headmesh's settings)                   |
+| `headscale/`                 | The cell's Headscale configuration (v0.29.7 `config-example.yaml` with Headmesh's settings)                   |
 | `env/<env>/*.env.example`    | Configuration templates; the real `*.env` files next to them are git-ignored                                 |
 | `tests/e2e.sh`               | The whole pipeline against a throwaway systemd container (see [Testing](#testing))                            |
 | `compose/bootstrap.sh`       | Base host setup, run once before anything else: admin user, sshd, host firewall, Docker, Tailscale, Ubuntu Pro |
@@ -166,7 +166,7 @@ prod-hetzner, once its policy grant is approved for M4).
 
 ## The hs1 cell
 
-prod hosts the shared Headscale cell `hs1` (plan §13.2). `--bootstrap` installs Headscale 0.29.6 from its release
+prod hosts the shared Headscale cell `hs1` (plan §13.2). `--bootstrap` installs Headscale 0.29.7 from its release
 package (checksum-pinned in `server/bootstrap.sh`) and writes `/etc/headscale/config.yaml` from
 [`headscale/config.yaml.tmpl`](headscale/config.yaml.tmpl): `server_url https://hs1.headmesh.dev`, MagicDNS under
 `mesh.headmesh.dev`, policy in the database, and the embedded DERP region 900 on the server's public addresses.

@@ -178,6 +178,22 @@ check "--keep-schema switches the colour" test "$(live test backend.active)" = b
 check "…and leaves the schema alone" test "$(schema)" = "${latest}"
 check "--keep-schema is refused without --rollback" bash -c "! '${DEPLOY}' --env test --target backend --keep-schema >/dev/null 2>&1"
 
+say "the previous Headscale release, as prod runs it before an upgrade"
+# The prod bootstrap below must upgrade Headscale in place, so install the release prod ran before HEADSCALE_VERSION
+# in server/bootstrap.sh, with a user in its database. Bump these two together with HEADSCALE_VERSION.
+PREV_HEADSCALE_VERSION="0.29.6"
+PREV_HEADSCALE_DEB_SHA256="a3b49916a16418c704cef89818d734bc8af0528aac965a2dd5ca4bfa4cef48e2"
+on bash -ec "
+  curl -fsSL --retry 3 -o /tmp/headscale-prev.deb \
+    https://github.com/juanfont/headscale/releases/download/v${PREV_HEADSCALE_VERSION}/headscale_${PREV_HEADSCALE_VERSION}_linux_amd64.deb
+  echo '${PREV_HEADSCALE_DEB_SHA256}  /tmp/headscale-prev.deb' | sha256sum -c --quiet -
+  DEBIAN_FRONTEND=noninteractive apt-get install -y --no-install-recommends /tmp/headscale-prev.deb >/dev/null
+  rm -f /tmp/headscale-prev.deb
+  systemctl enable --quiet --now headscale
+  for _ in \$(seq 1 30); do curl -fs -o /dev/null http://127.0.0.1:8080/health && break; sleep 1; done
+  headscale users create e2e-upgrade >/dev/null" 2>&1 | sed 's/^/    /'
+check "the previous Headscale release is running" grep -q "${PREV_HEADSCALE_VERSION}" <<<"$(on headscale version 2>&1)"
+
 say "prod backend alongside test"
 deploy --env prod --init-env
 CLOUDFLARE_DNS_API_TOKEN=e2e-scoped-token deploy --env prod --target backend --bootstrap --skip-checks --yes --allow-dirty
@@ -197,7 +213,12 @@ check "prod's app role can't open the test database" bash -c "! docker exec ${NA
 say "prod's Headscale cell hs1 and its agent"
 seen() { psql_su -d headmesh_prod -c "select coalesce(extract(epoch from last_seen_at)::bigint, 0) from cells where name = 'hs1'"; }
 check "Headscale is running" on systemctl is-active --quiet headscale
-check "Headscale is the pinned release" grep -q '0.29.6' <<<"$(on headscale version 2>&1)"
+check "Headscale is the pinned release" grep -q '0.29.7' <<<"$(on headscale version 2>&1)"
+check "the upgrade backed up the previous release's database first" \
+  on bash -c "ls /var/lib/headscale/backups/db-${PREV_HEADSCALE_VERSION}-*.sqlite >/dev/null"
+check "…readable only by the headscale user" \
+  test "$(on bash -c "stat -c '%a %U' /var/lib/headscale/backups/db-${PREV_HEADSCALE_VERSION}-*.sqlite")" = "600 headscale"
+check "…and the upgraded Headscale kept its data" grep -q e2e-upgrade <<<"$(on headscale users list 2>&1)"
 check "hs1.headmesh.dev/health → 200 through nginx" test "$(code hs1.headmesh.dev /health)" = 200
 hs_public() { on ss -Hltn | awk '{print $4}' | grep -E ':(8080|50443|9090)$' | grep -v '^127\.0\.0\.1:' || true; }
 check "Headscale's HTTP, gRPC and metrics listen on loopback only" test -z "$(hs_public)"
@@ -206,7 +227,7 @@ check "the bootstrap's admin key is root-only" test "$(on stat -c '%a %U' /etc/h
 check "the cell agent is running" on systemctl is-active --quiet headmesh-cellagent
 check "…as its own user" test "$(unit_user headmesh-cellagent)" = headmesh-cellagent
 check "the agent reached the backend (cells.last_seen_at)" test "$(seen)" -gt 0
-check "…and reported Headscale's version" grep -q '0.29.6' <<<"$(psql_su -d headmesh_prod -c "select headscale_version from cells where name = 'hs1'")"
+check "…and reported Headscale's version" grep -q '0.29.7' <<<"$(psql_su -d headmesh_prod -c "select headscale_version from cells where name = 'hs1'")"
 check "…and Headscale's Noise key fingerprint" grep -qE '^[0-9a-f]{64}$' <<<"$(psql_su -d headmesh_prod -c "select data->>'noise_public_key_sha256' from audit_events where action = 'cell.connected' order by id desc limit 1")"
 check "the certificate renewal timer is on" on systemctl is-enabled --quiet headmesh-cellcert@prod.timer
 on /usr/local/lib/headmesh/deployctl.sh cell-agent prod 2>&1 | tee -a "${ENVDIR}/deploy.log" | sed 's/^/    /'
