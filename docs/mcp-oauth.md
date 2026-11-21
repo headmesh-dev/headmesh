@@ -56,6 +56,20 @@ The public JWKS must share the issuer's HTTPS origin. Existing scoped `hms_`
 credentials continue to work. OAuth grants support `sandbox:read`, `sandbox:exec`
 and `sandbox:write`; they never confer `sandbox:admin`.
 
+## Connection confirmation
+
+Tell the user what finished and where to go next. Use **Authorization complete**
+when the browser has confirmed consent. Show **Connected to [sandbox name]** once
+the assistant has successfully reached that sandbox using the granted access.
+
+For a verified connection with read access, the confirmation can say:
+
+> **Connected to [sandbox name].** Switch back to your assistant and ask it to
+> list your project files.
+
+Choose a first action that fits the permissions granted. Put any optional survey
+below the confirmation so the user can return to the assistant immediately.
+
 ## Token lifecycle
 
 Access JWTs use Ed25519, last 15 minutes, and are bound to exactly one sandbox

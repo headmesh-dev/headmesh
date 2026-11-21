@@ -59,3 +59,15 @@ never exposed to the internet.
 An agent sandbox is a long-running container on your own hardware that joins the mesh as its own device. Cloud AI
 agents reach it over MCP, SSH or a remote session, and work on the folders you mount and the services you grant.
 It runs in **scoped** mode by default; **full-access** mode is opt-in, time-limited and requires a recent backup.
+
+### How does this compare to Remote Desktop Commander?
+
+Both let an AI assistant read files and run commands on your hardware through MCP.
+[Remote Desktop Commander](https://github.com/desktop-commander/remote-desktop-commander) relays requests through
+its hosted service to a paired computer, where they run under your user account with the limits you configure.
+[Desktop Commander access controls](https://desktopcommander.app/help/security-privacy/use-safely-limit-access)
+explain what those limits cover.
+
+With Headmesh, the assistant connects to a sandbox on your hardware with the access you grant. The same private
+network also lets teams share specific machines and services across workspaces for a set time. You can run
+the Headmesh control plane yourself.
