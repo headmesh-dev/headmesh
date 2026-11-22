@@ -185,7 +185,16 @@ EXECUTE on `pg_create_restore_point(text)` and `pg_switch_wal()`. Scratch
 files are removed at exit.
 
 Deploy a release with the publisher command before enabling the timer.
-The service uses `deployctl` to locate the active production release.
+The service uses `deployctl` to locate the active production release. For
+a backup-only build installed under `/usr/local/lib/headmesh/backup/`, add
+this drop-in to `headmesh-backup-manifest.service`.
+
+```ini
+[Service]
+ExecStart=
+ExecStart=/usr/local/lib/headmesh/backup/headmesh-server backup-manifest publish -netrc %d/manifest-netrc
+```
+
 Create the publisher's restricted login once with `manifest-role.sql`,
 run as the PostgreSQL administrator in the Headmesh database. In a local
 `psql` session, set its password with `\password headmesh_backup_manifest`.
@@ -198,7 +207,7 @@ the R2 endpoint and a key scoped to the `hm-pg` bucket. Use the netrc
 `machine`, `login`, and `password` fields and the same permissions.
 The service reads SQLite with the existing Litestream credential.
 
-Once both backups are active, install the manifest service and timer under
+Once both backups are active and Headscale has a registered node, install the manifest service and timer under
 `systemd/`. Reload systemd and run `headmesh-backup-manifest.service` once.
 Check that `hm-pg/manifest.json` can be read back and verified in the recovery
 environment, then enable `headmesh-backup-manifest.timer`. The command uses
