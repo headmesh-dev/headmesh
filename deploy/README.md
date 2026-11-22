@@ -211,3 +211,8 @@ through nginx, the database roles and their privileges, nginx drift handling, a 
 run, a rollback, a prod backend beside test, the Cloudflare token handling, and Headscale hs1 with its cell agent
 connected to the backend across a blue-green switch. It needs Docker, Go, Node and pnpm, and takes a few minutes.
 `HM_E2E_KEEP=1` leaves the container running.
+
+Run `deploy/tests/pgbackrest-restore.sh` to exercise encrypted PostgreSQL 18 backups and WAL recovery on the
+workstation. The drill builds a disposable Ubuntu container, takes a full and differential backup of synthetic data,
+checks that an incorrect encryption key fails, and restores to a named point between two transactions. The
+database and backup files live inside the container, which is removed at exit.
