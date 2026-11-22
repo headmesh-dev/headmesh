@@ -18,7 +18,7 @@ func runDNS(ctx context.Context, command string, args []string) error {
 	flags.Int64Var(&target.Standby.ServerID, "standby-id", 0, "allocated Hetzner standby server ID")
 	zoneID := flags.String("zone-id", "", "Cloudflare zone ID for headmesh.dev")
 	var manifestPath string
-	if command == "promote-dns" {
+	if command != "plan-dns" {
 		flags.StringVar(&manifestPath, "manifest", "", "verified recovery manifest used to restore the standby")
 	}
 	if err := flags.Parse(args); err != nil {
@@ -29,9 +29,9 @@ func runDNS(ctx context.Context, command string, args []string) error {
 		return fmt.Errorf("%s requires pinned primary, standby and firewall IDs and a recovery run ID", command)
 	}
 	var fingerprint string
-	if command == "promote-dns" {
+	if command != "plan-dns" {
 		if manifestPath == "" {
-			return fmt.Errorf("promote-dns requires the verified recovery manifest")
+			return fmt.Errorf("%s requires the verified recovery manifest", command)
 		}
 		manifest, err := readRecoveryManifest(manifestPath)
 		if err != nil {
@@ -49,6 +49,15 @@ func runDNS(ctx context.Context, command string, args []string) error {
 	}
 	ctx, cancel := context.WithTimeout(ctx, 3*time.Minute)
 	defer cancel()
+	if command == "verify-cutover" {
+		if err := recovery.VerifyCutover(ctx, provider, dns, target, fingerprint); err != nil {
+			return err
+		}
+		if _, err := fmt.Fprintln(os.Stdout, "Verified the primary fence, Cloudflare records, public DNS and HTTPS, and Headscale STUN on both resolved addresses."); err != nil {
+			return fmt.Errorf("write verification result: %w", err)
+		}
+		return nil
+	}
 	var changes []recovery.DNSChange
 	if command == "plan-dns" {
 		changes, err = recovery.PlanDNSCutover(ctx, provider, dns, target)

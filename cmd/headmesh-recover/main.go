@@ -27,13 +27,13 @@ func run(ctx context.Context, args []string) error {
 		switch args[0] {
 		case "create-standby", "start-standby":
 			return runStandby(ctx, args[0], args[1:], os.Stdout, hetznerClient)
-		case "plan-dns", "promote-dns":
+		case "plan-dns", "promote-dns", "verify-cutover":
 			return runDNS(ctx, args[0], args[1:])
 		case "prove-ingress":
 			return runProveIngress(ctx, args[1:])
 		}
 	}
-	return fmt.Errorf("usage: headmesh-recover {create-standby | start-standby | prove-ingress | plan-dns | promote-dns} [flags]")
+	return fmt.Errorf("usage: headmesh-recover {create-standby | start-standby | prove-ingress | plan-dns | promote-dns | verify-cutover} [flags]")
 }
 
 func runProveIngress(ctx context.Context, args []string) error {

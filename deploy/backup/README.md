@@ -509,8 +509,34 @@ managed hosts are `headmesh.dev`, `www.headmesh.dev`, `api.headmesh.dev`
 and `hs1.headmesh.dev`. Cloudflare applies the batch in one transaction.
 DNS propagation can occur at different times for each record. Before a
 scheduled game day, lower the live `hs1` TTL and allow the previous TTL to
-expire. Confirm the public resolve and client checks before declaring recovery.
+expire.
 [Cloudflare batch DNS updates](https://developers.cloudflare.com/api/resources/dns/subresources/records/methods/batch/)
+
+### Verify the public cutover
+
+Run the read-only verification from an independent runner with public DNS
+resolution and working IPv4 and IPv6. Supply the same provider pins and
+manifest. A Cloudflare token scoped to DNS Read on `headmesh.dev` is enough.
+
+```bash
+go run ./cmd/headmesh-recover verify-cutover "${primary[@]}" \
+  -standby-id "$standby_id" -zone-id "$zone_id" -manifest "$verified_manifest"
+```
+
+The command confirms the primary fence and Cloudflare origin records, then
+queries the runner's DNS resolver. It requires the promoted addresses for
+DNS-only records. For proxied web names, it uses the resolved edge addresses
+and checks for Cloudflare response headers. It checks HTTPS and STUN on both
+resolved Headscale addresses, verifies the Noise identity, and checks the API,
+site, `www` redirect, and waitlist. API and waitlist readiness requests carry
+a fresh query value and reject cached Cloudflare readiness responses. The
+command reads both providers again before reporting success.
+[Cloudflare proxy behavior](https://developers.cloudflare.com/dns/proxy-status/) · [Cloudflare cache responses](https://developers.cloudflare.com/cache/concepts/cache-responses/)
+
+If DNS still returns a fenced address or omits the standby's IPv6 address,
+let the resolver cache expire and retry the verification. Complete the
+Tailscale registration, node count, and applied policy checks before
+declaring the service recovered.
 
 ### Headscale startup and registration
 
