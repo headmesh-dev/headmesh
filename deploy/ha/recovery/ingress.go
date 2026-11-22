@@ -49,17 +49,19 @@ func proveIngress(ctx context.Context, standby StandbyIngress, roots *x509.CertP
 		return fmt.Errorf("invalid Headscale Noise fingerprint in the recovery manifest")
 	}
 	checks := []struct {
-		url    string
-		status int
-		body   func([]byte) error
+		url      string
+		status   int
+		location string
+		body     func([]byte) error
 	}{
-		{"https://hs1.headmesh.dev/health", http.StatusOK, nil},
-		{"https://hs1.headmesh.dev/key?v=130", http.StatusOK, func(body []byte) error { return checkNoiseKey(body, hash) }},
-		{"https://hs1.headmesh.dev/derp/probe", http.StatusOK, nil},
-		{"https://api.headmesh.dev/readyz", http.StatusNoContent, nil},
-		{"https://headmesh.dev/", http.StatusOK, checkHeadmeshSite},
-		{"https://headmesh.dev/api/waitlist/readyz", http.StatusNoContent, nil},
-		{"https://headmesh.dev/api/waitlist", http.StatusMethodNotAllowed, nil},
+		{url: "https://hs1.headmesh.dev/health", status: http.StatusOK},
+		{url: "https://hs1.headmesh.dev/key?v=130", status: http.StatusOK, body: func(body []byte) error { return checkNoiseKey(body, hash) }},
+		{url: "https://hs1.headmesh.dev/derp/probe", status: http.StatusOK},
+		{url: "https://api.headmesh.dev/readyz", status: http.StatusNoContent},
+		{url: "https://headmesh.dev/", status: http.StatusOK, body: checkHeadmeshSite},
+		{url: "https://www.headmesh.dev/", status: http.StatusMovedPermanently, location: "https://headmesh.dev/"},
+		{url: "https://headmesh.dev/api/waitlist/readyz", status: http.StatusNoContent},
+		{url: "https://headmesh.dev/api/waitlist", status: http.StatusMethodNotAllowed},
 	}
 	for _, address := range []netip.Addr{standby.IPv4, standby.IPv6} {
 		transport := &http.Transport{
@@ -74,7 +76,7 @@ func proveIngress(ctx context.Context, standby StandbyIngress, roots *x509.CertP
 			CheckRedirect: func(*http.Request, []*http.Request) error { return http.ErrUseLastResponse },
 		}
 		for _, check := range checks {
-			if err := probeHTTPS(ctx, client, check.url, check.status, check.body); err != nil {
+			if err := probeHTTPS(ctx, client, check.url, check.status, check.location, check.body); err != nil {
 				transport.CloseIdleConnections()
 				return fmt.Errorf("verify %s on standby address %s: %w", check.url, address, err)
 			}
@@ -84,7 +86,7 @@ func proveIngress(ctx context.Context, standby StandbyIngress, roots *x509.CertP
 	return nil
 }
 
-func probeHTTPS(ctx context.Context, client *http.Client, url string, status int, checkBody func([]byte) error) error {
+func probeHTTPS(ctx context.Context, client *http.Client, url string, status int, location string, checkBody func([]byte) error) error {
 	req, err := http.NewRequestWithContext(ctx, http.MethodGet, url, nil)
 	if err != nil {
 		return fmt.Errorf("create HTTPS probe: %w", err)
@@ -96,6 +98,9 @@ func probeHTTPS(ctx context.Context, client *http.Client, url string, status int
 	defer func() { _ = resp.Body.Close() }()
 	if resp.StatusCode != status {
 		return fmt.Errorf("received HTTP %d, expected %d", resp.StatusCode, status)
+	}
+	if location != "" && resp.Header.Get("Location") != location {
+		return fmt.Errorf("redirect did not point to %s", location)
 	}
 	if checkBody == nil {
 		return nil

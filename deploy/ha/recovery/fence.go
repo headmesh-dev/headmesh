@@ -100,6 +100,8 @@ func VerifyFence(ctx context.Context, client *hcloud.Client, primary Primary) er
 
 type primaryState struct {
 	server *hcloud.Server
+	ipv4   *hcloud.PrimaryIP
+	ipv6   *hcloud.PrimaryIP
 }
 
 func (s primaryState) attached(id int64) bool {
@@ -169,6 +171,11 @@ func readPrimary(ctx context.Context, client *hcloud.Client, primary Primary) (p
 			}
 		} else if ip.AssigneeID != 0 || ip.AssigneeType != "unassigned" || state.checkOffAndMarked() != nil {
 			return primaryState{}, fmt.Errorf("primary IP %d is detached without a confirmed fence or reports another assignee", ip.ID)
+		}
+		if address.family == hcloud.PrimaryIPTypeIPv4 {
+			state.ipv4 = ip
+		} else {
+			state.ipv6 = ip
 		}
 	}
 	return state, nil

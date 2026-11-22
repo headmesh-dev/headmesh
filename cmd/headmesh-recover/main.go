@@ -27,11 +27,13 @@ func run(ctx context.Context, args []string) error {
 		switch args[0] {
 		case "create-standby", "start-standby":
 			return runStandby(ctx, args[0], args[1:], os.Stdout, hetznerClient)
+		case "plan-dns", "promote-dns":
+			return runDNS(ctx, args[0], args[1:])
 		case "prove-ingress":
 			return runProveIngress(ctx, args[1:])
 		}
 	}
-	return fmt.Errorf("usage: headmesh-recover {create-standby | start-standby | prove-ingress} [flags]")
+	return fmt.Errorf("usage: headmesh-recover {create-standby | start-standby | prove-ingress | plan-dns | promote-dns} [flags]")
 }
 
 func runProveIngress(ctx context.Context, args []string) error {
@@ -53,18 +55,26 @@ func runProveIngress(ctx context.Context, args []string) error {
 	if err != nil {
 		return fmt.Errorf("parse standby IPv6: %w", err)
 	}
-	file, err := os.Open(*manifestPath)
+	manifest, err := readRecoveryManifest(*manifestPath)
 	if err != nil {
-		return fmt.Errorf("open recovery manifest: %w", err)
-	}
-	defer func() { _ = file.Close() }()
-	manifest, err := evidence.ReadManifest(file)
-	if err != nil {
-		return fmt.Errorf("read recovery manifest: %w", err)
+		return err
 	}
 	if err := recovery.ProveIngress(ctx, recovery.StandbyIngress{IPv4: v4, IPv6: v6, NoiseKeySHA256: manifest.Headscale.NoiseKeySHA256}); err != nil {
 		return fmt.Errorf("standby ingress proof failed: %w", err)
 	}
 	fmt.Println("Verified Headscale, DERP HTTPS and STUN, API readiness, the site and the waitlist on both standby addresses.")
 	return nil
+}
+
+func readRecoveryManifest(path string) (evidence.Manifest, error) {
+	file, err := os.Open(path) // #nosec G304 G703 -- The operator explicitly selects the local manifest file.
+	if err != nil {
+		return evidence.Manifest{}, fmt.Errorf("open recovery manifest: %w", err)
+	}
+	defer func() { _ = file.Close() }()
+	manifest, err := evidence.ReadManifest(file)
+	if err != nil {
+		return evidence.Manifest{}, fmt.Errorf("read recovery manifest: %w", err)
+	}
+	return manifest, nil
 }

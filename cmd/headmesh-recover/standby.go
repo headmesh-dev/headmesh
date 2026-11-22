@@ -26,6 +26,20 @@ func hetznerClient() (*hcloud.Client, error) {
 	return hcloud.NewClient(hcloud.WithToken(token), hcloud.WithRetryOpts(hcloud.RetryOpts{MaxRetries: 0})), nil
 }
 
+func bindProviderPins(flags *flag.FlagSet, primary *recovery.Primary, runID *string, firewallID *int64) {
+	flags.Int64Var(&primary.ServerID, "primary-id", 0, "original Hetzner server ID")
+	flags.StringVar(&primary.ServerName, "primary-name", "", "original Hetzner server name")
+	flags.Int64Var(&primary.IPv4ID, "primary-ipv4-id", 0, "original Primary IPv4 resource ID")
+	flags.Int64Var(&primary.IPv6ID, "primary-ipv6-id", 0, "original Primary IPv6 resource ID (0 if absent)")
+	flags.StringVar(runID, "run-id", "", "stable ID for this recovery run")
+	flags.Int64Var(firewallID, "firewall-id", 0, "approved standby firewall ID")
+}
+
+func validProviderPins(primary recovery.Primary, runID string, firewallID int64) bool {
+	return primary.ServerID > 0 && primary.ServerName != "" && primary.IPv4ID > 0 &&
+		primary.IPv6ID >= 0 && primary.IPv4ID != primary.IPv6ID && strings.TrimSpace(runID) != "" && firewallID > 0
+}
+
 // runStandby accepts a client factory so command-level verification can run
 // against the Hetzner API contract without production credentials.
 func runStandby(ctx context.Context, command string, args []string, out io.Writer, newClient func() (*hcloud.Client, error)) error {
@@ -34,12 +48,7 @@ func runStandby(ctx context.Context, command string, args []string, out io.Write
 	var config recovery.StandbyConfig
 	var standbyID int64
 	var keyIDs, cloudInitPath string
-	flags.Int64Var(&primary.ServerID, "primary-id", 0, "original Hetzner server ID")
-	flags.StringVar(&primary.ServerName, "primary-name", "", "original Hetzner server name")
-	flags.Int64Var(&primary.IPv4ID, "primary-ipv4-id", 0, "original Primary IPv4 resource ID")
-	flags.Int64Var(&primary.IPv6ID, "primary-ipv6-id", 0, "original Primary IPv6 resource ID (0 if absent)")
-	flags.StringVar(&config.RunID, "run-id", "", "stable ID for this recovery run")
-	flags.Int64Var(&config.FirewallID, "firewall-id", 0, "approved standby firewall ID")
+	bindProviderPins(flags, &primary, &config.RunID, &config.FirewallID)
 	if command == "create-standby" {
 		flags.IntVar(&config.ServerLimit, "server-limit", 0, "maximum servers allowed in the project")
 		flags.StringVar(&config.Image, "image", "ubuntu-26.04", "Hetzner system image name")
@@ -51,8 +60,7 @@ func runStandby(ctx context.Context, command string, args []string, out io.Write
 	if err := flags.Parse(args); err != nil {
 		return fmt.Errorf("parse standby flags: %w", err)
 	}
-	if flags.NArg() != 0 || primary.ServerID <= 0 || primary.ServerName == "" || primary.IPv4ID <= 0 ||
-		primary.IPv6ID < 0 || primary.IPv4ID == primary.IPv6ID || strings.TrimSpace(config.RunID) == "" || config.FirewallID <= 0 {
+	if flags.NArg() != 0 || !validProviderPins(primary, config.RunID, config.FirewallID) {
 		return fmt.Errorf("%s requires primary pins, a run ID, and the standby firewall ID", command)
 	}
 	if command == "create-standby" {

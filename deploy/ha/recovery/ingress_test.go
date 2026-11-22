@@ -22,6 +22,7 @@ func TestProveStandbyIngress(t *testing.T) {
 	const hs = "hs1.headmesh.dev"
 	const api = "api.headmesh.dev"
 	const site = "headmesh.dev"
+	const www = "www.headmesh.dev"
 	key := "mkey:" + strings.Repeat("ab", 32)
 	fingerprint := sha256.Sum256([]byte(key))
 	target := StandbyIngress{
@@ -38,6 +39,7 @@ func TestProveStandbyIngress(t *testing.T) {
 		apiNotReady      bool
 		derpAbsent       bool
 		waitlistNotReady bool
+		wrongWWWRedirect bool
 	}{
 		{name: "both standby addresses serve the restored services"},
 		{name: "wrong certificate host", certNames: []string{api, site}, want: "certificate is valid for"},
@@ -48,9 +50,10 @@ func TestProveStandbyIngress(t *testing.T) {
 		{name: "IPv6 ingress absent", breakIPv6: true, want: "2001:db8::22"},
 		{name: "DERP HTTP probe absent", derpAbsent: true, want: "derp/probe"},
 		{name: "restored waitlist unready", waitlistNotReady: true, want: "/api/waitlist/readyz"},
+		{name: "www redirects outside the standby site", wrongWWWRedirect: true, want: "redirect did not point"},
 	} {
 		t.Run(test.name, func(t *testing.T) {
-			names := []string{hs, api, site}
+			names := []string{hs, api, site, www}
 			if len(test.certNames) > 0 {
 				names = test.certNames
 			}
@@ -85,6 +88,12 @@ func TestProveStandbyIngress(t *testing.T) {
 					w.WriteHeader(http.StatusNoContent)
 				case site + "/":
 					_, _ = fmt.Fprint(w, "<!doctype html><title>Headmesh</title>")
+				case www + "/":
+					location := "https://headmesh.dev/"
+					if test.wrongWWWRedirect {
+						location = "https://unrelated.invalid/"
+					}
+					http.Redirect(w, r, location, http.StatusMovedPermanently)
 				case site + "/api/waitlist/readyz":
 					if test.waitlistNotReady {
 						w.WriteHeader(http.StatusServiceUnavailable)

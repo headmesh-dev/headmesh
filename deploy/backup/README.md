@@ -443,14 +443,49 @@ go run ./cmd/headmesh-recover prove-ingress \
 ```
 
 The command connects directly to both addresses. It verifies TLS, Headscale
-health and Noise identity, the HTTPS DERP probe, API readiness, the site,
-and both the waitlist route and database readiness.
+health and Noise identity, the HTTPS DERP probe, API readiness, the site and
+its `www` redirect, and both the waitlist route and database readiness.
 It also requires a STUN Binding Success response with a usable client address
 and port from each address on UDP 3478. Use a standby firewall that admits
 the runner over TCP 443 and UDP 3478 on both address families.
 [Direct HTTPS resolution and SNI](https://everything.curl.dev/usingcurl/connections/name.html)
 
 Keep DNS pointed at the existing records during verification.
+
+### Review and apply the Cloudflare DNS cutover
+
+Use the same primary and standby pins as allocation and keep the recovery
+lock held. Set `HCLOUD_TOKEN`, `CLOUDFLARE_DNS_API_TOKEN` scoped to the
+`headmesh.dev` zone, and `zone_id` from the Cloudflare dashboard. An inventory
+only needs DNS Read. Cutover needs DNS Write. Keep the preview in the private
+recovery directory because it includes the origin addresses.
+[Cloudflare dashboard](https://dash.cloudflare.com/)
+
+```bash
+umask 077
+go run ./cmd/headmesh-recover plan-dns "${primary[@]}" \
+  -standby-id "$standby_id" -zone-id "$zone_id" >"$dns_preview"
+```
+
+After approval for the cutover, run with the manifest used to restore the
+standby. The command repeats the ingress proof and verifies the fence and
+provider records before sending the batch. It then reads back the resulting
+records. A retry for the same verified standby reconciles an ambiguous write
+from Cloudflare's current records. An unexpected origin stops the cutover.
+
+```bash
+go run ./cmd/headmesh-recover promote-dns "${primary[@]}" \
+  -standby-id "$standby_id" -zone-id "$zone_id" -manifest "$verified_manifest"
+```
+
+The batch preserves the web records' proxy modes and TTLs. It moves `hs1`
+as DNS-only with a 60-second TTL and adds its AAAA record if needed. The
+managed hosts are `headmesh.dev`, `www.headmesh.dev`, `api.headmesh.dev`
+and `hs1.headmesh.dev`. Cloudflare applies the batch in one transaction.
+DNS propagation can occur at different times for each record. Before a
+scheduled game day, lower the live `hs1` TTL and allow the previous TTL to
+expire. Confirm the public resolve and client checks before declaring recovery.
+[Cloudflare batch DNS updates](https://developers.cloudflare.com/api/resources/dns/subresources/records/methods/batch/)
 
 ### Headscale startup and registration
 
