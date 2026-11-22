@@ -1105,14 +1105,14 @@ volumes: { hm-cache-mise: {}, hm-cache-uv: {}, hm-cache-npm: {}, hm-cache-pnpm: 
 
 ### 13.4 Failure detection, fencing and recovery (requirements 1, 4, 7)
 
-**Status 2026-11-22:** `headmesh-server serve -recovery` keeps readiness and writes closed until the overdue grant sweep and enforce-mode policy acknowledgements succeed. The detection Worker and independent confirmation command passed local tests. Live Worker activation, fencing, and the `recover.yml` workflow remain open. [Detector runbook](../deploy/ha/detector/README.md)
+**Status 2026-11-22:** `headmesh-server serve -recovery` keeps readiness and writes closed until the overdue grant sweep and enforce-mode policy acknowledgements succeed. The detection Worker, independent confirmation command and Hetzner fencing passed local tests. The live Worker, standby promotion and `recover.yml` workflow remain open. [Detector runbook](../deploy/ha/detector/README.md) · [Fencing implementation](../deploy/ha/recovery/fence.go)
 - **External detection** (the recovery logic never runs on the failed VM):
   - A **Cloudflare Worker with a 1-minute cron trigger** (free) probes `https://hs1.headmesh.dev/health` and `https://api.headmesh.dev/readyz` from the edge.
   - After **3 consecutive failures** of a service it sends a `repository_dispatch` (`control-plane-down`) to `headmesh-dev/headmesh`. GitHub requires a fine-grained credential with Contents write scoped to this repository.
   - Workflow **`recover.yml`** runs in environment `recovery`, single concurrency group, 30-minute timeout.
   - A first job **re-confirms from GitHub's network** (3 probes over 2 minutes) to rule out a Cloudflare-side false positive. A manual `workflow_dispatch` is also possible.
 - **Steps:**
-  1. **Fence:** read the server through the Hetzner API. If it's running, `poweroff`, wait until it's `off`, and label it `fenced=true`. Also detach its primary IPv4 (the API allows that while it's off) so it can never answer on the old address if someone powers it back on. Two control servers with the same keys **never** run at once. If the API can't confirm `off`, **abort and page**: no split brain.
+  1. **Fence.** Configure the original server's ID, name and primary IP IDs from the [Hetzner project console](https://console.hetzner.cloud/). After independent outage confirmation and with the workflow lock held, verify the pinned resources in the API. Power off a running primary and read back `off` before marking it `fenced=true`. Detach its primary IPv4 and IPv6, when configured, and verify the server record and both address assignments before creating a standby. Retries can finish a partial detachment when the server is still off and marked. Abort and page when the API cannot confirm the fence or shows an unexpected network attachment. [Hetzner Cloud API](https://docs.hetzner.cloud/reference/cloud)
   2. **Preflight capacity (requirement 7):**
      - Count servers in project `headmesh` against the configured limit `HCLOUD_SERVER_LIMIT` (from Console → Limits; **SPIKE T-11**: no limits endpoint is known in the API).
      - Try the fallback chain `cx23@fsn1 → cx23@hel1 → cx33@fsn1 → cx33@hel1 → cpx21@fsn1 → cax11@fsn1`. Images are multi-arch.
