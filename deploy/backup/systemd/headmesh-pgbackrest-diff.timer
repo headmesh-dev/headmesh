@@ -1,0 +1,10 @@
+[Unit]
+Description=Headmesh PostgreSQL differential backup on days without a full backup
+
+[Timer]
+OnCalendar=Mon..Sat *-*-* 04:00:00 UTC
+Persistent=true
+Unit=headmesh-pgbackrest@diff.service
+
+[Install]
+WantedBy=timers.target

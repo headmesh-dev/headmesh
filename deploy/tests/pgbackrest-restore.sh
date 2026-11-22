@@ -5,6 +5,20 @@ set -euo pipefail
 ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/../.." && pwd)"
 BASE="$(awk '/^FROM / { print $2; exit }' "${ROOT}/deploy/tests/Dockerfile")"
 IMAGE=headmesh-pgbackrest-restore:local
+container_args=(--network none)
+if (( $# != 0 )); then
+  # Called by object-storage-restore.sh with its isolated network and CA.
+  [[ $# == 2 ]] || { echo "usage: $0 [test-network test-ca-file]" >&2; exit 2; }
+  container_args=(
+    --network "$1"
+    --mount "type=bind,src=$2,dst=/run/s3-ca.crt,readonly"
+    --mount "type=bind,src=${ROOT}/deploy/backup/pgbackrest-r2.conf,dst=/run/pgbackrest-r2.conf,readonly"
+    --env HM_DRILL_PG_KEY
+    --env HM_DRILL_PG_SECRET
+    --env HM_DRILL_SQLITE_KEY
+    --env HM_DRILL_SQLITE_SECRET
+  )
+fi
 
 {
   printf 'FROM %s\n' "${BASE}"
@@ -14,12 +28,14 @@ ENV DEBIAN_FRONTEND=noninteractive
 RUN mkdir -p /etc/postgresql-common \
  && echo 'create_main_cluster = false' > /etc/postgresql-common/createcluster.conf \
  && apt-get update -qq \
- && apt-get install -y --no-install-recommends ca-certificates pgbackrest postgresql-18 \
+ && apt-get install -y --no-install-recommends ca-certificates curl pgbackrest postgresql-18 \
  && rm -rf /var/lib/apt/lists/*
 DOCKERFILE
 } | docker build -t "${IMAGE}" -
 
-docker run --rm -i --network none --user postgres --entrypoint bash "${IMAGE}" -s <<'DRILL'
+docker run --rm -i "${container_args[@]}" \
+  --mount "type=bind,src=${ROOT}/deploy/backup/postgresql-archive.conf,dst=/run/postgresql-archive.conf,readonly" \
+  --user postgres --entrypoint bash "${IMAGE}" -s <<'DRILL'
 set -euo pipefail
 umask 077
 export PATH="/usr/lib/postgresql/18/bin:${PATH}"
@@ -43,30 +59,50 @@ trap diagnostics EXIT
 pgbackrest --version
 postgres --version
 initdb -D "${PRIMARY}" --no-locale --auth-local=trust --auth-host=reject >/dev/null
-cat >"${ROOT}/pgbackrest.conf" <<CONF
+if [[ -r /run/pgbackrest-r2.conf ]]; then
+  cp /run/pgbackrest-r2.conf "${ROOT}/pgbackrest.conf"
+  export PGBACKREST_REPO1_S3_ENDPOINT=headmesh-backup-s3
+  export PGBACKREST_REPO1_STORAGE_PORT=8443
+  export PGBACKREST_REPO1_STORAGE_CA_FILE=/run/s3-ca.crt
+  export PGBACKREST_REPO1_S3_KEY="${HM_DRILL_PG_KEY:?}"
+  export PGBACKREST_REPO1_S3_KEY_SECRET="${HM_DRILL_PG_SECRET:?}"
+  list_bucket() {
+    curl --silent --show-error --max-time 2 --output /dev/null --write-out '%{http_code}' \
+      --aws-sigv4 aws:amz:auto:s3 --user "$2:$3" \
+      --cacert /run/s3-ca.crt "https://headmesh-backup-s3:8443/$1?list-type=2"
+  }
+  for _ in {1..30}; do
+    [[ "$(list_bucket hm-pg "${HM_DRILL_PG_KEY}" "${HM_DRILL_PG_SECRET}" 2>/dev/null)" != 200 ]] || break
+    sleep 1
+  done
+  [[ "$(list_bucket hm-pg "${HM_DRILL_PG_KEY}" "${HM_DRILL_PG_SECRET}")" == 200 ]]
+  [[ "$(list_bucket hm-hs1-litestream "${HM_DRILL_PG_KEY}" "${HM_DRILL_PG_SECRET}")" == 403 ]]
+  [[ "$(list_bucket hm-hs1-litestream "${HM_DRILL_SQLITE_KEY:?}" "${HM_DRILL_SQLITE_SECRET:?}")" == 200 ]]
+  [[ "$(list_bucket hm-pg "${HM_DRILL_SQLITE_KEY}" "${HM_DRILL_SQLITE_SECRET}")" == 403 ]]
+  printf '%s\n' 'Verified S3 TLS and both bucket credential scopes.'
+else
+  cat >"${ROOT}/pgbackrest.conf" <<CONF
 [global]
 repo1-path=${ROOT}/repo
 repo1-retention-full=4
 repo1-cipher-type=aes-256-cbc
-repo1-cipher-pass=$(od -An -N32 -tx1 /dev/urandom | tr -d ' \n')
-lock-path=${ROOT}/lock
-archive-timeout=30
-log-level-console=warn
-log-level-file=off
-
-[headmesh]
-pg1-path=${PRIMARY}
-pg1-socket-path=${SOCKET}
 CONF
+fi
+export PGBACKREST_REPO1_CIPHER_PASS="$(od -An -N32 -tx1 /dev/urandom | tr -d ' \n')"
+export PGBACKREST_LOCK_PATH="${ROOT}/lock"
+export PGBACKREST_ARCHIVE_TIMEOUT=30
+export PGBACKREST_LOG_LEVEL_CONSOLE=warn
+export PGBACKREST_LOG_LEVEL_FILE=off
+export PGBACKREST_PG1_PATH="${PRIMARY}"
+export PGBACKREST_PG1_SOCKET_PATH="${SOCKET}"
+export PGBACKREST_CONFIG="${ROOT}/pgbackrest.conf"
 cat >>"${PRIMARY}/postgresql.conf" <<CONF
 listen_addresses = ''
 unix_socket_directories = '${SOCKET}'
-archive_mode = on
-archive_timeout = 300
-archive_command = 'pgbackrest --config=${ROOT}/pgbackrest.conf --stanza=headmesh archive-push "%p"'
 CONF
+cat /run/postgresql-archive.conf >>"${PRIMARY}/postgresql.conf"
 
-backup() { pgbackrest --config="${ROOT}/pgbackrest.conf" --stanza=headmesh "$@"; }
+backup() { pgbackrest --stanza=headmesh "$@"; }
 restore() { backup --pg1-path="${RESTORED}" --type=name --target=headmesh_drill --target-action=promote restore; }
 primary_sql() { psql -XqAt -v ON_ERROR_STOP=1 -h "${SOCKET}" -d postgres "$@"; }
 restored_sql() { psql -XqAt -v ON_ERROR_STOP=1 -h "${RESTORE_SOCKET}" -p 5433 -d postgres "$@"; }

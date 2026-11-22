@@ -1,0 +1,10 @@
+[Unit]
+Description=Weekly full Headmesh PostgreSQL backup
+
+[Timer]
+OnCalendar=Sun *-*-* 04:00:00 UTC
+Persistent=true
+Unit=headmesh-pgbackrest@full.service
+
+[Install]
+WantedBy=timers.target

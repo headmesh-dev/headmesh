@@ -1,0 +1,17 @@
+[Unit]
+Description=Headmesh PostgreSQL %i backup
+After=network-online.target postgresql@18-main.service
+Wants=network-online.target
+Requisite=postgresql@18-main.service
+
+[Service]
+Type=oneshot
+User=postgres
+Group=postgres
+ExecStart=/usr/bin/flock /var/lib/pgbackrest/headmesh-backup.lock /usr/bin/pgbackrest --stanza=headmesh --type=%i backup
+TimeoutStartSec=6h
+UMask=0077
+NoNewPrivileges=true
+ProtectHome=true
+ProtectSystem=full
+RestrictAddressFamilies=AF_INET AF_INET6 AF_UNIX

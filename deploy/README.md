@@ -216,3 +216,7 @@ Run `deploy/tests/pgbackrest-restore.sh` to exercise encrypted PostgreSQL 18 bac
 workstation. The drill builds a disposable Ubuntu container, takes a full and differential backup of synthetic data,
 checks that an incorrect encryption key fails, and restores to a named point between two transactions. The
 database and backup files live inside the container, which is removed at exit.
+
+`deploy/tests/object-storage-restore.sh` also runs the PostgreSQL and Litestream
+drills against a temporary S3-compatible endpoint over TLS. See the
+[backup configuration](backup/README.md) for the R2 rollout and verification steps.
