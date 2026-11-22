@@ -59,6 +59,12 @@ server {
         return 302 {{REPO_URL}};
     }
 
+    location = /api/waitlist/readyz {
+        limit_req zone=headmesh_waitlist burst=5 nodelay;
+        proxy_pass http://headmesh_{{ENV}}_waitlist/readyz;
+        include /etc/nginx/snippets/headmesh-proxy.conf;
+    }
+
     location ^~ /api/waitlist {
         limit_req zone=headmesh_waitlist burst=5 nodelay;
         client_max_body_size 16k;

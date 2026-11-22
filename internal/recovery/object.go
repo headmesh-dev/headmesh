@@ -43,6 +43,21 @@ func (object recoveryObject) request(ctx context.Context, args ...string) (strin
 	return string(out), nil
 }
 
+func (object recoveryObject) writeCondition(ctx context.Context, headers string) (string, error) {
+	status, err := object.request(ctx, "--head", "--dump-header", headers, "--output", os.DevNull)
+	if err != nil {
+		return "", err
+	}
+	switch status {
+	case "200":
+		return objectMatchHeader(headers)
+	case "404":
+		return "If-None-Match: *", nil
+	default:
+		return "", fmt.Errorf("object store refused lookup (HTTP %s)", status)
+	}
+}
+
 func objectMatchHeader(headers string) (string, error) {
 	data, err := os.ReadFile(headers) // #nosec G304 -- This is curl output in the private scratch directory.
 	if err != nil {

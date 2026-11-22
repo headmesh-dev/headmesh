@@ -58,6 +58,8 @@ func proveIngress(ctx context.Context, standby StandbyIngress, roots *x509.CertP
 		{"https://hs1.headmesh.dev/derp/probe", http.StatusOK, nil},
 		{"https://api.headmesh.dev/readyz", http.StatusNoContent, nil},
 		{"https://headmesh.dev/", http.StatusOK, checkHeadmeshSite},
+		{"https://headmesh.dev/api/waitlist/readyz", http.StatusNoContent, nil},
+		{"https://headmesh.dev/api/waitlist", http.StatusMethodNotAllowed, nil},
 	}
 	for _, address := range []netip.Addr{standby.IPv4, standby.IPv6} {
 		transport := &http.Transport{

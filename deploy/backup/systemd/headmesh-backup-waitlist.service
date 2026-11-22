@@ -1,0 +1,21 @@
+[Unit]
+Description=Publish an encrypted production waitlist snapshot
+After=network-online.target
+Wants=network-online.target
+
+[Service]
+Type=oneshot
+EnvironmentFile=/etc/headmesh/backup/litestream.env
+EnvironmentFile=/etc/headmesh/backup/waitlist-recipients.env
+LoadCredential=keys-netrc:/etc/headmesh/backup/keys.netrc
+Environment=TMPDIR=/run/headmesh-backup-waitlist
+RuntimeDirectory=headmesh-backup-waitlist
+RuntimeDirectoryMode=0700
+ExecStart=/usr/local/lib/headmesh/deployctl.sh publish-waitlist %d/keys-netrc
+TimeoutStartSec=150s
+UMask=0077
+NoNewPrivileges=true
+PrivateTmp=true
+ProtectHome=true
+ProtectSystem=strict
+RestrictAddressFamilies=AF_INET AF_INET6 AF_UNIX

@@ -10,6 +10,7 @@
 #   activate-static  <env> <release>                   atomically switch the marketing site to a release
 #   activate-service <service> <env> <release> [drain] blue-green switch of waitlist or backend
 #   start-recovery   <release>                        start a restored prod backend and cell behind closed ingress
+#   start-recovery-waitlist <release> <snapshot>        install a waitlist snapshot and start the private service
 #   prepare-recovery-ingress <nginx-dir> <site-release> <ipv4> <ipv6>  check standby HTTPS and publish its DERP/STUN
 #   rollback         <component> <env> [keep-schema]   back to the previous release (marketing) or colour (services);
 #                                                      the backend's schema follows to what that colour ran with
@@ -18,6 +19,7 @@
 #   backup           <env>                             copy the waitlist database (also run daily by a timer)
 #                                                      (Postgres is dumped before every schema change instead)
 #   publish-manifest <netrc>                           publish recovery evidence using the live prod release
+#   publish-waitlist <netrc>                           publish the encrypted waitlist snapshot using the live prod release
 #   smoke            <env>                             request each vhost through nginx on loopback
 #   cell-agent       <env>                             register the env's Headscale cell, renew the agent's
 #                                                      certificate, configure and (re)start the cell agent
@@ -488,12 +490,12 @@ cmd_backup() {
   log "backup ${env}: ${dir}/waitlist-${stamp}.db"
 }
 
-cmd_publish_manifest() {
-  local netrc="${1:-}" colour
-  [[ -n "${netrc}" ]] || die "publish-manifest needs a credential file"
+cmd_publish_backup() {
+  local component="$1" netrc="${2:-}" colour
+  [[ -n "${netrc}" ]] || die "publish-${component} needs a credential file"
   colour="$(state_get prod backend.active)"
-  [[ "${colour}" == blue || "${colour}" == green ]] || die "no active prod backend for manifest publication"
-  exec "$(slot_path backend prod "${colour}")/headmesh-server" backup-manifest publish -netrc "${netrc}"
+  [[ "${colour}" == blue || "${colour}" == green ]] || die "no active prod backend for ${component} publication"
+  exec "$(slot_path backend prod "${colour}")/headmesh-server" "backup-${component}" publish -netrc "${netrc}"
 }
 
 # switch_to <service> <env> <colour> <release-for-log>: point nginx at a healthy colour (nginx -t gated).
@@ -713,6 +715,80 @@ SQL
   log 'restored backend is ready and nginx remains masked'
 }
 
+rollback_recovery_waitlist() {
+  local status="$1" unit="$2" scratch="$3" db="$4" installed="$5" ready="$6"
+  trap - EXIT INT TERM ERR
+  set +e
+  if (( installed )) && [[ ! -f "${ready}" ]]; then
+    if systemctl stop "${unit}"; then
+      systemctl reset-failed "${unit}" 2>/dev/null || true
+      rm -f -- "${db}" "${db}-wal" "${db}-shm" "${db}-journal"
+    else
+      log 'could not stop the standby waitlist; its database has been retained'
+    fi
+  fi
+  rm -f -- "${scratch}" "${scratch}-wal" "${scratch}-shm" "${scratch}-journal"
+  exit "${status}"
+}
+
+cmd_start_recovery_waitlist() {
+  [[ $# == 2 ]] || die 'start-recovery-waitlist requires a waitlist release and a standalone SQLite snapshot'
+  umask 077
+  local release="$1" snapshot="$2" env=prod colour=blue record="${HM_STATE_ROOT}/recovery"
+  local target="${HM_SRV_ROOT}/prod/waitlist/releases/${release}" dir="${HM_STATE_ROOT}/prod/waitlist"
+  local ready="${record}/waitlist-ready" db="${dir}/waitlist.db" unit path scratch verified installed=0
+  require_release "${release}"
+  unit="$(unit_name waitlist "${env}" "${colour}")"
+  install -d -m 0700 /run/headmesh-recovery-state
+  exec 9>/run/headmesh-recovery-state/lock
+  flock -n 9 || die 'another recovery operation is in progress'
+  [[ -s "${record}/manifest.json" && -s "${record}/backend-ready" && ! -e "${record}/ingress-ready" &&
+    "$(readlink /etc/systemd/system/nginx.service || true)" == /dev/null &&
+    "$(systemctl show -p ActiveState --value nginx.service)" == inactive ]] ||
+    die 'start the restored backend and keep nginx masked before installing the waitlist'
+  [[ ! -e "${ready}" && ! -L "${ready}" && -z "$(state_get "${env}" waitlist.active)" ]] || die 'the standby waitlist is already recorded'
+  for path in "${unit}" "$(unit_name waitlist "${env}" green)"; do
+    [[ "$(systemctl show -p ActiveState --value "${path}")" == inactive ]] || die "${path} must be inactive"
+  done
+  [[ -f "${target}/server/main.ts" && -s "${HM_ETC_ROOT}/${env}/waitlist.env" ]] ||
+    die 'install the matching waitlist release and original waitlist.env first'
+  runuser -u "${HM_SERVICE_USER}" -- test -r "${target}/server/main.ts" ||
+    die 'the service account cannot read the staged waitlist release'
+  [[ -f "${snapshot}" && ! -L "${snapshot}" && -s "${snapshot}" ]] || die 'the waitlist snapshot must be a nonempty regular file'
+  for path in "${snapshot}-wal" "${snapshot}-shm" "${snapshot}-journal" "${db}" "${db}-wal" "${db}-shm" "${db}-journal"; do
+    [[ ! -e "${path}" && ! -L "${path}" ]] || die 'use a standalone snapshot and an empty waitlist destination'
+  done
+  [[ ! -L "${dir}" ]] || die 'the waitlist directory must not be a symlink'
+  install -d -o "${HM_SERVICE_USER}" -g "${HM_SERVICE_USER}" -m 0750 "${dir}"
+  scratch="$(mktemp "${dir}/.recovery.XXXXXXXX")"
+  trap 'rollback_recovery_waitlist "$?" "${unit}" "${scratch}" "${db}" "${installed}" "${ready}"' EXIT
+  trap 'exit 130' INT
+  trap 'exit 143' TERM
+  cp -- "${snapshot}" "${scratch}"
+  if ! verified="$(sqlite3 -batch -bail -readonly "${scratch}" 2>/dev/null <<'SQL'
+PRAGMA integrity_check;
+SELECT count(*) FROM schema_migrations WHERE name = '0001_create_waitlist.sql';
+SELECT id, email, consent_version, confirmed_at, unsubscribed_at FROM waitlist LIMIT 0;
+SQL
+  )" || [[ "${verified}" != $'ok\n1' ]]; then
+    die 'the waitlist snapshot failed SQLite integrity or schema validation'
+  fi
+  chown "${HM_SERVICE_USER}:${HM_SERVICE_USER}" "${scratch}"
+  ln -T -- "${scratch}" "${db}"
+  installed=1
+  rm -f -- "${scratch}" "${scratch}-wal" "${scratch}-shm" "${scratch}-journal"
+  install -d -m 0755 "${HM_SRV_ROOT}/slots"
+  ln -sfn "${target}" "$(slot_path waitlist "${env}" "${colour}")"
+  write_instance_env waitlist "${env}" "${colour}"
+  systemctl start "${unit}"
+  wait_healthy "$(health_url "${env}" waitlist "${colour}")" || die 'the restored waitlist did not become ready'
+  [[ "$(recovery_http_code "$(health_url "${env}" waitlist "${colour}")")" == 204 ]] || die 'the restored waitlist did not return readiness'
+  printf '%s\n' "${release}" >"${ready}.tmp"
+  mv -f -- "${ready}.tmp" "${ready}"
+  trap - EXIT INT TERM
+  log 'restored waitlist is ready on loopback'
+}
+
 rollback_recovery_ingress() {
   local status="$1" relay_conf="$2" cell="$3"
   local relay_changed=0
@@ -768,6 +844,11 @@ cmd_prepare_recovery_ingress() {
   require_release "${backend}"
   [[ "$(readlink "$(slot_path backend "${env}" blue)" || true)" == "${HM_SRV_ROOT}/prod/backend/releases/${backend}" &&
     "$(recovery_http_code "$(health_url "${env}" backend blue)")" == 204 ]] || die 'the recorded standby backend is unready'
+  [[ -s "${record}/waitlist-ready" ]] || die 'start the restored waitlist before opening standby ingress'
+  waitlist="$(<"${record}/waitlist-ready")"
+  require_release "${waitlist}"
+  [[ "$(readlink "$(slot_path waitlist "${env}" blue)" || true)" == "${HM_SRV_ROOT}/prod/waitlist/releases/${waitlist}" &&
+    "$(recovery_http_code "$(health_url "${env}" waitlist blue)")" == 204 ]] || die 'the recorded standby waitlist is unready'
   [[ -s "${root}/releases/${site_release}/site/index.html" && -s "${root}/releases/${site_release}/nginx/security-headers.conf" ]] ||
     die 'install the matching marketing release first'
   api="$(hm_env "${env}" API_HOST)"
@@ -786,13 +867,12 @@ cmd_prepare_recovery_ingress() {
   for pair in "${NGINX_GENERATED[@]}" "${NGINX_MANAGED[@]}"; do
     [[ -s "${staging}/${pair%%:*}" ]] || die "missing rendered file ${pair%%:*}"
   done
-  waitlist="$(state_get "${env}" waitlist.active)"
   nginx_txn_begin
   trap 'rollback_recovery_ingress "$?" "${relay_conf}" "${cell_name}"' EXIT
   trap 'exit 130' INT
   trap 'exit 143' TERM
   render_upstream "${env}" backend blue "${NGINX_TXN_DIR}"
-  render_upstream "${env}" waitlist "${waitlist:-blue}" "${NGINX_TXN_DIR}"
+  render_upstream "${env}" waitlist blue "${NGINX_TXN_DIR}"
   for service in waitlist backend cell; do
     nginx_txn_put "${NGINX_TXN_DIR}/${service}-upstream.conf" "$(upstream_file "${env}" "${service}")"
   done
@@ -829,6 +909,9 @@ EOF
   [[ "${actual_noise}" == "${expected_noise}" ]] || die 'nginx served a different Headscale Noise identity'
   [[ "$(recovery_http_code --cacert "${ca}" --resolve "${site}:443:127.0.0.1" "https://${site}/")" == 200 ]] ||
     die 'the standby site is unready through nginx'
+  [[ "$(recovery_http_code --cacert "${ca}" --resolve "${site}:443:127.0.0.1" "https://${site}/api/waitlist/readyz")" == 204 &&
+    "$(recovery_http_code --cacert "${ca}" --resolve "${site}:443:127.0.0.1" "https://${site}/api/waitlist")" == 405 ]] ||
+    die 'the standby waitlist is unready through nginx'
   printf '%s\n%s\n' "${backend}" "${site_release}" >"${record}/ingress-ready.tmp"
   mv -f "${record}/ingress-ready.tmp" "${record}/ingress-ready"
   trap - EXIT INT TERM
@@ -1161,16 +1244,18 @@ main() {
     activate-static) cmd_activate_static "$@" ;;
     activate-service) cmd_activate_service "$@" ;;
     start-recovery) cmd_start_recovery "$@" ;;
+    start-recovery-waitlist) cmd_start_recovery_waitlist "$@" ;;
     prepare-recovery-ingress) cmd_prepare_recovery_ingress "$@" ;;
     rollback) cmd_rollback "$@" ;;
     status) cmd_status "$@" ;;
     prune) cmd_prune "$@" ;;
     backup) cmd_backup "$@" ;;
-    publish-manifest) cmd_publish_manifest "$@" ;;
+    publish-manifest) cmd_publish_backup manifest "$@" ;;
+    publish-waitlist) cmd_publish_backup waitlist "$@" ;;
     smoke) cmd_smoke "$@" ;;
     cell-agent) cmd_cell_agent "$@" ;;
     tls-renewed) cmd_tls_renewed ;;
-    *) sed -n '2,25p' "${BASH_SOURCE[0]}" | sed 's/^# \{0,1\}//' >&2; exit 2 ;;
+    *) sed -n '2,27p' "${BASH_SOURCE[0]}" | sed 's/^# \{0,1\}//' >&2; exit 2 ;;
   esac
 }
 

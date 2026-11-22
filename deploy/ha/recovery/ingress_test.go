@@ -29,14 +29,15 @@ func TestProveStandbyIngress(t *testing.T) {
 		NoiseKeySHA256: hex.EncodeToString(fingerprint[:]),
 	}
 	for _, test := range []struct {
-		name, want  string
-		certNames   []string
-		untrusted   bool
-		breakIPv6   bool
-		wrongNoise  bool
-		redirect    bool
-		apiNotReady bool
-		derpAbsent  bool
+		name, want       string
+		certNames        []string
+		untrusted        bool
+		breakIPv6        bool
+		wrongNoise       bool
+		redirect         bool
+		apiNotReady      bool
+		derpAbsent       bool
+		waitlistNotReady bool
 	}{
 		{name: "both standby addresses serve the restored services"},
 		{name: "wrong certificate host", certNames: []string{api, site}, want: "certificate is valid for"},
@@ -46,6 +47,7 @@ func TestProveStandbyIngress(t *testing.T) {
 		{name: "backend still recovering", apiNotReady: true, want: "HTTP 503"},
 		{name: "IPv6 ingress absent", breakIPv6: true, want: "2001:db8::22"},
 		{name: "DERP HTTP probe absent", derpAbsent: true, want: "derp/probe"},
+		{name: "restored waitlist unready", waitlistNotReady: true, want: "/api/waitlist/readyz"},
 	} {
 		t.Run(test.name, func(t *testing.T) {
 			names := []string{hs, api, site}
@@ -83,6 +85,14 @@ func TestProveStandbyIngress(t *testing.T) {
 					w.WriteHeader(http.StatusNoContent)
 				case site + "/":
 					_, _ = fmt.Fprint(w, "<!doctype html><title>Headmesh</title>")
+				case site + "/api/waitlist/readyz":
+					if test.waitlistNotReady {
+						w.WriteHeader(http.StatusServiceUnavailable)
+						return
+					}
+					w.WriteHeader(http.StatusNoContent)
+				case site + "/api/waitlist":
+					w.WriteHeader(http.StatusMethodNotAllowed)
 				default:
 					t.Errorf("unrecognized probe: %s %s", r.Host, r.URL)
 					w.WriteHeader(http.StatusNotFound)

@@ -1,0 +1,10 @@
+[Unit]
+Description=Publish an encrypted production waitlist snapshot every fifteen minutes
+
+[Timer]
+OnCalendar=*-*-* *:00/15:00 UTC
+Persistent=true
+Unit=headmesh-backup-waitlist.service
+
+[Install]
+WantedBy=timers.target

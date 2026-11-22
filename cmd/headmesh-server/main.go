@@ -57,7 +57,7 @@ func run(args []string) int {
 	logger := slog.New(slog.NewJSONHandler(os.Stderr, &slog.HandlerOptions{Level: logLevel()}))
 	slog.SetDefault(logger)
 	if len(args) == 0 {
-		fmt.Fprintln(os.Stderr, "usage: headmesh-server serve|migrate|bootstrap|oauth-grant|keygen|ca-init|cell-cert|backup-manifest|backup-keys|version")
+		fmt.Fprintln(os.Stderr, "usage: headmesh-server serve|migrate|bootstrap|oauth-grant|keygen|ca-init|cell-cert|backup-manifest|backup-keys|backup-waitlist|version")
 		return 2
 	}
 	ctx, stop := signal.NotifyContext(context.Background(), os.Interrupt, syscall.SIGTERM)
@@ -82,6 +82,8 @@ func run(args []string) int {
 		err = backupManifest(ctx, args[1:], os.Stdout)
 	case "backup-keys":
 		err = backupKeys(ctx, args[1:], os.Stdout)
+	case "backup-waitlist":
+		err = backupWaitlist(ctx, args[1:], os.Stdout)
 	case "version":
 		fmt.Println(version)
 	default:

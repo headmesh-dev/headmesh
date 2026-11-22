@@ -141,6 +141,36 @@ at mode `0700` and all three files at mode `0600`. Use those keys in the
 manifest verification below. Treat the staged configuration and keys as
 private recovery files and remove them when an isolated drill ends.
 
+## Production waitlist snapshot
+
+`backup-waitlist publish` captures the live SQLite database with SQLite's
+online backup API. It validates the snapshot, encrypts it to both existing
+age recipients and conditionally updates `hm-keys/waitlist/prod.db.age`.
+The local waitlist backup timer continues to serve deploy rollback.
+[SQLite online backup](https://www.sqlite.org/backup.html)
+
+Use `/etc/headmesh/backup/keys.netrc` for the existing `hm-keys` writer.
+Set the two public recipient fields in the root-owned
+`/etc/headmesh/backup/waitlist-recipients.env` file. The service reads
+`HEADMESH_R2_ENDPOINT` from the existing `litestream.env`.
+
+```dotenv
+OWNER_RECIPIENT=
+RECOVERY_RECIPIENT=
+```
+
+Install `headmesh-backup-waitlist.service` and its timer from `systemd/`.
+Run the service once and stage its result using the read-only key below.
+After a successful readback, enable the timer for a snapshot every 15 minutes.
+For a backup-only `headmesh-server` under `/usr/local/lib/headmesh/backup/`,
+use this service drop-in when that build includes `backup-waitlist`.
+
+```ini
+[Service]
+ExecStart=
+ExecStart=/usr/local/lib/headmesh/backup/headmesh-server backup-waitlist publish -netrc %d/keys-netrc
+```
+
 ## Recovery manifest
 
 Capture the primary's recovery evidence with the deployed `headmesh-server`
@@ -351,6 +381,31 @@ ingress step. Always check live readiness again before promotion.
 
 ### Verify standby ingress before DNS
 
+Stage the off-host waitlist snapshot from `hm-keys` with either private age
+identity and the bucket's read-only `keys.netrc`. Select a new file under
+a private directory. A standalone SQLite backup from `deployctl.sh backup
+prod` can also be supplied to the standby installer.
+
+```sh
+headmesh-server backup-waitlist stage \
+  -identity "$recovery_identity" -netrc "$keys_netrc" -output "$waitlist_snapshot"
+```
+
+Install the matching waitlist release under
+`/srv/headmesh/prod/waitlist/releases/` and restore the original
+`/etc/headmesh/prod/waitlist.env`, including its original `WAITLIST_SECRET`
+so outstanding confirmation and unsubscribe links still work. The
+`headmesh` service account must be able to read its release. After backend
+recovery, start the restored waitlist with nginx still masked.
+
+```sh
+/usr/local/lib/headmesh/deployctl.sh start-recovery-waitlist "$waitlist_release" "$waitlist_snapshot"
+```
+
+The command validates the database and starts it on loopback. It refuses to
+replace an existing database. Once it returns successfully, remove the
+private staged copy.
+
 Install the DNS-01 certificate and key under `/etc/headmesh/tls/` before
 starting nginx. Install the production marketing release under
 `/srv/headmesh/prod/marketing/releases/`, including `site/` and `nginx/`.
@@ -370,7 +425,7 @@ from `start-standby`.
   "$rendered_nginx" "$site_release" "$standby_ipv4" "$standby_ipv6"
 ```
 
-The command checks live backend readiness, that both addresses are assigned
+The command checks live backend and waitlist readiness, that both addresses are assigned
 to the standby and that the certificate is trusted for the production names.
 After validating the nginx config it switches Headscale's advertised DERP
 addresses to the standby and starts native STUN on UDP 3478. It waits for the
@@ -388,14 +443,14 @@ go run ./cmd/headmesh-recover prove-ingress \
 ```
 
 The command connects directly to both addresses. It verifies TLS, Headscale
-health and Noise identity, the HTTPS DERP probe, API readiness and the site.
+health and Noise identity, the HTTPS DERP probe, API readiness, the site,
+and both the waitlist route and database readiness.
 It also requires a STUN Binding Success response with a usable client address
 and port from each address on UDP 3478. Use a standby firewall that admits
 the runner over TCP 443 and UDP 3478 on both address families.
 [Direct HTTPS resolution and SNI](https://everything.curl.dev/usingcurl/connections/name.html)
 
-Keep DNS pointed at the existing records during verification. Promotion also
-needs the waitlist service restored and checked.
+Keep DNS pointed at the existing records during verification.
 
 ### Headscale startup and registration
 

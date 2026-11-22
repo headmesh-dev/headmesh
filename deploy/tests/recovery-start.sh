@@ -149,6 +149,39 @@ ingress_closed() {
     "$(sha256sum /etc/nginx/sites-available/headmesh-prod.conf)" == "${before_vhost}" ]]
 }
 
+if prepare_ingress "${rendered}" >"${tmp}/no-waitlist.log" 2>&1; then exit 1; fi
+grep -q 'start the restored waitlist' "${tmp}/no-waitlist.log"
+ingress_closed
+
+# Recover the signup confirmed on the ordinary fixture earlier in the suite.
+waitlist_target="/srv/headmesh/prod/waitlist/releases/${release}"
+waitlist_snapshot="${tmp}/waitlist.db"
+waitlist_db=/var/lib/headmesh/prod/waitlist/waitlist.db
+install -d -m 0755 /srv/headmesh/prod/waitlist "$(dirname "${waitlist_target}")"
+cp -a "$(readlink -f /srv/headmesh/slots/waitlist-test-blue)" "${waitlist_target}"
+sqlite3 -readonly /var/lib/headmesh/test/waitlist/waitlist.db ".backup '${waitlist_snapshot}'"
+waitlist_source_hash="$(sha256sum "${waitlist_snapshot}")"
+sed 's@https://test.headmesh.dev@https://headmesh.dev@g' /etc/headmesh/test/waitlist.env >"${tmp}/waitlist.env"
+install -m 0640 -o root -g headmesh "${tmp}/waitlist.env" /etc/headmesh/prod/waitlist.env
+echo 'invalid SQLite fixture' >"${tmp}/bad-waitlist.db"
+if "${ctl}" start-recovery-waitlist "${release}" "${tmp}/bad-waitlist.db" >"${tmp}/bad-waitlist.log" 2>&1; then exit 1; fi
+grep -q 'failed SQLite integrity or schema validation' "${tmp}/bad-waitlist.log"
+[[ ! -e "${waitlist_db}" && ! -e "${record}/waitlist-ready" ]]
+
+sed -i '/^WAITLIST_SECRET=/d' /etc/headmesh/prod/waitlist.env
+if HM_HEALTH_TIMEOUT=4 "${ctl}" start-recovery-waitlist "${release}" "${waitlist_snapshot}" >"${tmp}/bad-env.log" 2>&1; then exit 1; fi
+grep -q 'restored waitlist did not become ready' "${tmp}/bad-env.log"
+[[ ! -e "${waitlist_db}" && ! -e "${record}/waitlist-ready" ]]
+[[ "$(systemctl show -p ActiveState --value headmesh-waitlist@prod-blue.service)" == inactive ]]
+install -m 0640 -o root -g headmesh "${tmp}/waitlist.env" /etc/headmesh/prod/waitlist.env
+"${ctl}" start-recovery-waitlist "${release}" "${waitlist_snapshot}"
+[[ "$(sha256sum "${waitlist_snapshot}")" == "${waitlist_source_hash}" ]]
+[[ "$(probe http://127.0.0.1:8301/readyz)" == 204 && "$(<"${record}/waitlist-ready")" == "${release}" ]]
+[[ "$(ss -Hltn 'sport = :8301' | awk '{print $4}')" == 127.0.0.1:8301 ]]
+[[ "$(sqlite3 -readonly "${waitlist_db}" "SELECT count(*) FROM waitlist WHERE email = 'e2e@example.com' AND confirmed_at IS NOT NULL;")" == 1 ]]
+if "${ctl}" start-recovery-waitlist "${release}" "${waitlist_snapshot}" >"${tmp}/repeat-waitlist.log" 2>&1; then exit 1; fi
+grep -q 'waitlist is already recorded' "${tmp}/repeat-waitlist.log"
+
 if "${ctl}" prepare-recovery-ingress "${rendered}" "${release}" 192.0.2.177 "${standby_ipv6}" >"${tmp}/wrong-address.log" 2>&1; then
   exit 1
 fi
@@ -182,7 +215,10 @@ for address in 127.0.0.1 '[::1]'; do
   [[ "$(probe --resolve "hs1.headmesh.dev:443:${address}" https://hs1.headmesh.dev/health)" == 200 ]]
   [[ "$(probe --resolve "hs1.headmesh.dev:443:${address}" https://hs1.headmesh.dev/derp/probe)" == 200 ]]
   [[ "$(probe --resolve "headmesh.dev:443:${address}" https://headmesh.dev/)" == 200 ]]
+  [[ "$(probe --resolve "headmesh.dev:443:${address}" https://headmesh.dev/api/waitlist/readyz)" == 204 ]]
+  [[ "$(probe --resolve "headmesh.dev:443:${address}" https://headmesh.dev/api/waitlist)" == 405 ]]
 done
 derp_log="$(journalctl -u headscale.service -n 80 --no-pager -o cat)"
 grep -F "IPv4:${standby_ipv4} IPv6:${standby_ipv6} STUNPort:3478" <<<"${derp_log}" >/dev/null
 echo 'Standby rejected untrusted TLS, rolled back a misroute, and served verified HTTPS on IPv4 and IPv6 after retry.'
+echo 'Standby preserved a confirmed waitlist signup and served the recovered waitlist behind nginx.'

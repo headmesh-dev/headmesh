@@ -65,6 +65,6 @@ func runProveIngress(ctx context.Context, args []string) error {
 	if err := recovery.ProveIngress(ctx, recovery.StandbyIngress{IPv4: v4, IPv6: v6, NoiseKeySHA256: manifest.Headscale.NoiseKeySHA256}); err != nil {
 		return fmt.Errorf("standby ingress proof failed: %w", err)
 	}
-	fmt.Println("Verified Headscale identity, DERP HTTPS and STUN, API readiness and the site on both standby addresses.")
+	fmt.Println("Verified Headscale, DERP HTTPS and STUN, API readiness, the site and the waitlist on both standby addresses.")
 	return nil
 }

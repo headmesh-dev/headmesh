@@ -67,26 +67,15 @@ func PublishKeyBundle(ctx context.Context, source KeyBundleSources, recipients [
 	}
 	defer func() { _ = os.RemoveAll(scratch) }()
 	headers := filepath.Join(scratch, "headers")
-	status, err := object.request(ctx, "--head", "--dump-header", headers, "--output", os.DevNull)
+	condition, err := object.writeCondition(ctx, headers)
 	if err != nil {
-		return err
-	}
-	condition := "If-None-Match: *"
-	switch status {
-	case "200":
-		condition, err = objectMatchHeader(headers)
-		if err != nil {
-			return err
-		}
-	case "404":
-	default:
-		return fmt.Errorf("object store refused key bundle lookup (HTTP %s)", status)
+		return fmt.Errorf("check key bundle before upload: %w", err)
 	}
 	path := filepath.Join(scratch, "headscale.tar.age")
 	if err := os.WriteFile(path, ciphertext, 0o600); err != nil {
 		return fmt.Errorf("write encrypted bundle for upload: %w", err)
 	}
-	status, err = object.request(ctx, "--upload-file", path, "--header", condition,
+	status, err := object.request(ctx, "--upload-file", path, "--header", condition,
 		"--header", "Content-Type: application/octet-stream", "--output", os.DevNull)
 	if err != nil {
 		return err
@@ -155,9 +144,13 @@ func StageKeyBundle(ctx context.Context, expected Manifest, opt KeyBundleStage) 
 
 func keyObjectPath(noise string) string { return "/hm-keys/hs1/" + noise + ".tar.age" }
 
+func validAgeRecipients(recipients []string) bool {
+	return len(recipients) == 2 && recipients[0] != recipients[1] &&
+		nativeRecipient.MatchString(recipients[0]) && nativeRecipient.MatchString(recipients[1])
+}
+
 func encryptKeyBundle(ctx context.Context, source KeyBundleSources, recipients []string, format string) ([]byte, string, error) {
-	if len(recipients) != 2 || recipients[0] == recipients[1] ||
-		!nativeRecipient.MatchString(recipients[0]) || !nativeRecipient.MatchString(recipients[1]) {
+	if !validAgeRecipients(recipients) {
 		return nil, "", errors.New("provide two distinct native age recipients")
 	}
 	parts := make(map[string][]byte, 3)

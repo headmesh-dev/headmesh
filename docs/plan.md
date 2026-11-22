@@ -1102,6 +1102,7 @@ volumes: { hm-cache-mise: {}, hm-cache-uv: {}, hm-cache-npm: {}, hm-cache-pnpm: 
   - Encrypted with **age** to the two recipients before upload to `hm-keys`.
   - Also kept sops-encrypted in git.
   - Never uploaded in plaintext; Litestream only ships `db.sqlite`.
+- **Production waitlist:** The off-host publisher uses SQLite's online backup API and encrypts snapshots to the two recovery recipients before updating `hm-keys/waitlist/prod.db.age`. The timer runs every fifteen minutes when enabled. [Waitlist snapshot runbook](../deploy/backup/README.md#production-waitlist-snapshot)
 - **SPIKE T-9:** check whether Headscale stores pre-auth keys hashed. They are 5-minute, single-use keys either way, and the replica bucket is private with a scoped token.
 - **SPIKE T-10:** measure the real PUT rate for a week on hs1 and tune `sync-interval`.
 - **Manifest:** every 5 minutes the primary writes `manifest.json` to R2 with node count, user count, Noise public-key fingerprint, policy hash, last grant boundary and Postgres LSN. Recovery and drills use it to detect empty or wrong replicas.
@@ -1135,7 +1136,7 @@ volumes: { hm-cache-mise: {}, hm-cache-uv: {}, hm-cache-npm: {}, hm-cache-pnpm: 
      - It **first** sweeps overdue grants (`expires_at < now` → expired/revoked, audited as `grant.expired_late` with how late they were).
      - It compiles and applies the policy to **all** cells and waits for cell-agent acknowledgements of the new hash.
      - Only then does it accept other requests.
-  6. **Prove ingress.** Install the DNS-01 certificate and production marketing release. Run `deployctl.sh prepare-recovery-ingress` with the rendered nginx config and both assigned addresses. It updates Headscale's DERP advertisement and enables native STUN. From the recovery runner, use `headmesh-recover prove-ingress` to verify HTTPS on all three hostnames, the manifest's Noise key, and STUN on both standby addresses. Restore and verify the waitlist before promotion. [Standby ingress runbook](../deploy/backup/README.md#verify-standby-ingress-before-dns)
+  6. **Prove ingress.** Restore the waitlist snapshot and start its service on loopback. Install the DNS-01 certificate and production marketing release. Run `deployctl.sh prepare-recovery-ingress` with the rendered nginx config and both assigned addresses. It updates Headscale's DERP advertisement and enables native STUN. From the recovery runner, use `headmesh-recover prove-ingress` to verify HTTPS on all three hostnames, the waitlist, the manifest's Noise key, and STUN on both standby addresses. [Standby ingress runbook](../deploy/backup/README.md#verify-standby-ingress-before-dns)
   7. **Flip DNS:** Cloudflare A/AAAA records (grey-cloud, TTL 60) for `hs1`, `api` and `app`.
   8. **Post-checks:** an ephemeral `tailscale` client in the GitHub runner registers with a CI key; `headscale nodes list` count; a policy hash match.
   9. **Notify** by Telegram and email with an RTO report. The fenced VM is kept powered off for forensics, and a reminder fires at 24 h to delete it (it still bills).
