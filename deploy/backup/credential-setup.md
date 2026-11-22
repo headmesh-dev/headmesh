@@ -94,8 +94,11 @@ Open the **Headmesh** project in Hetzner Console. Select **Security → API
 tokens → Generate API token**. Give it a name such as `headmesh-restore-drill`
 and choose **Read & Write** so the runner can create and remove the
 temporary server. Save it in `HCLOUD_TOKEN` in `recovery.env`.
-`HEADMESH_DRILL_FIREWALL_ID` is optional and takes the ID of a firewall for
-that drill VM. [Hetzner Console](https://console.hetzner.com/) · [Hetzner token walkthrough](https://docs.hetzner.com/cloud/api/getting-started/generating-api-token/)
+`HEADMESH_DRILL_FIREWALL_ID` is optional and takes the ID of a dedicated
+firewall for the drill VM. For a workstation drill, allow inbound TCP port
+22 from that runner's public IPv4 `/32`. Update the source rule if the
+runner's address changes. With no outbound rules, the VM can reach R2 and
+its package repositories. [Hetzner Console](https://console.hetzner.com/) · [Hetzner token walkthrough](https://docs.hetzner.com/cloud/api/getting-started/generating-api-token/) · [Hetzner Firewall rules](https://docs.hetzner.com/cloud/firewalls/faq/)
 
 ## 5. Activate the primary and verify the drill
 

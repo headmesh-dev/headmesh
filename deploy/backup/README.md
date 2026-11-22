@@ -252,6 +252,31 @@ manifest and original Headscale configuration in `/var/lib/headmesh/recovery`.
 The PostgreSQL cluster is disabled and Headscale stays masked until the standby's
 configuration and recovery startup are ready.
 
+### Start the restored backend and cell agent
+
+Install the matching `headmesh-server` and `headmesh-cellagent` release under
+`/srv/headmesh/prod/backend/releases/`, along with the deployment toolkit and
+backend systemd unit. Restore the original private backend configuration
+under `/etc/headmesh/prod/`, including `backend.env`, `db.env`, `secrets.env`,
+the operation-signing key, the cell CA certificate and any OAuth secrets that
+configuration references. Install the backend's TLS certificate and key under
+`/etc/headmesh/tls/`. Restore the local agent's configuration, mTLS client
+certificate and key under `/etc/headmesh-cellagent/` with the original trust
+and guardrails. Keep nginx masked on the standby.
+
+```sh
+/usr/local/lib/headmesh/deployctl.sh start-recovery "$release"
+```
+
+The command checks the installed PostgreSQL identity and WAL position, then
+starts Headscale on loopback and checks its served Noise identity and node
+count. It starts the API in recovery mode, confirms readiness and writes are
+blocked, and connects the agent directly to its loopback mTLS listener. If
+the checks fail, the candidate stops and the databases stay installed for
+retry. After readiness succeeds, the command records the release in
+`/var/lib/headmesh/recovery/backend-ready`. nginx stays masked until the
+ingress step. Always check live readiness again before promotion.
+
 ### Headscale startup and registration
 
 Add `--check-cell` before the working directory to check the restored cell.

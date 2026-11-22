@@ -241,6 +241,9 @@ check "the agent reconnected to the new release" test "$(seen)" -gt "${before_se
 say "Status"
 "${DEPLOY}" --status 2>&1 | sed 's/^/    /'
 
+say "Start the restored standby with ingress closed"
+docker exec -i "${NAME}" bash -s <"${ROOT}/deploy/tests/recovery-start.sh"
+
 if [[ ${FAILED} == 0 ]]; then
   printf '\n\033[1;32mdeploy e2e: all checks passed\033[0m\n'
 else

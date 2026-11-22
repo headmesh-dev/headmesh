@@ -1105,7 +1105,7 @@ volumes: { hm-cache-mise: {}, hm-cache-uv: {}, hm-cache-npm: {}, hm-cache-pnpm: 
 
 ### 13.4 Failure detection, fencing and recovery (requirements 1, 4, 7)
 
-**Status 2026-11-22:** `headmesh-server serve -recovery` keeps readiness and writes closed until the overdue grant sweep and enforce-mode policy acknowledgements succeed. The detection Worker, independent confirmation command, Hetzner fencing, standby allocation and offline state installation have local coverage. The live Worker, standby service startup and promotion, and `recover.yml` workflow remain open. [Detector runbook](../deploy/ha/detector/README.md) · [Hetzner recovery code](../deploy/ha/recovery)
+**Status 2026-11-22:** `headmesh-server serve -recovery` keeps readiness and writes closed until the overdue grant sweep and enforce-mode policy acknowledgements succeed. The detection Worker, independent confirmation command, Hetzner fencing, standby allocation, state installation and gated startup have local coverage. The live Worker, standby ingress and promotion, and `recover.yml` workflow remain open. [Detector runbook](../deploy/ha/detector/README.md) · [Hetzner recovery code](../deploy/ha/recovery)
 - **External detection** (the recovery logic never runs on the failed VM):
   - A **Cloudflare Worker with a 1-minute cron trigger** (free) probes `https://hs1.headmesh.dev/health` and `https://api.headmesh.dev/readyz` from the edge.
   - After **3 consecutive failures** of a service it sends a `repository_dispatch` (`control-plane-down`) to `headmesh-dev/headmesh`. GitHub requires a fine-grained credential with Contents write scoped to this repository.
@@ -1127,7 +1127,7 @@ volumes: { hm-cache-mise: {}, hm-cache-uv: {}, hm-cache-npm: {}, hm-cache-pnpm: 
      - DERP key present;
      - `pgBackRest restore` to the latest point.
   5. **Recovery mode (requirement 4):**
-     - Start the restored Headscale on loopback with its existing `server_url` and keys so the local cell agent can apply policy. Connect the local agent directly to the recovering backend's mTLS listener while public ingress is held closed.
+     - `deployctl.sh start-recovery` starts the restored Headscale on loopback with its existing `server_url` and keys so the local cell agent can apply policy. It connects the local agent directly to the recovering backend's mTLS listener while nginx stays masked. [Standby startup runbook](../deploy/backup/README.md#start-the-restored-backend-and-cell-agent)
      - headmesh-server starts with `--recovery`: `/readyz` reports 503 and every mutating endpoint returns 503 with `Retry-After`.
      - It **first** sweeps overdue grants (`expires_at < now` → expired/revoked, audited as `grant.expired_late` with how late they were).
      - It compiles and applies the policy to **all** cells and waits for cell-agent acknowledgements of the new hash.

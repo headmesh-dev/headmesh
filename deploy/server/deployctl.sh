@@ -9,6 +9,7 @@
 #   nginx-diff       <env> <staging-dir>               show what nginx-apply would change, change nothing
 #   activate-static  <env> <release>                   atomically switch the marketing site to a release
 #   activate-service <service> <env> <release> [drain] blue-green switch of waitlist or backend
+#   start-recovery   <release>                        start a restored prod backend and cell behind closed ingress
 #   rollback         <component> <env> [keep-schema]   back to the previous release (marketing) or colour (services);
 #                                                      the backend's schema follows to what that colour ran with
 #   status           [env...]                          releases, colours, units and health
@@ -348,7 +349,7 @@ wait_healthy() {
   return 1
 }
 
-# write_instance_env <service> <env> <colour>: the env file the systemd instance reads.
+# write_instance_env <service> <env> <colour> [recovery]: the env file the instance reads.
 write_instance_env() {
   local service="$1" env="$2" colour="$3" out tmp
   out="${HM_ETC_ROOT}/instances/${service}-${env}-${colour}.env"
@@ -369,6 +370,7 @@ write_instance_env() {
       echo "HEADMESH_LISTEN=127.0.0.1:$(hm_port "${env}" backend "${colour}")"
       echo "HEADMESH_CELL_LISTEN=127.0.0.1:$(hm_port "${env}" backend "${colour}" cell)"
       echo "HEADMESH_TRUST_FORWARDED_FOR=true"
+      if [[ "${4:-}" == recovery ]]; then echo "HEADMESH_RECOVERY=true"; fi
     fi
   } >"${tmp}"
   install -d -o root -g "${HM_SERVICE_USER}" -m 0750 "${HM_ETC_ROOT}/instances"
@@ -557,6 +559,153 @@ cmd_activate_service() {
     systemctl disable --quiet --now "$(unit_name "${service}" "${env}" "${active}")" || true
   fi
   log "${service} ${env}: ${release} is live on ${idle}"
+}
+
+# ── standby startup ──────────────────────────────────────────────────────────────────────────────────────────────────
+
+recovery_http_code() { curl -qsS --noproxy '*' --max-time 3 -o /dev/null -w '%{http_code}' "$@"; }
+
+start_recovery_headscale() {
+  local saved_config="$1" cell_host="$2" conf=/etc/headscale/config.yaml
+  install -m 0640 -o root -g headscale "${saved_config}" "${conf}"
+  install -d -m 0755 /etc/systemd/system/headscale.service.d
+  cat >/etc/systemd/system/headscale.service.d/recovery.conf <<EOF
+[Service]
+Environment=HEADSCALE_SERVER_URL=https://${cell_host}
+Environment=HEADSCALE_LISTEN_ADDR=127.0.0.1:8080
+Environment=HEADSCALE_METRICS_LISTEN_ADDR=127.0.0.1:9090
+Environment=HEADSCALE_GRPC_LISTEN_ADDR=127.0.0.1:50443
+Environment=HEADSCALE_DERP_SERVER_STUN_LISTEN_ADDR=127.0.0.1:3478
+Environment=HEADSCALE_DERP_SERVER_PRIVATE_KEY_PATH=/var/lib/headscale/derp_server_private.key
+Environment=HEADSCALE_NOISE_PRIVATE_KEY_PATH=/var/lib/headscale/noise_private.key
+Environment=HEADSCALE_DATABASE_TYPE=sqlite
+Environment=HEADSCALE_DATABASE_SQLITE_PATH=/var/lib/headscale/db.sqlite
+Environment=HEADSCALE_UNIX_SOCKET=/var/run/headscale/headscale.sock
+Environment=HEADSCALE_UNIX_SOCKET_PERMISSION=0770
+EOF
+  chmod 0644 /etc/systemd/system/headscale.service.d/recovery.conf
+  systemctl unmask --quiet headscale.service
+  systemctl disable --quiet headscale.service
+  systemctl daemon-reload
+  systemctl start headscale.service
+}
+
+# The saved agent configuration holds the original certificate, signing trust,
+# protected nodes and invariants. Only its connection endpoint changes.
+start_recovery_agent() {
+  local target="$1" port="$2" config="${CELLAGENT_ETC}/cellagent-recovery.json"
+  jq --arg url "https://127.0.0.1:${port}" '.server_url = $url' "${CELLAGENT_ETC}/cellagent.json" >"${config}"
+  chown root:headmesh-cellagent "${config}"
+  chmod 0640 "${config}"
+  install -m 0644 "${HM_LIB_ROOT}/cellagent/headmesh-cellagent.service" "${CELLAGENT_UNIT}"
+  install -d -m 0755 "$(dirname "${CELLAGENT_DROPIN}")"
+  cat >"$(dirname "${CELLAGENT_DROPIN}")/recovery.conf" <<EOF
+[Service]
+ExecStart=
+ExecStart=${target}/headmesh-cellagent run -config ${config}
+ReadOnlyPaths=${CELLAGENT_ETC}
+EOF
+  systemctl daemon-reload
+  systemctl start headmesh-cellagent.service
+}
+
+stop_recovery_candidate() {
+  local status="$1" unit="$2"
+  trap - EXIT INT TERM ERR
+  set +e
+  systemctl stop headmesh-cellagent.service "${unit}" headscale.service postgresql@18-main.service || log 'check that all standby units stopped'
+  systemctl reset-failed headmesh-cellagent.service "${unit}" headscale.service postgresql@18-main.service 2>/dev/null || true
+  systemctl mask --quiet headscale.service || log 'could not restore the Headscale mask'
+  printf '%s\n' disabled >/etc/postgresql/18/main/start.conf || log 'could not disable the restored PostgreSQL cluster'
+  systemctl daemon-reload
+  exit "${status}"
+}
+
+cmd_start_recovery() {
+  [[ $# == 1 ]] || die 'start-recovery requires one backend release'
+  umask 077
+  local release="$1" env=prod colour=blue cell target unit record="${HM_STATE_ROOT}/recovery"
+  local path expected_noise minimum_nodes expected_db expected_lsn actual_noise api_url signing_key
+  require_release "${release}"
+  target="${HM_SRV_ROOT}/${env}/backend/releases/${release}"
+  unit="$(unit_name backend "${env}" "${colour}")"
+  cell="$(hm_env "${env}" CELL_NAME)"
+
+  [[ -s "${record}/manifest.json" && -s "${record}/config.yaml" ]] || die 'install a verified restore first'
+  install -d -m 0700 /run/headmesh-recovery-state
+  exec 9>/run/headmesh-recovery-state/lock
+  flock -n 9 || die 'another recovery operation is in progress'
+  [[ ! -e "${record}/backend-ready" && -z "$(state_get "${env}" backend.active)" ]] || die 'a backend is already recorded for this standby'
+  local mask
+  for mask in nginx headscale; do
+    [[ "$(readlink "/etc/systemd/system/${mask}.service" || true)" == /dev/null ]] || die "${mask}.service must be masked on the standby"
+  done
+  for path in nginx headscale postgresql@18-main headmesh-cellagent headmesh-backend@prod-blue headmesh-backend@prod-green; do
+    [[ "$(systemctl show -p ActiveState --value "${path}.service")" == inactive ]] || die "${path}.service must be inactive"
+  done
+  [[ "$(awk 'NF && $1 !~ /^#/ {$1=$1; print}' /etc/postgresql/18/main/start.conf)" == disabled ]] ||
+    die 'the restored PostgreSQL cluster must be disabled'
+  [[ -x "${target}/headmesh-server" && -x "${target}/headmesh-cellagent" ]] || die 'install the matching backend and cell agent release first'
+  id -u headmesh-cellagent >/dev/null || die 'install the restored cell agent credentials and service user first'
+  for path in backend.env secrets.env db.env backend/op-signing.key backend/cell-ca/ca.crt; do
+    [[ -s "${HM_ETC_ROOT}/${env}/${path}" ]] || die "missing restored backend file: ${path}"
+  done
+  signing_key="$(op_signing_public_key "${HM_ETC_ROOT}/${env}/backend/op-signing.key")"
+  jq -e --arg cell "${cell}" --arg host "$(hm_env "${env}" API_HOST)" --arg key "${signing_key}" '
+    .cell_name == $cell and .mode == "enforce" and .server_name == $host and
+    .headscale_http == "http://127.0.0.1:8080" and .headscale_socket == "/var/run/headscale/headscale.sock" and
+    (.server_keys | index($key)) != null
+  ' "${CELLAGENT_ETC}/cellagent.json" >/dev/null || die 'restored cell configuration does not match this backend and local Headscale'
+  expected_noise="$(jq -er '.headscale.noise_public_key_sha256 | select(test("^[0-9a-f]{64}$"))' "${record}/manifest.json")"
+  minimum_nodes="$(jq -er '.headscale.node_count | numbers | select(. > 0 and floor == .)' "${record}/manifest.json")"
+  expected_db="$(jq -er 'select(.postgres_database == "headmesh_prod") | .postgres_system_id | select(test("^[0-9]+$"))' "${record}/manifest.json")"
+  expected_lsn="$(jq -er '.postgres_lsn | select(test("^[0-9A-F]+/[0-9A-F]+$"))' "${record}/manifest.json")"
+
+  # Preflight above leaves existing services alone. From here, failures take
+  # the candidate back offline and retain the original credentials and data.
+  trap 'stop_recovery_candidate "$?" "${unit}"' EXIT
+  trap 'exit 130' INT
+  trap 'exit 143' TERM
+  printf '%s\n' manual >/etc/postgresql/18/main/start.conf
+  systemctl daemon-reload
+  systemctl start postgresql@18-main.service
+  [[ "$(psql_env "${env}" -v identity="${expected_db}" -v lsn="${expected_lsn}" <<'SQL'
+SELECT NOT pg_is_in_recovery() AND system_identifier::text = :'identity'
+       AND pg_current_wal_flush_lsn() >= :'lsn'::pg_lsn FROM pg_control_system();
+SQL
+  )" == t ]] || die 'installed PostgreSQL does not match the verified restore'
+  [[ "$(psql_env "${env}" -v cell="${cell}" <<<"SELECT count(*) FROM cells WHERE name = :'cell' AND mode = 'enforce';")" == 1 ]] ||
+    die 'the restored database does not contain the local enforce-mode cell'
+
+  start_recovery_headscale "${record}/config.yaml" "$(hm_env "${env}" CELL_HOST)"
+  wait_healthy http://127.0.0.1:8080/health || die 'restored Headscale did not become healthy'
+  actual_noise="$(curl -qfsS --noproxy '*' --max-time 3 'http://127.0.0.1:8080/key?v=130' |
+    jq -erj '.publicKey | select(test("^mkey:[[:xdigit:]]{64}$"))' | sha256sum | cut -d ' ' -f 1)"
+  [[ "${actual_noise}" == "${expected_noise}" ]] || die 'restored Headscale is serving a different Noise identity'
+  headscale --output json nodes list | jq -e --argjson minimum "${minimum_nodes}" 'length >= $minimum' >/dev/null ||
+    die 'restored Headscale has fewer nodes than the manifest'
+
+  refresh_backend_tls
+  install -d -m 0755 "${HM_SRV_ROOT}/slots"
+  ln -sfn "${target}" "$(slot_path backend "${env}" "${colour}")"
+  write_instance_env backend "${env}" "${colour}" recovery
+  systemctl start "${unit}"
+  api_url="http://127.0.0.1:$(hm_port "${env}" backend "${colour}")"
+  wait_healthy "${api_url}/healthz" || die 'the recovery backend did not start'
+  [[ "$(recovery_http_code "${api_url}/readyz")" == 503 ]] ||
+    die 'the recovery backend opened readiness before the local agent started'
+  [[ "$(recovery_http_code -X POST "${api_url}/v1/grants")" == 503 ]] ||
+    die 'the recovery backend did not gate writes before the local agent started'
+  start_recovery_agent "${target}" "$(hm_port "${env}" backend "${colour}" cell)"
+  wait_healthy "${api_url}/readyz" || die 'the restored backend did not finish the recovery policy checks'
+  [[ "$(recovery_http_code "${api_url}/readyz")" == 204 &&
+    "$(systemctl show -p ActiveState --value nginx.service)" == inactive ]] || die 'standby readiness or closed ingress could not be confirmed'
+
+  # The workflow can proceed to ingress preparation after checking live readiness.
+  printf '%s\n' "${release}" >"${record}/backend-ready.tmp"
+  mv -f "${record}/backend-ready.tmp" "${record}/backend-ready"
+  trap - EXIT
+  log 'restored backend is ready and nginx remains masked'
 }
 
 cmd_rollback() {
@@ -884,6 +1033,7 @@ main() {
     nginx-diff) cmd_nginx_diff "$@" ;;
     activate-static) cmd_activate_static "$@" ;;
     activate-service) cmd_activate_service "$@" ;;
+    start-recovery) cmd_start_recovery "$@" ;;
     rollback) cmd_rollback "$@" ;;
     status) cmd_status "$@" ;;
     prune) cmd_prune "$@" ;;
@@ -892,7 +1042,7 @@ main() {
     smoke) cmd_smoke "$@" ;;
     cell-agent) cmd_cell_agent "$@" ;;
     tls-renewed) cmd_tls_renewed ;;
-    *) sed -n '2,23p' "${BASH_SOURCE[0]}" | sed 's/^# \{0,1\}//' >&2; exit 2 ;;
+    *) sed -n '2,24p' "${BASH_SOURCE[0]}" | sed 's/^# \{0,1\}//' >&2; exit 2 ;;
   esac
 }
 
