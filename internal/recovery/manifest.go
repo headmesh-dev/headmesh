@@ -53,7 +53,7 @@ const sqliteState = `SELECT
 	(SELECT count(*) FROM users WHERE deleted_at IS NULL) AS user_count,
 	(SELECT data FROM policies WHERE deleted_at IS NULL ORDER BY id DESC LIMIT 1) AS policy`
 
-const grantActions = `action IN ('grant.created', 'grant.revoked', 'grant.expired', 'grant.activated')`
+const grantActions = `action IN ('grant.created', 'grant.revoked', 'grant.expired', 'grant.expired_late', 'grant.activated')`
 
 // Capture reads a database-mode Headscale cell and the primary PostgreSQL
 // cluster. It produces no manifest when either source is unavailable or empty.

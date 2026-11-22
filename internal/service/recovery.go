@@ -17,6 +17,15 @@ import (
 // precomputed policy revisions at each expiry — so this is bookkeeping, not enforcement. It returns how many
 // grants it audited.
 func (s *Service) SweepExpiredGrants(ctx context.Context) (int, error) {
+	return s.sweepExpiredGrants(ctx, "grant.expired")
+}
+
+// SweepOverdueGrants audits grants that expired while a restored control plane was offline.
+func (s *Service) SweepOverdueGrants(ctx context.Context) (int, error) {
+	return s.sweepExpiredGrants(ctx, "grant.expired_late")
+}
+
+func (s *Service) sweepExpiredGrants(ctx context.Context, action string) (int, error) {
 	total := 0
 	for {
 		n := 0
@@ -29,7 +38,7 @@ func (s *Service) SweepExpiredGrants(ctx context.Context) (int, error) {
 			for _, g := range grants {
 				_, err := store.AppendAudit(ctx, q, store.AuditEvent{
 					OrgID: g.GrantorOrgID, OccurredAt: now, ActorType: "system", ActorID: "expiry",
-					Action: "grant.expired", TargetType: "grant", TargetID: g.ID.String(),
+					Action: action, TargetType: "grant", TargetID: g.ID.String(),
 					Data: map[string]any{
 						"expires_at": g.ExpiresAt, "noticed_late_seconds": int64(now.Sub(g.ExpiresAt).Seconds()),
 						"external_ref": derefStr(g.ExternalRef),

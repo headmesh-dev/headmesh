@@ -291,23 +291,47 @@ func loginSecret(path string) (string, error) {
 // recoverControlPlane runs recovery mode (plan §13.4) on a control plane restored from backup: audit the grants
 // that expired while nothing was running, then wait until every enforce-mode cell has applied a policy compiled
 // now, and only then open the API to writes. Normal restarts and blue-green deploys skip this, because the cells
-// are still connected to the live instance and their precomputed timelines already enforced every expiry. A cell
-// that stays down past the timeout doesn't hold every other tenant hostage; it gets the current policy when it
-// reconnects.
-func recoverControlPlane(ctx context.Context, svc *service.Service, hub service.RecoveryHub, gate *api.Recovery, timeout time.Duration, logger *slog.Logger) {
-	defer gate.End()
-	if n, err := svc.SweepExpiredGrants(ctx); err != nil {
-		logger.Error("recovery: expiry sweep failed", "error", err)
-	} else if n > 0 {
+// are still connected to the live instance and their precomputed timelines already enforced every expiry.
+func recoverControlPlane(ctx context.Context, svc recoveryService, hub service.RecoveryHub, gate *api.Recovery, timeout time.Duration, logger *slog.Logger) {
+	for ctx.Err() == nil {
+		if err := recoveryAttempt(ctx, svc, hub, timeout, logger); err == nil {
+			gate.End()
+			logger.Info("recovery: every enforce-mode cell is current; accepting writes")
+			return
+		} else if ctx.Err() == nil {
+			logger.Error("recovery: API remains closed to writes", "error", err)
+		}
+		select {
+		case <-ctx.Done():
+			return
+		case <-time.After(time.Second):
+		}
+	}
+}
+
+type recoveryService interface {
+	SweepOverdueGrants(context.Context) (int, error)
+	AwaitCellsCurrent(context.Context, service.RecoveryHub, *slog.Logger) error
+}
+
+func recoveryAttempt(ctx context.Context, svc recoveryService, hub service.RecoveryHub, timeout time.Duration, logger *slog.Logger) error {
+	n, err := svc.SweepOverdueGrants(ctx)
+	if err != nil {
+		return fmt.Errorf("sweep expired grants: %w", err)
+	}
+	if n > 0 {
 		logger.Warn("recovery: grants expired while the control plane was down", "count", n)
 	}
+
 	waitCtx, cancel := context.WithTimeout(ctx, timeout)
 	defer cancel()
 	if err := svc.AwaitCellsCurrent(waitCtx, hub, logger); err != nil {
-		logger.Error("recovery: accepting writes with stale cells", "error", err)
-		return
+		return fmt.Errorf("wait for current cell policies: %w", err)
 	}
-	logger.Info("recovery: every enforce-mode cell is current; accepting writes")
+	if err := ctx.Err(); err != nil {
+		return fmt.Errorf("recovery interrupted: %w", err)
+	}
+	return nil
 }
 
 // sweepLoop audits grant expiries now and then every 30 seconds.
