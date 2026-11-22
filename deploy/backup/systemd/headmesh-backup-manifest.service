@@ -1,0 +1,25 @@
+[Unit]
+Description=Publish verified Headmesh recovery evidence
+After=network-online.target headmesh-litestream.service postgresql@18-main.service
+Wants=network-online.target
+Requisite=headmesh-litestream.service postgresql@18-main.service
+
+[Service]
+Type=oneshot
+EnvironmentFile=/etc/headmesh/backup/litestream.env
+EnvironmentFile=/etc/headmesh/backup/manifest.env
+LoadCredential=sqlite-s3:/etc/headmesh/backup/litestream.aws
+LoadCredential=manifest-netrc:/etc/headmesh/backup/manifest.netrc
+Environment=AWS_SHARED_CREDENTIALS_FILE=%d/sqlite-s3
+Environment=AWS_EC2_METADATA_DISABLED=true
+Environment=TMPDIR=/run/headmesh-backup-manifest
+RuntimeDirectory=headmesh-backup-manifest
+RuntimeDirectoryMode=0700
+ExecStart=/usr/local/lib/headmesh/deployctl.sh publish-manifest %d/manifest-netrc
+TimeoutStartSec=150s
+UMask=0077
+NoNewPrivileges=true
+PrivateTmp=true
+ProtectHome=true
+ProtectSystem=strict
+RestrictAddressFamilies=AF_INET AF_INET6 AF_UNIX

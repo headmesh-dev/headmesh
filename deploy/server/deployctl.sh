@@ -15,6 +15,7 @@
 #   prune            <env> <keep>                      delete old releases (never the live or rollback ones)
 #   backup           <env>                             copy the waitlist database (also run daily by a timer)
 #                                                      (Postgres is dumped before every schema change instead)
+#   publish-manifest <netrc>                           publish recovery evidence using the live prod release
 #   smoke            <env>                             request each vhost through nginx on loopback
 #   cell-agent       <env>                             register the env's Headscale cell, renew the agent's
 #                                                      certificate, configure and (re)start the cell agent
@@ -484,6 +485,14 @@ cmd_backup() {
   log "backup ${env}: ${dir}/waitlist-${stamp}.db"
 }
 
+cmd_publish_manifest() {
+  local netrc="${1:-}" colour
+  [[ -n "${netrc}" ]] || die "publish-manifest needs a credential file"
+  colour="$(state_get prod backend.active)"
+  [[ "${colour}" == blue || "${colour}" == green ]] || die "no active prod backend for manifest publication"
+  exec "$(slot_path backend prod "${colour}")/headmesh-server" backup-manifest publish -netrc "${netrc}"
+}
+
 # switch_to <service> <env> <colour> <release-for-log>: point nginx at a healthy colour (nginx -t gated).
 switch_to() {
   local service="$1" env="$2" colour="$3" release="$4" tmp
@@ -879,10 +888,11 @@ main() {
     status) cmd_status "$@" ;;
     prune) cmd_prune "$@" ;;
     backup) cmd_backup "$@" ;;
+    publish-manifest) cmd_publish_manifest "$@" ;;
     smoke) cmd_smoke "$@" ;;
     cell-agent) cmd_cell_agent "$@" ;;
     tls-renewed) cmd_tls_renewed ;;
-    *) sed -n '2,22p' "${BASH_SOURCE[0]}" | sed 's/^# \{0,1\}//' >&2; exit 2 ;;
+    *) sed -n '2,23p' "${BASH_SOURCE[0]}" | sed 's/^# \{0,1\}//' >&2; exit 2 ;;
   esac
 }
 

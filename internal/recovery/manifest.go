@@ -118,22 +118,11 @@ func Verify(ctx context.Context, db *pgx.Conn, sqlite, noiseKey, derpKey string,
 	if err := expected.validate(); err != nil {
 		return err
 	}
-	out, err := readSQLite(ctx, sqlite, "PRAGMA integrity_check(1)")
-	var checks []struct {
-		Result string `json:"integrity_check"`
-	}
-	if err != nil || json.Unmarshal(out, &checks) != nil || len(checks) != 1 || checks[0].Result != "ok" {
-		return errors.New("restored Headscale SQLite failed its integrity check")
-	}
-	state, err := headscaleState(ctx, sqlite, noiseKey)
-	if err != nil {
+	if err := verifyHeadscale(ctx, sqlite, noiseKey, expected.Headscale); err != nil {
 		return err
 	}
 	if _, err := machinePublicHash(derpKey); err != nil {
 		return fmt.Errorf("restored DERP key: %w", err)
-	}
-	if err := compareHeadscale(expected.Headscale, state); err != nil {
-		return err
 	}
 	return withEvidenceTx(ctx, db, func(tx pgx.Tx) error {
 		var id, database string
@@ -167,6 +156,21 @@ func Verify(ctx context.Context, db *pgx.Conn, sqlite, noiseKey, derpKey string,
 		}
 		return nil
 	})
+}
+
+func verifyHeadscale(ctx context.Context, sqlite, noiseKey string, expected HeadscaleState) error {
+	out, err := readSQLite(ctx, sqlite, "PRAGMA integrity_check(1)")
+	var checks []struct {
+		Result string `json:"integrity_check"`
+	}
+	if err != nil || json.Unmarshal(out, &checks) != nil || len(checks) != 1 || checks[0].Result != "ok" {
+		return errors.New("restored Headscale SQLite failed its integrity check")
+	}
+	state, err := headscaleState(ctx, sqlite, noiseKey)
+	if err != nil {
+		return err
+	}
+	return compareHeadscale(expected, state)
 }
 
 func withEvidenceTx(ctx context.Context, db *pgx.Conn, read func(pgx.Tx) error) error {

@@ -1,0 +1,10 @@
+[Unit]
+Description=Publish the Headmesh backup manifest every five minutes
+
+[Timer]
+OnCalendar=*-*-* *:00/5:00 UTC
+Persistent=true
+Unit=headmesh-backup-manifest.service
+
+[Install]
+WantedBy=timers.target

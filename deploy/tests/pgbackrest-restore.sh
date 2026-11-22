@@ -20,6 +20,8 @@ if (( $# != 0 )); then
     --mount "type=bind,src=${ROOT}/deploy/backup/pgbackrest-r2.conf,dst=/run/pgbackrest-r2.conf,readonly"
     --mount "type=bind,src=$3/offline-primary/db.sqlite,dst=/run/source-headscale.sqlite,readonly"
     --mount "type=bind,src=$3/restored/final.sqlite,dst=/run/restored-headscale.sqlite,readonly"
+    --mount "type=bind,src=$3/litestream,dst=/usr/local/bin/litestream,readonly"
+    --mount "type=bind,src=${ROOT}/deploy/backup/litestream-r2.yml,dst=/run/litestream.yml,readonly"
     --env HM_DRILL_PG_KEY
     --env HM_DRILL_PG_SECRET
     --env HM_DRILL_SQLITE_KEY
@@ -156,6 +158,47 @@ done
 capture_manifest() {
   headmesh-server backup-manifest capture -sqlite "${source_sqlite}" -noise-key "${ROOT}/noise.key"
 }
+if [[ -r /run/litestream.yml ]]; then
+  export HEADMESH_R2_ENDPOINT=https://headmesh-backup-s3:8443
+  export SSL_CERT_FILE=/run/s3-ca.crt CURL_CA_BUNDLE=/run/s3-ca.crt
+  export AWS_SHARED_CREDENTIALS_FILE="${ROOT}/litestream.aws" AWS_EC2_METADATA_DISABLED=true
+  printf '[default]\naws_access_key_id = %s\naws_secret_access_key = %s\n' \
+    "${HM_DRILL_SQLITE_KEY}" "${HM_DRILL_SQLITE_SECRET}" >"${AWS_SHARED_CREDENTIALS_FILE}"
+  printf 'machine headmesh-backup-s3\nlogin %s\npassword %s\n' \
+    "${HM_DRILL_PG_KEY}" "${HM_DRILL_PG_SECRET}" >"${ROOT}/manifest.netrc"
+  read_published() {
+    curl -q --silent --show-error --fail --netrc-file "${ROOT}/manifest.netrc" \
+      --aws-sigv4 aws:amz:auto:s3 "${HEADMESH_R2_ENDPOINT}/hm-pg/manifest.json"
+  }
+  publish_manifest() {
+    sed "s|/var/lib/headscale/db.sqlite|$1|" /run/litestream.yml >"${ROOT}/litestream.yml"
+    headmesh-server backup-manifest publish -sqlite "$1" -noise-key "${ROOT}/noise.key" \
+      -litestream-config "${ROOT}/litestream.yml" -netrc "${ROOT}/manifest.netrc"
+  }
+  publish_manifest "${source_sqlite}"
+  read_published >"${ROOT}/first-published.json"
+  publish_manifest "${source_sqlite}"
+  read_published >"${ROOT}/published.json"
+  if cmp -s "${ROOT}/first-published.json" "${ROOT}/published.json"; then
+    echo "The newer evidence did not replace the first published manifest." >&2
+    exit 1
+  fi
+  stale_status="$(curl -q --silent --show-error --output /dev/null --write-out '%{http_code}' \
+    --netrc-file "${ROOT}/manifest.netrc" --aws-sigv4 aws:amz:auto:s3 \
+    --header 'If-Match: "stale-etag"' --upload-file "${ROOT}/first-published.json" \
+    "${HEADMESH_R2_ENDPOINT}/hm-pg/manifest.json")"
+  [[ "${stale_status}" == 412 ]]
+  cp "${source_sqlite}" "${ROOT}/divergent.sqlite"
+  sqlite3 "${ROOT}/divergent.sqlite" "UPDATE policies SET data='{}'"
+  if publish_manifest "${ROOT}/divergent.sqlite" >"${ROOT}/divergent.log" 2>&1; then
+    echo "A manifest for a policy missing from the replica was published." >&2
+    exit 1
+  fi
+  grep -q 'SQLite replica has not caught up' "${ROOT}/divergent.log"
+  read_published >"${ROOT}/readback.json"
+  cmp "${ROOT}/published.json" "${ROOT}/readback.json"
+  printf '%s\n' 'Conditional publication passed and a divergent SQLite candidate left the previous manifest intact.'
+fi
 capture_manifest >"${ROOT}/manifest.json"
 primary_sql -c "SELECT pg_create_restore_point('headmesh_drill')" >/dev/null
 primary_sql -c "INSERT INTO recovery_probe VALUES ('after-target')" >/dev/null
@@ -190,6 +233,9 @@ verify_manifest() {
     -noise-key "${ROOT}/noise.key" -derp-key "${ROOT}/derp.key" -manifest "$1"
 }
 verify_manifest "${ROOT}/manifest.json"
+if [[ -f "${ROOT}/published.json" ]]; then
+  verify_manifest "${ROOT}/published.json"
+fi
 if verify_manifest "${ROOT}/after-target.json" >"${ROOT}/stale-replica.log" 2>&1; then
   echo "An older restore unexpectedly verified against the later manifest." >&2
   exit 1

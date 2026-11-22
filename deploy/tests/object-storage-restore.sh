@@ -146,4 +146,6 @@ restore_sqlite final.sqlite
 [[ "$(sqlite_entries "${WORK}/restored/final.sqlite")" == initial,later ]]
 printf '%s\n' 'Litestream restored both SQLite transactions over TLS with the source offline.'
 chmod 0644 "${WORK}/offline-primary/db.sqlite" "${WORK}/restored/final.sqlite"
+docker run --rm --network none --entrypoint /bin/cat "${LITESTREAM}" /usr/local/bin/litestream >"${WORK}/litestream"
+chmod 0755 "${WORK}/litestream"
 "${ROOT}/deploy/tests/pgbackrest-restore.sh" "${NETWORK}" "${WORK}/ca.crt" "${WORK}"

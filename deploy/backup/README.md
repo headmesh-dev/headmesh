@@ -58,8 +58,8 @@ an isolated recovery host and the checks in [plan §13.5](../../docs/plan.md#135
 Capture the primary's recovery evidence with the deployed `headmesh-server`
 binary. Its PostgreSQL connection comes from `HEADMESH_DATABASE_URL` or the
 libpq environment. Use a role that can read the grant audit log at system
-scope and query `pg_control_system()`. The commands use read-only
-transactions.
+scope and query `pg_control_system()`. Capture and verification use
+read-only transactions.
 
 ```sh
 headmesh-server backup-manifest capture > candidate-manifest.json
@@ -80,5 +80,32 @@ The verifier requires SQLite integrity, live node and user counts at least
 as large as the manifest's, and matching Noise and policy fingerprints.
 For PostgreSQL it checks the physical cluster ID, database name, replayed
 WAL position, and the recorded grant audit event. Use the manifest that
-matches the restored policy and falls within the replayed WAL. Periodic
-publication to R2 remains a separate activation step.
+matches the restored policy and falls within the replayed WAL.
+
+### Publish every five minutes
+
+The publisher restores a temporary SQLite copy over TLS and checks that it
+covers the candidate counts and policy. It then checks for a completed
+pgBackRest full backup on the current timeline and fetches the exact WAL
+segment that contains the candidate position. If the segment is still
+open, the publisher writes a named restore point, asks PostgreSQL to switch
+WAL once, and waits for the normal archiver. The restore-point record lets
+the switch proceed when the database is idle. The service account needs
+EXECUTE on `pg_create_restore_point(text)` and `pg_switch_wal()`. Scratch
+files are removed at exit.
+
+Deploy a release with the publisher command before enabling the timer.
+The service uses `deployctl` to locate the active production release.
+Add its PostgreSQL connection settings to
+`/etc/headmesh/backup/manifest.env` and keep that file root-owned with mode
+`0600`. Create `/etc/headmesh/backup/manifest.netrc` with the hostname of
+the R2 endpoint and a key scoped to the `hm-pg` bucket. Use the netrc
+`machine`, `login`, and `password` fields and the same permissions.
+The service reads SQLite with the existing Litestream credential.
+
+Once both backups are active, install the manifest service and timer under
+`systemd/`. Reload systemd and run `headmesh-backup-manifest.service` once.
+Check that `hm-pg/manifest.json` can be read back and verified in the recovery
+environment, then enable `headmesh-backup-manifest.timer`. The command uses
+conditional object writes to prevent stale replacements. Schedule the full
+restore drill separately to verify the complete backup and WAL chain.
