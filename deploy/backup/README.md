@@ -636,8 +636,13 @@ OpenSSH. Set `HCLOUD_TOKEN` for the Hetzner recovery project and
 | `pgbackrest.conf` | Recovery repository configuration, read-only access to `hm-pg`, and its encryption passphrase |
 
 ```sh
+python3 deploy/ha/restore_drill.py preflight --credentials /path/to/private-drill-credentials --require-manifest
 python3 deploy/ha/restore_drill.py run --credentials /path/to/private-drill-credentials
 ```
+
+The preflight checks bucket access and the exact manifest object using R2
+read credentials. `run` repeats the checks before allocating the VM. The
+isolated restore on the VM then validates the manifest and the backups.
 
 `--firewall-id` attaches a provider firewall configured to admit the SSH
 runner and allow the VM to reach R2. RTO measures provider creation through

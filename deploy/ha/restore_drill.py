@@ -216,7 +216,18 @@ def netrc_pair(path, hostname):
     return login, password
 
 
-def preflight_r2(directory, endpoint):
+def r2_status(endpoint, path, auth, *options):
+    result = subprocess.run(
+        ["curl", "-q", "--silent", "--proto", "=https", "--max-time", "15", "--output", os.devnull,
+         "--write-out", "%{http_code}", "--netrc-file", auth, "--aws-sigv4", "aws:amz:auto:s3",
+         *options, f"{endpoint.rstrip('/')}/{path}"], capture_output=True, text=True,
+    )
+    if result.returncode or not re.fullmatch(r"[1-5][0-9]{2}", result.stdout):
+        return "unavailable"
+    return result.stdout
+
+
+def preflight_r2(directory, endpoint, *, require_manifest=False):
     hostname = check_inputs(directory, endpoint)
     aws = config_values(directory / "litestream.aws", "default", "aws_access_key_id", "aws_secret_access_key")
     pg_host, pg_key, pg_secret, _ = config_values(directory / "pgbackrest.conf", "global", "repo1-s3-endpoint",
@@ -240,14 +251,15 @@ def preflight_r2(directory, endpoint):
             seen.add(entry)
             login, password = keys
             auth.write_text(f"machine {hostname}\nlogin {json.dumps(login)}\npassword {json.dumps(password)}\n")
-            result = subprocess.run(
-                ["curl", "-q", "--silent", "--proto", "=https", "--max-time", "15", "--output", os.devnull,
-                 "--write-out", "%{http_code}", "--netrc-file", auth, "--aws-sigv4", "aws:amz:auto:s3",
-                 f"{endpoint.rstrip('/')}/{bucket}?list-type=2&max-keys=1"], capture_output=True, text=True,
-            )
-            if result.returncode or result.stdout != "200":
-                status = result.stdout if re.fullmatch(r"[1-5][0-9]{2}", result.stdout) else "unavailable"
+            status = r2_status(endpoint, f"{bucket}?list-type=2&max-keys=1", auth)
+            if status != "200":
                 raise DrillError(f"Could not list {bucket} using {source} ({status})")
+    if require_manifest:
+        status = r2_status(endpoint, "hm-pg/manifest.json", directory / "manifest.netrc", "--head")
+        if status == "404":
+            raise DrillError("hm-pg/manifest.json is missing (HTTP 404). Publish the recovery manifest before running the drill.")
+        if status != "200":
+            raise DrillError(f"Cannot read hm-pg/manifest.json using manifest.netrc ({status})")
 
 
 def package_upload(work, directory, endpoint):
@@ -318,7 +330,7 @@ bash "$payload/remote-restore.sh" "$payload"'''
 
 
 def drill(api, directory, endpoint, firewall):
-    preflight_r2(directory, endpoint)
+    preflight_r2(directory, endpoint, require_manifest=True)
     with tempfile.TemporaryDirectory(prefix="headmesh-restore-drill-") as path:
         work = Path(path)
         archive = package_upload(work, directory, endpoint)
@@ -375,14 +387,17 @@ def main():
     run = commands.add_parser("run", help="provision a disposable VM and verify R2 recovery")
     run.add_argument("--credentials", required=True, type=Path)
     run.add_argument("--firewall-id", type=int)
-    preflight = commands.add_parser("preflight", help="verify the R2 credentials before starting a cloud drill")
+    preflight = commands.add_parser("preflight", help="verify R2 access before starting a cloud drill")
     preflight.add_argument("--credentials", required=True, type=Path)
+    preflight.add_argument("--require-manifest", action="store_true", help="also check that the published manifest is readable")
     commands.add_parser("janitor", help="delete expired Headmesh restore drill VMs")
     args = parser.parse_args()
     endpoint = os.getenv("HEADMESH_R2_ENDPOINT", "")
     if args.command == "preflight":
-        preflight_r2(args.credentials, endpoint)
+        preflight_r2(args.credentials, endpoint, require_manifest=args.require_manifest)
         print("Read-only credential checks passed for all three Headmesh backup buckets")
+        if args.require_manifest:
+            print("The published recovery manifest is readable")
         return
     token = os.environ.pop("HCLOUD_TOKEN", "").strip()
     if not token:

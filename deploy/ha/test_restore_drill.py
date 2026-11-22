@@ -99,7 +99,7 @@ class RestoreDrillTest(unittest.TestCase):
 
             remote.side_effect = verify_ssh
             report = drill(api, directory, "https://fixture.example.test", 12)
-            preflight.assert_called_once()
+            preflight.assert_called_once_with(directory, "https://fixture.example.test", require_manifest=True)
             package.assert_called_once()
             self.assertEqual(state["create"]["server_type"], "cx23")
             self.assertEqual(state["create"]["firewalls"], [{"firewall": 12}])
@@ -154,6 +154,18 @@ class RestoreDrillTest(unittest.TestCase):
             self.assertTrue(all("--netrc-file" in args for args in calls))
             self.assertNotIn("two-secret", str(calls))
             command.reset_mock()
+            command.side_effect = [subprocess.CompletedProcess([], 0, stdout="200")] * 3 + [
+                subprocess.CompletedProcess([], 0, stdout="404")
+            ]
+            with provider() as (api, state), self.assertRaisesRegex(DrillError, r"hm-pg/manifest\.json .*404"):
+                drill(api, directory, "https://fixture.example.test", None)
+            self.assertEqual(state["servers"], {})
+            self.assertNotIn("create", state)
+            manifest_call = command.call_args.args[0]
+            self.assertIn("--head", manifest_call)
+            self.assertEqual(manifest_call[-1], "https://fixture.example.test/hm-pg/manifest.json")
+            self.assertEqual(manifest_call[manifest_call.index("--netrc-file") + 1], directory / "manifest.netrc")
+            command.reset_mock(side_effect=True)
             (directory / "keys.netrc").write_text('machine ""\n login ""\n password ""\n')
             with self.assertRaisesRegex(DrillError, "keys.netrc"):
                 preflight_r2(directory, "https://fixture.example.test")
