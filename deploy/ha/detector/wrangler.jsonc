@@ -1,0 +1,13 @@
+{
+  "name": "headmesh-recovery-detector",
+  "main": "worker.mjs",
+  "compatibility_date": "2026-11-20",
+  "workers_dev": false,
+  "preview_urls": false,
+  "routes": [{ "pattern": "status.headmesh.dev", "custom_domain": true }],
+  "triggers": { "crons": ["* * * * *"] },
+  "durable_objects": {
+    "bindings": [{ "name": "DETECTOR", "class_name": "OutageDetector" }]
+  },
+  "migrations": [{ "tag": "v1", "new_sqlite_classes": ["OutageDetector"] }]
+}

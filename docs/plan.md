@@ -1105,10 +1105,10 @@ volumes: { hm-cache-mise: {}, hm-cache-uv: {}, hm-cache-npm: {}, hm-cache-pnpm: 
 
 ### 13.4 Failure detection, fencing and recovery (requirements 1, 4, 7)
 
-**Status 2026-10-28:** recovery mode is in headmesh-server (`serve -recovery`): `/readyz` 503 and writes refused with `Retry-After` until overdue grant expiries are audited and every enforce-mode cell has applied a current policy. Normal starts and blue-green deploys only run the expiry sweep. The detection Worker, fencing tool and workflows are not built yet.
+**Status 2026-11-22:** `headmesh-server serve -recovery` keeps readiness and writes closed until the overdue grant sweep and enforce-mode policy acknowledgements succeed. The detection Worker and independent confirmation command passed local tests. Live Worker activation, fencing, and the `recover.yml` workflow remain open. [Detector runbook](../deploy/ha/detector/README.md)
 - **External detection** (the recovery logic never runs on the failed VM):
   - A **Cloudflare Worker with a 1-minute cron trigger** (free) probes `https://hs1.headmesh.dev/health` and `https://api.headmesh.dev/readyz` from the edge.
-  - After **3 consecutive failures** it sends a `repository_dispatch` (`control-plane-down`, with a fine-grained token that can only dispatch) to `headmesh-dev/headmesh`.
+  - After **3 consecutive failures** of a service it sends a `repository_dispatch` (`control-plane-down`) to `headmesh-dev/headmesh`. GitHub requires a fine-grained credential with Contents write scoped to this repository.
   - Workflow **`recover.yml`** runs in environment `recovery`, single concurrency group, 30-minute timeout.
   - A first job **re-confirms from GitHub's network** (3 probes over 2 minutes) to rule out a Cloudflare-side false positive. A manual `workflow_dispatch` is also possible.
 - **Steps:**
