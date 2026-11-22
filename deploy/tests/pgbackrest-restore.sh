@@ -353,5 +353,15 @@ if [[ -f "${ROOT}/published.json" ]]; then
   grep -q '1 enforce-mode cell acknowledgements; the grant API matched the restored data (1 grants)' "${ROOT}/verification.log"
   tail -n 1 "${ROOT}/verification.log" | jq -e '.verification_seconds > 0 and .manifest_age_seconds >= 0' >/dev/null
   [[ -z "$(find "${ROOT}/drill-work" -mindepth 1 -print -quit)" ]]
+
+  /run/backup/restore-isolated.sh --stage-for-recovery "${ROOT}/drill-work" /run/litestream.yml \
+    "${ROOT}/manifest.netrc" "${ROOT}/keys.netrc" "${ROOT}/recovery.agekey" | tee "${ROOT}/staging.log"
+  stage="$(tail -n 1 "${ROOT}/staging.log" | jq -er '.staged_directory')"
+  [[ "$(dirname -- "${stage}")" == "${ROOT}/drill-work" && "$(stat -c %a -- "${stage}")" == 700 ]]
+  [[ -s "${stage}/manifest.json" && -s "${stage}/headscale.sqlite" && -f "${stage}/postgres/PG_VERSION" ]]
+  [[ -s "${stage}/keys/noise_private.key" && -s "${stage}/keys/derp_server_private.key" ]]
+  [[ ! -e "${stage}/postgres/postmaster.pid" ]]
+  [[ "$(sqlite3 "${stage}/headscale.sqlite" 'PRAGMA integrity_check')" == ok ]]
+  rm -r -- "${stage}"
 fi
 DRILL

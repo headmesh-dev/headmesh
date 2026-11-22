@@ -5,6 +5,8 @@ umask 077
 
 check_cell=0
 check_control=0
+stage=0
+retain=0
 if [[ "${1:-}" == --check-control-plane ]]; then
   check_cell=1
   check_control=1
@@ -12,12 +14,19 @@ if [[ "${1:-}" == --check-control-plane ]]; then
 elif [[ "${1:-}" == --check-cell ]]; then
   check_cell=1
   shift
+elif [[ "${1:-}" == --stage-for-recovery ]]; then
+  stage=1
+  shift
 fi
 if [[ $# != 5 || ${EUID} == 0 ]]; then
-  echo "Run as a non-root user: $0 [--check-cell|--check-control-plane] WORK_PARENT LITESTREAM_CONFIG PG_NETRC KEYS_NETRC AGE_IDENTITY" >&2
+  echo "Run as a non-root user: $0 [--check-cell|--check-control-plane|--stage-for-recovery] WORK_PARENT LITESTREAM_CONFIG PG_NETRC KEYS_NETRC AGE_IDENTITY" >&2
   exit 2
 fi
 work_parent="$(realpath -e -- "$1")"
+if (( stage )) && [[ ! -d "${work_parent}" || "$(stat -c '%u:%a' -- "${work_parent}")" != "${EUID}:700" ]]; then
+  echo 'The recovery staging parent must be owned by the caller with mode 0700.' >&2
+  exit 2
+fi
 litestream_config="$2"
 pg_netrc="$3"
 keys_netrc="$4"
@@ -42,7 +51,9 @@ cleanup() {
   if (( result != 0 )) && [[ -n "${work}" && -f "${work}/postgres.log" ]]; then
     tail -n 25 "${work}/postgres.log" >&2
   fi
-  [[ -z "${work}" ]] || rm -r -- "${work}"
+  if (( result != 0 || ! retain )); then
+    [[ -z "${work}" ]] || rm -r -- "${work}"
+  fi
   [[ -z "${socket}" ]] || rm -r -- "${socket}"
   exit "${result}"
 }
@@ -106,4 +117,10 @@ if (( check_cell )); then
   unshare --user --map-root-user --net bash "${script_dir}/check-restored-cell.sh" "${args[@]}"
   jq -cn --argjson verification "${SECONDS}" --argjson age "$((fetched - captured))" \
     '{verification_seconds: $verification, manifest_age_seconds: $age}'
+elif (( stage )); then
+  pg_ctl -D "${work}/postgres" -m fast -w stop >/dev/null
+  pg_start_attempted=0
+  jq -cn --arg path "${work}" --argjson verification "${SECONDS}" --argjson age "$((fetched - captured))" \
+    '{staged_directory: $path, verification_seconds: $verification, manifest_age_seconds: $age}'
+  retain=1
 fi

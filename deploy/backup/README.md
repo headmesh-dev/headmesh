@@ -223,6 +223,13 @@ After manifest verification it stops the temporary database and cleans the
 restored files. It reports the elapsed time for backup verification and the
 age of the manifest at download.
 
+Use `--stage-for-recovery` before the working directory to keep a verified
+restore for the standby bootstrap. The working parent must be owned by the
+caller with mode `0700`. The final JSON line gives `staged_directory`, which
+contains the manifest, both databases and the decrypted Headscale keys.
+PostgreSQL is stopped before the path is returned. Remove the private
+directory after consuming the files.
+
 ### Headscale startup and registration
 
 Add `--check-cell` before the working directory to check the restored cell.
