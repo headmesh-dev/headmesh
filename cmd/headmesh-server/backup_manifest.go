@@ -17,13 +17,13 @@ import (
 )
 
 func backupManifest(parent context.Context, args []string, stdout io.Writer) error {
-	const usage = "usage: headmesh-server backup-manifest capture|verify|publish|fetch [flags]"
+	const usage = "usage: headmesh-server backup-manifest capture|verify|publish|fetch|audit [flags]"
 	if len(args) == 0 {
 		return errors.New(usage)
 	}
 	action := args[0]
 	switch action {
-	case "capture", "verify", "publish", "fetch":
+	case "capture", "verify", "publish", "fetch", "audit":
 	default:
 		return errors.New(usage)
 	}
@@ -49,8 +49,11 @@ func backupManifest(parent context.Context, args []string, stdout io.Writer) err
 		}
 	}
 	timeout := 60 * time.Second
-	if action == "publish" {
+	switch action {
+	case "publish":
 		timeout = 2 * time.Minute
+	case "audit":
+		timeout = 15 * time.Minute
 	}
 	ctx, cancel := context.WithTimeout(parent, timeout)
 	defer cancel()
@@ -66,6 +69,16 @@ func backupManifest(parent context.Context, args []string, stdout io.Writer) err
 		return errors.New("connect to PostgreSQL for backup evidence")
 	}
 	defer func() { _ = db.Close(ctx) }()
+	if action == "audit" {
+		orgs, events, err := recovery.VerifyAudit(ctx, db)
+		if err != nil {
+			return err
+		}
+		if _, err := fmt.Fprintf(stdout, "Verified %d audit events across %d organizations and the tenant-less chain\n", events, orgs); err != nil {
+			return fmt.Errorf("write audit verification result: %w", err)
+		}
+		return nil
+	}
 	if action == "publish" {
 		if err := recovery.Publish(ctx, db, recovery.PublishOptions{
 			SQLite: *sqlite, NoiseKey: *noise, LitestreamConfig: *litestream,

@@ -8,7 +8,7 @@
 //	headmesh-server keygen -out FILE      create the Ed25519 operation-signing key
 //	headmesh-server ca-init -dir DIR      create the CA that signs cell client certificates
 //	headmesh-server cell-cert -dir DIR -cell NAME   issue a client certificate for a cell agent
-//	headmesh-server backup-manifest capture|verify|publish|fetch  manage recovery evidence
+//	headmesh-server backup-manifest capture|verify|publish|fetch|audit  manage recovery evidence
 //	headmesh-server backup-keys pack|publish|stage           protect and stage Headscale recovery keys
 //
 // Configuration comes from HEADMESH_* environment variables (see config.go).

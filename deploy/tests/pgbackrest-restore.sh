@@ -7,8 +7,8 @@ BASE="$(awk '/^FROM / { print $2; exit }' "${ROOT}/deploy/tests/Dockerfile")"
 IMAGE=headmesh-pgbackrest-restore:local
 BIN_DIR="$(mktemp -d)"
 trap 'rm -r -- "${BIN_DIR}"' EXIT
-(cd "${ROOT}" && CGO_ENABLED=0 go build -trimpath -o "${BIN_DIR}/headmesh-server" ./cmd/headmesh-server)
-chmod 0755 "${BIN_DIR}/headmesh-server"
+(cd "${ROOT}" && CGO_ENABLED=0 go build -trimpath -o "${BIN_DIR}/" ./cmd/headmesh-server ./cmd/headmesh-cellagent)
+chmod 0755 "${BIN_DIR}/headmesh-server" "${BIN_DIR}/headmesh-cellagent"
 
 container_args=(--network none)
 if (( $# != 0 )); then
@@ -28,6 +28,7 @@ if (( $# != 0 )); then
     --mount "type=bind,src=$3/headscale,dst=/usr/local/bin/headscale,readonly"
     --mount "type=bind,src=$3/tailscale,dst=/usr/local/bin/tailscale,readonly"
     --mount "type=bind,src=$3/tailscaled,dst=/usr/local/bin/tailscaled,readonly"
+    --mount "type=bind,src=${BIN_DIR}/headmesh-cellagent,dst=/usr/local/bin/headmesh-cellagent,readonly"
     --env HM_DRILL_PG_KEY
     --env HM_DRILL_PG_SECRET
     --env HM_DRILL_SQLITE_KEY
@@ -128,6 +129,10 @@ restored_sql() { psql -XqAt -v ON_ERROR_STOP=1 -h "${RESTORE_SOCKET}" -p 5433 -d
 pg_ctl -D "${PRIMARY}" -l "${ROOT}/primary.log" -w start >/dev/null
 export HEADMESH_DATABASE_URL="host=${SOCKET} port=5432 dbname=postgres user=postgres"
 HEADMESH_MIGRATE_DATABASE_URL="${HEADMESH_DATABASE_URL}" headmesh-server migrate >/dev/null
+for org in fixture-provider fixture-consumer; do
+  headmesh-server bootstrap -cell fixture-cell -server-url https://restore.example.test -base-domain mesh.test \
+    -cell-mode enforce -org "${org}" >"${ROOT}/${org}.json"
+done
 backup stanza-create
 backup check
 primary_sql -c "CREATE TABLE recovery_probe (step text PRIMARY KEY); INSERT INTO recovery_probe VALUES ('full')"
@@ -141,9 +146,28 @@ printf '%s\n' 'Encrypted full and differential backups present.'
 
 primary_sql -c "INSERT INTO recovery_probe VALUES ('wal-only')" >/dev/null
 primary_sql <<'SQL'
-INSERT INTO audit_events (occurred_at, actor_type, actor_id, action, target_type, target_id, prev_hash, hash)
-VALUES (now(), 'system', 'drill', 'grant.expired', 'grant', 'synthetic-grant',
-        decode(repeat('00',32),'hex'), decode(repeat('01',32),'hex'));
+WITH target AS (
+    INSERT INTO devices (org_id, cell_id, short_id, name, given_name, kind)
+    SELECT id, cell_id, 'fixtureabc', 'target', 'target', 'server' FROM orgs WHERE slug = 'fixture-provider'
+    RETURNING id, org_id
+)
+INSERT INTO grants (grantor_org_id, grantee_org_id, src, dst_device_id, ports, starts_at, expires_at, external_ref)
+SELECT target.org_id, consumer.id, '{"kind":"all"}', target.id, ARRAY['tcp:22'], now() - interval '2 hours',
+       now() + expiry.delta, expiry.ref
+FROM target CROSS JOIN orgs consumer
+CROSS JOIN (VALUES ('active-drill-grant', interval '1 hour'), ('overdue-drill-grant', interval '-1 hour')) expiry(ref, delta)
+WHERE consumer.slug = 'fixture-consumer';
+
+WITH genesis AS (
+    SELECT sha256(convert_to('headmesh-audit-genesis:00000000-0000-0000-0000-000000000000','UTF8')) AS hash
+), event AS (
+    INSERT INTO audit_events (occurred_at, actor_type, actor_id, action, target_type, target_id, prev_hash, hash)
+    SELECT '2026-01-01T00:00:00Z', 'system', 'drill', 'grant.expired', 'grant', 'synthetic-grant', hash,
+      sha256(hash || convert_to($event${"org_id":"","occurred_at":"2026-01-01T00:00:00Z","actor_type":"system","actor_id":"drill","action":"grant.expired","target_type":"grant","target_id":"synthetic-grant","request_id":"","ip":"","user_agent":"","data":{}}$event$,'UTF8'))
+    FROM genesis RETURNING id, hash
+)
+INSERT INTO audit_chain_heads (chain_key, head_hash, last_id)
+SELECT '00000000-0000-0000-0000-000000000000', hash, id FROM event;
 SQL
 source_sqlite="${ROOT}/headscale.sqlite"
 restored_sqlite="${ROOT}/restored-headscale.sqlite"
@@ -297,11 +321,26 @@ if verify_manifest "${ROOT}/missing-event.json" >"${ROOT}/missing-event.log" 2>&
 fi
 grep -q 'grant audit boundary differs' "${ROOT}/missing-event.log"
 printf 'Point-in-time recovery passed in %s seconds. The WAL-only row was restored and the later row was excluded.\n' "${SECONDS}"
+headmesh-server backup-manifest audit
+restored_sql <<'SQL'
+ALTER TABLE audit_events DISABLE TRIGGER audit_events_no_update;
+DELETE FROM audit_events WHERE org_id = (SELECT id FROM orgs WHERE slug = 'fixture-consumer');
+ALTER TABLE audit_events ENABLE TRIGGER audit_events_no_update;
+SQL
+if headmesh-server backup-manifest audit >"${ROOT}/deleted-chain.log" 2>&1; then
+  echo 'Audit verification passed after all events for an organization were removed.' >&2
+  exit 1
+fi
+grep -q 'chain head does not match the last event' "${ROOT}/deleted-chain.log"
+printf '%s\n' 'Audit verification rejected a restored database with a missing tenant chain.'
 pg_ctl -D "${RESTORED}" -m fast -w stop >/dev/null
 if [[ -f "${ROOT}/published.json" ]]; then
   mkdir "${ROOT}/drill-work"
-  HEADMESH_DATABASE_URL='host=/run/unavailable' /run/backup/restore-isolated.sh --check-cell "${ROOT}/drill-work" /run/litestream.yml \
-    "${ROOT}/manifest.netrc" "${ROOT}/keys.netrc" "${ROOT}/recovery.agekey"
+  HEADMESH_DATABASE_URL='host=/run/unavailable' /run/backup/restore-isolated.sh --check-control-plane \
+    "${ROOT}/drill-work" /run/litestream.yml \
+    "${ROOT}/manifest.netrc" "${ROOT}/keys.netrc" "${ROOT}/recovery.agekey" | tee "${ROOT}/verification.log"
+  grep -q 'audit events across 2 organizations' "${ROOT}/verification.log"
+  grep -q '1 enforce-mode cell acknowledgements; the grant API matched the restored data (1 grants)' "${ROOT}/verification.log"
   [[ -z "$(find "${ROOT}/drill-work" -mindepth 1 -print -quit)" ]]
 fi
 DRILL

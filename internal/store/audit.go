@@ -10,6 +10,7 @@ import (
 	"net/netip"
 	"time"
 
+	"github.com/jackc/pgx/v5"
 	"github.com/jackc/pgx/v5/pgtype"
 
 	"github.com/headmesh-dev/headmesh/internal/store/dbq"
@@ -183,10 +184,13 @@ func VerifyAuditChain(ctx context.Context, q *dbq.Queries, org pgtype.UUID) (int
 			break
 		}
 	}
-	if checked == 0 {
-		return 0, nil
-	}
 	head, err := q.LockChainHead(ctx, key)
+	if errors.Is(err, pgx.ErrNoRows) {
+		if checked == 0 {
+			return 0, nil
+		}
+		return checked, fmt.Errorf("%w: audit chain head is missing", ErrChainBroken)
+	}
 	if err != nil {
 		return checked, fmt.Errorf("load audit chain head: %w", err)
 	}

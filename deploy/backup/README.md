@@ -214,5 +214,30 @@ state. The network namespace has no path to other networks. All processes
 and temporary credentials are removed afterward.
 [Tailscale userspace networking](https://tailscale.com/docs/concepts/userspace-networking)
 
-Record the Headmesh recovery sweep, audit and API checks separately for the
-full [restore drill](../../docs/plan.md#135-restore-drills-requirement-2).
+### Headmesh recovery and audit
+
+Use `--check-control-plane` to include the restored cell and Headmesh API.
+Install `headmesh-cellagent` from the same release as `headmesh-server`.
+The drill restores one Headscale database and can exercise one enforce-mode
+cell. Recovery with multiple enforce-mode cells needs each cell's backup.
+
+```sh
+deploy/backup/restore-isolated.sh --check-control-plane /path/to/private-work /path/to/litestream.yml \
+  /path/to/manifest.netrc /path/to/keys.netrc /path/to/recovery.agekey
+```
+
+The drill starts `headmesh-server serve -recovery` on the isolated network
+with throwaway signing and cell credentials. It checks that readiness and
+writes are gated while the enforce-mode cell is offline, connects the cell
+agent over mutual TLS, and verifies a recorded policy acknowledgement.
+The sweep records `grant.expired_late` events for overdue grants. An expiry
+sweep error or a cell timeout keeps writes gated while recovery retries.
+
+`headmesh-server backup-manifest audit` recomputes every restored
+organization's audit chain and the tenant-less chain, up to the stored
+chain heads. The script also compares an authenticated `GET /v1/grants`
+response to one organization's restored grant set. The API runs with
+row-level security and the sample key expires after five minutes.
+It reports elapsed service verification time. Record cloud VM creation
+and deletion and production backup freshness in the full
+[restore drill](../../docs/plan.md#135-restore-drills-requirement-2).

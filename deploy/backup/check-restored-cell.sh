@@ -87,6 +87,9 @@ if [[ "${restored_nodes}" != "${expected_nodes}" ]]; then
 fi
 cell policy get >"${runtime}/policy.hujson"
 cell policy check --file "${runtime}/policy.hujson" >/dev/null
+if [[ -n "${2:-}" ]]; then
+  bash "$(dirname -- "$0")/check-restored-control.sh" "${runtime}" "$2" "${work}/postgres"
+fi
 
 hostname="drill-${runtime##*.}"
 hostname="${hostname,,}"

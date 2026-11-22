@@ -4,12 +4,17 @@ set -euo pipefail
 umask 077
 
 check_cell=0
-if [[ "${1:-}" == --check-cell ]]; then
+check_control=0
+if [[ "${1:-}" == --check-control-plane ]]; then
+  check_cell=1
+  check_control=1
+  shift
+elif [[ "${1:-}" == --check-cell ]]; then
   check_cell=1
   shift
 fi
 if [[ $# != 5 || ${EUID} == 0 ]]; then
-  echo "Run as a non-root user: $0 [--check-cell] WORK_PARENT LITESTREAM_CONFIG PG_NETRC KEYS_NETRC AGE_IDENTITY" >&2
+  echo "Run as a non-root user: $0 [--check-cell|--check-control-plane] WORK_PARENT LITESTREAM_CONFIG PG_NETRC KEYS_NETRC AGE_IDENTITY" >&2
   exit 2
 fi
 work_parent="$(realpath -e -- "$1")"
@@ -88,12 +93,16 @@ while ! pg_isready -q -h "${socket}" -p 5432 -U postgres -t 1; do
 done
 
 database="$(jq -er '.postgres_database | @uri' "${manifest}")"
-HEADMESH_DATABASE_URL="postgresql://postgres@/${database}?host=${socket}&port=5432&sslmode=disable" \
+database_url="postgresql://postgres@/${database}?host=${socket}&port=5432&sslmode=disable"
+HEADMESH_DATABASE_URL="${database_url}" \
   headmesh-server backup-manifest verify -manifest "${manifest}" -sqlite "${work}/headscale.sqlite" \
   -noise-key "${work}/keys/noise_private.key" -derp-key "${work}/keys/derp_server_private.key"
 printf 'Backup verification completed in %d seconds; manifest age at download was %d seconds.\n' \
   "${SECONDS}" "$((fetched - captured))"
 if (( check_cell )); then
   script_dir="$(dirname -- "$(realpath -e -- "$0")")"
-  unshare --user --map-root-user --net bash "${script_dir}/check-restored-cell.sh" "${work}"
+  args=("${work}")
+  if (( check_control )); then args+=("${database_url}"); fi
+  unshare --user --map-root-user --net bash "${script_dir}/check-restored-cell.sh" "${args[@]}"
+  printf 'Isolated service verification completed in %d seconds.\n' "${SECONDS}"
 fi
