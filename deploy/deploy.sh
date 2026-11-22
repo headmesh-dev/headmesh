@@ -4,6 +4,7 @@
 #
 #   deploy/deploy.sh --env prod|test|all --target frontend|backend|all [options]
 #   deploy/deploy.sh --render-recovery-nginx <output-dir>
+#   deploy/deploy.sh --package-recovery-toolkit <output-dir>
 #
 # Targets
 #   frontend   headmesh.dev from web/marketing: the static site and docs (switched atomically by symlink) and the
@@ -71,11 +72,27 @@ trap 'die "failed at line ${LINENO}: ${BASH_COMMAND}"' ERR
 # The header comment above, up to the first line of code.
 usage() { awk 'NR > 1 && /^#/ { sub(/^# ?/, ""); print; next } NR > 1 { exit }' "${BASH_SOURCE[0]}"; }
 
+stage_toolkit() {
+  local out="$1"
+  install -d -m 0755 "${out}/systemd" "${out}/headscale" "${out}/cellagent"
+  install -m 0755 "${ROOT}/deploy/server/"{deployctl.sh,bootstrap.sh,install-recovery-state.sh} "${out}/"
+  install -m 0644 "${ROOT}/deploy/lib/environments.sh" "${ROOT}/deploy/server/certbot-requirements.txt" "${out}/"
+  install -m 0644 "${ROOT}"/deploy/systemd/* "${out}/systemd/"
+  install -m 0644 "${ROOT}/deploy/headscale/config.yaml.tmpl" "${out}/headscale/"
+  install -m 0644 "${ROOT}/deploy/cellagent/headmesh-cellagent.service" "${out}/cellagent/"
+}
+
 # ── arguments ─────────────────────────────────────────────────────────────────────────────────────────────────────
 
 if [[ "${1:-}" == --render-recovery-nginx ]]; then
   [[ $# == 2 && -n "$2" ]] || die '--render-recovery-nginx requires an output directory'
   render_nginx prod "$2"
+  exit 0
+fi
+if [[ "${1:-}" == --package-recovery-toolkit ]]; then
+  [[ $# == 2 && -n "$2" ]] || die '--package-recovery-toolkit requires an output directory'
+  [[ ! -e "$2" || ( -d "$2" && -z "$(find "$2" -mindepth 1 -print -quit)" ) ]] || die 'use an empty toolkit output directory'
+  stage_toolkit "$2"
   exit 0
 fi
 
@@ -172,12 +189,7 @@ push() {
 install_toolkit() {
   local tk
   tk="$(mktemp -d)"
-  install -m 0755 "${ROOT}/deploy/server/"{deployctl.sh,bootstrap.sh,install-recovery-state.sh} "${tk}/"
-  install -m 0644 "${ROOT}/deploy/lib/environments.sh" "${ROOT}/deploy/server/certbot-requirements.txt" "${tk}/"
-  install -d "${tk}/systemd" "${tk}/headscale" "${tk}/cellagent"
-  install -m 0644 "${ROOT}"/deploy/systemd/* "${tk}/systemd/"
-  install -m 0644 "${ROOT}/deploy/headscale/config.yaml.tmpl" "${tk}/headscale/"
-  install -m 0644 "${ROOT}/deploy/cellagent/headmesh-cellagent.service" "${tk}/cellagent/"
+  stage_toolkit "${tk}"
   # shellcheck disable=SC2016,SC2086 # expanded remotely; SUDO is a command prefix
   tar -C "${tk}" -cf - . | remote ${SUDO} bash -c '
     set -e

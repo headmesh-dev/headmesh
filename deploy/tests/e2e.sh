@@ -244,6 +244,9 @@ say "Status"
 say "Start the restored standby with ingress closed"
 docker exec -i "${NAME}" bash -s <"${ROOT}/deploy/tests/recovery-start.sh"
 
+say "Prepare a fresh standby with the runtime held offline"
+bash "${ROOT}/deploy/tests/recovery-prepare.sh" "${IMAGE}"
+
 if [[ ${FAILED} == 0 ]]; then
   printf '\n\033[1;32mdeploy e2e: all checks passed\033[0m\n'
 else

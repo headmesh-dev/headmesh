@@ -1123,7 +1123,7 @@ volumes: { hm-cache-mise: {}, hm-cache-uv: {}, hm-cache-npm: {}, hm-cache-pnpm: 
      - If the limit is reached, page with instructions (delete the fenced VM or raise the limit).
   3. **Create** the VM with cloud-init in **restore mode**, the approved firewall and SSH keys. Keep it off until the provider confirms the firewall and both public addresses. A standby found for the same primary needs reconciliation before another allocation. This covers a create request whose response was lost. [Standby allocation](../deploy/ha/recovery/standby.go)
   4. **Restore and verify**, refusing on any failure (ported from Xcelsior's rules):
-     - `restore-isolated.sh --stage-for-recovery` retains the verified files and stops its temporary PostgreSQL process. `bootstrap.sh restore` installs the verified files on the fresh standby and keeps Headscale and PostgreSQL offline for configuration. [Restore runbook](../deploy/backup/README.md#install-the-staged-files-on-a-standby)
+     - `bootstrap.sh prepare-recovery` installs the runtime and production locale on a fresh standby while holding nginx and Headscale offline and suppressing automatic PostgreSQL cluster creation. `restore-isolated.sh --stage-for-recovery` retains the verified files and stops its temporary PostgreSQL process. `bootstrap.sh restore` installs the verified files and keeps both databases offline for configuration. [Restore runbook](../deploy/backup/README.md#install-the-staged-files-on-a-standby)
      - `litestream restore` then `sqlite3 'PRAGMA integrity_check'`;
      - node count ≥ the manifest's (**never promote an empty replica**);
      - age-decrypt the keys; the **Noise public-key fingerprint equals the manifest's** (otherwise it's a different tailnet: refuse);

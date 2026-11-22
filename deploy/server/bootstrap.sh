@@ -4,6 +4,8 @@
 # secrets. deploy/compose/bootstrap.sh sets up the base host first (admin user, sshd, host firewall, Tailscale).
 #
 #   bootstrap.sh <env>...          for example: bootstrap.sh prod test
+#   bootstrap.sh prepare-recovery  install the runtime on a fresh standby with services held offline
+#   bootstrap.sh restore <stage>   install the verified data on the prepared standby
 #
 # What it does:
 #   - packages: nginx with the stream module, PostgreSQL 18, sqlite3
@@ -24,18 +26,21 @@ HERE="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 # shellcheck source=../lib/environments.sh
 source "${HERE}/environments.sh" 2>/dev/null || source "${HERE}/../lib/environments.sh"
 
-# Pinned runtime (plan §3.2; matches mise.toml and CI). Bump together with its SHA-256 from SHASUMS256.txt.
+# Pinned runtime (plan §3.2; matches mise.toml and CI). Bump together with both SHA-256 values from SHASUMS256.txt.
 readonly NODE_VERSION="24.16.0"
 readonly NODE_SHA256="d804845d34eddc21dc1092b519d643ef40b1f58ec5dec5c22b1f4bd8fabde6c9"
+readonly NODE_ARM64_SHA256="524659219d6a207a7400f2bde15d19ba060ffbe0d32a8643319ad67e3bb64c78"
 readonly PG_MAJOR="18"
 # Headscale for the environment that hosts a cell (plan §13.2), from the release's checksums.txt.
 readonly HEADSCALE_VERSION="0.29.7"
 readonly HEADSCALE_DEB_SHA256="d230c5fc8db06cf1868f4ec0077b89e5e2ccf3b22a3259efa6d080db2d5f921c"
+readonly HEADSCALE_ARM64_DEB_SHA256="a68f258a2a13a87321671f8cc613500986ffc40d0d2eacfdbf0b890b8b94227e"
 # certbot from PyPI rather than Ubuntu's archive, whose DNS plugin needs the end-of-life cloudflare 2.x SDK. The
 # versions and hashes are in certbot-requirements.txt; bump CERTBOT_VERSION with it.
 readonly CERTBOT_VERSION="5.9.0"
 readonly ACME_EMAIL="${HM_ACME_EMAIL:-}"
 TLS_CHANGED=0
+APT_UPDATED=0
 
 export DEBIAN_FRONTEND=noninteractive
 
@@ -57,38 +62,54 @@ write_if_changed() {
   log "wrote ${path}"
 }
 
-preflight() {
+preflight_host() {
   [[ ${EUID} -eq 0 ]] || die "run as root"
   # shellcheck source=/dev/null
   . /etc/os-release
   [[ "${ID}" == ubuntu && "${VERSION_ID}" == 26.04 ]] || die "expected Ubuntu 26.04, found ${PRETTY_NAME}"
+}
+
+preflight() {
+  preflight_host
   [[ $# -gt 0 ]] || die "usage: bootstrap.sh <env>... (one or more of: ${HM_ENVS[*]})"
   local env
   for env in "$@"; do hm_is_env "${env}" || die "unknown environment '${env}'"; done
 }
 
-packages() {
-  local -a want=(nginx libnginx-mod-stream "postgresql-${PG_MAJOR}" sqlite3 python3-venv
-    ca-certificates curl xz-utils openssl)
+install_packages() {
   local -a missing=() pkg
-  for pkg in "${want[@]}"; do
+  for pkg in "$@"; do
     dpkg-query -W -f='${Status}' "${pkg}" 2>/dev/null | grep -q 'install ok installed' || missing+=("${pkg}")
   done
   if [[ ${#missing[@]} -gt 0 ]]; then
     log "installing ${missing[*]}"
-    apt-get update -qq
+    if (( APT_UPDATED == 0 )); then
+      apt-get update -qq
+      APT_UPDATED=1
+    fi
     apt-get install -y --no-install-recommends "${missing[@]}" >/dev/null
   fi
 }
 
+packages() {
+  install_packages nginx libnginx-mod-stream "postgresql-${PG_MAJOR}" sqlite3 python3-venv \
+    ca-certificates curl xz-utils openssl "$@"
+}
+
 node_runtime() {
-  local dir="/opt/node-v${NODE_VERSION}-linux-x64" tarball tmp
+  local arch sha dir tarball tmp
+  case "$(dpkg --print-architecture)" in
+    amd64) arch=x64; sha="${NODE_SHA256}" ;;
+    arm64) arch=arm64; sha="${NODE_ARM64_SHA256}" ;;
+    *) die 'Node.js installation supports amd64 and arm64' ;;
+  esac
+  dir="/opt/node-v${NODE_VERSION}-linux-${arch}"
   if [[ ! -x "${dir}/bin/node" ]]; then
     tmp="$(mktemp -d)"
     tarball="${tmp}/node.tar.xz"
     log "installing Node.js ${NODE_VERSION}"
-    curl -fsSL --retry 3 -o "${tarball}" "https://nodejs.org/dist/v${NODE_VERSION}/node-v${NODE_VERSION}-linux-x64.tar.xz"
-    echo "${NODE_SHA256}  ${tarball}" | sha256sum -c --quiet - || die "Node.js tarball checksum mismatch"
+    curl -fsSL --retry 3 -o "${tarball}" "https://nodejs.org/dist/v${NODE_VERSION}/node-v${NODE_VERSION}-linux-${arch}.tar.xz"
+    echo "${sha}  ${tarball}" | sha256sum -c --quiet - || die "Node.js tarball checksum mismatch"
     tar -xJf "${tarball}" -C /opt --no-same-owner
     rm -rf "${tmp}"
   fi
@@ -214,12 +235,16 @@ state_dirs() {
   install -d -m 0750 -o "${HM_SERVICE_USER}" -g "${HM_SERVICE_USER}" "${HM_STATE_ROOT}/${env}/waitlist"
 }
 
-units() {
+install_units() {
   local f changed=0
   for f in "${HM_LIB_ROOT}"/systemd/*; do
     write_if_changed "/etc/systemd/system/$(basename "${f}")" 0644 root:root <"${f}" && changed=1
   done
-  [[ ${changed} == 1 ]] && systemctl daemon-reload
+  if (( changed )); then systemctl daemon-reload; fi
+}
+
+units() {
+  install_units
   local env
   for env in "$@"; do systemctl enable --quiet --now "headmesh-backup@${env}.timer"; done
   systemctl enable --quiet --now certbot-renew.timer
@@ -288,24 +313,35 @@ headscale_backup_before_upgrade() {
   log "backed up Headscale ${old}'s database to ${bak}"
 }
 
-# headscale_cell <env>: Headscale for the cell the environment hosts, configured from deploy/headscale/config.yaml.tmpl.
-# Only the cell's name in nginx is public; the gRPC API stays on loopback and the unix socket (plan §9.4).
-headscale_cell() {
-  local env="$1" host base tmp deb v4 v6
-  host="$(hm_env "${env}" CELL_HOST)"
-  base="$(hm_env "${env}" CELL_BASE_DOMAIN)"
+headscale_package() {
+  local arch sha tmp deb
+  arch="$(dpkg --print-architecture)"
+  case "${arch}" in
+    amd64) sha="${HEADSCALE_DEB_SHA256}" ;;
+    arm64) sha="${HEADSCALE_ARM64_DEB_SHA256}" ;;
+    *) die 'Headscale installation supports amd64 and arm64' ;;
+  esac
   if ! dpkg-query -W -f='${Version}' headscale 2>/dev/null | grep -qx "${HEADSCALE_VERSION}"; then
     headscale_backup_before_upgrade
     tmp="$(mktemp -d)"
     deb="${tmp}/headscale.deb"
     log "installing Headscale ${HEADSCALE_VERSION}"
     curl -fsSL --retry 3 -o "${deb}" \
-      "https://github.com/juanfont/headscale/releases/download/v${HEADSCALE_VERSION}/headscale_${HEADSCALE_VERSION}_linux_amd64.deb"
-    echo "${HEADSCALE_DEB_SHA256}  ${deb}" | sha256sum -c --quiet - || die "Headscale package checksum mismatch"
+      "https://github.com/juanfont/headscale/releases/download/v${HEADSCALE_VERSION}/headscale_${HEADSCALE_VERSION}_linux_${arch}.deb"
+    echo "${sha}  ${deb}" | sha256sum -c --quiet - || die "Headscale package checksum mismatch"
     # --force-confold: an upgrade keeps the config.yaml rendered below instead of stopping at dpkg's prompt.
     apt-get install -y --no-install-recommends -o Dpkg::Options::=--force-confold "${deb}" >/dev/null
     rm -rf "${tmp}"
   fi
+}
+
+# headscale_cell <env>: Headscale for the cell the environment hosts, configured from deploy/headscale/config.yaml.tmpl.
+# Only the cell's name in nginx is public; the gRPC API stays on loopback and the unix socket (plan §9.4).
+headscale_cell() {
+  local env="$1" host base v4 v6
+  host="$(hm_env "${env}" CELL_HOST)"
+  base="$(hm_env "${env}" CELL_BASE_DOMAIN)"
+  headscale_package
   v4="$(public_address 4)"
   v6="$(public_address 6)"
   [[ -n "${v4}" ]] || die "no public IPv4 address for the embedded DERP relay"
@@ -329,6 +365,58 @@ headscale_cell() {
   systemctl enable --quiet --now headscale
   for _ in $(seq 1 30); do curl -fs -o /dev/null http://127.0.0.1:8080/health && return 0; sleep 1; done
   die "Headscale did not become healthy"
+}
+
+prepare_recovery() {
+  [[ $# == 0 ]] || die 'usage: bootstrap.sh prepare-recovery'
+  preflight_host
+  umask 077
+  install -d -m 0700 /run/headmesh-recovery-state
+  exec 9>/run/headmesh-recovery-state/lock
+  flock -n 9 || die 'another recovery operation is in progress'
+  local dir unit clusters
+  for dir in "${HM_STATE_ROOT}/recovery" "/var/lib/postgresql/${PG_MAJOR}/main" "/etc/postgresql/${PG_MAJOR}/main"; do
+    [[ ! -e "${dir}" && ! -L "${dir}" ]] || die "standby preparation requires an empty destination: ${dir}"
+  done
+  if [[ -e /var/lib/headscale || -L /var/lib/headscale ]]; then
+    [[ -d /var/lib/headscale && ! -L /var/lib/headscale && -z "$(find /var/lib/headscale -mindepth 1 -print -quit)" ]] ||
+      die 'Headscale state already exists on this host'
+  fi
+  if command -v pg_lsclusters >/dev/null; then
+    clusters="$(pg_lsclusters --no-header)"
+    [[ -z "${clusters}" ]] || die 'a PostgreSQL cluster already exists on this host'
+  fi
+  for unit in nginx.service headscale.service headmesh-cellagent.service headmesh-backend@prod-{blue,green}.service \
+    headmesh-waitlist@prod-{blue,green}.service certbot-renew.timer headmesh-backup@prod.timer; do
+    [[ "$(systemctl show -p ActiveState --value "${unit}")" == inactive ]] || die "${unit} must be inactive on the standby"
+  done
+
+  # Package maintainer scripts may attempt to start nginx and Headscale. Hold
+  # them before installation and leave the masks in place across retries.
+  systemctl mask --quiet nginx.service headscale.service
+  install_packages postgresql-common
+  pg_conftool /etc/postgresql-common/createcluster.conf set create_main_cluster false
+  packages age jq locales pgbackrest
+  locale-gen en_US.UTF-8 >/dev/null
+  [[ "$(LC_ALL=en_US.UTF-8 locale charmap)" == UTF-8 ]] || die 'the PostgreSQL production locale is unavailable'
+  clusters="$(pg_lsclusters --no-header)"
+  [[ -z "${clusters}" ]] || die 'package installation created an unexpected PostgreSQL cluster'
+  headscale_package
+  node_runtime
+  certbot_runtime
+  service_user
+  state_dirs prod
+  install -d -m 0750 -o root -g "${HM_SERVICE_USER}" "${HM_ETC_ROOT}/prod"
+  if ! id -u headmesh-cellagent >/dev/null 2>&1; then
+    useradd --system --no-create-home --home-dir /var/lib/headmesh-cellagent --shell /usr/sbin/nologin headmesh-cellagent
+  fi
+  install -d -m 0750 -o root -g headmesh-cellagent /etc/headmesh-cellagent
+  install_units
+  for unit in nginx.service headscale.service; do
+    [[ "$(readlink "/etc/systemd/system/${unit}" || true)" == /dev/null &&
+      "$(systemctl show -p ActiveState --value "${unit}")" == inactive ]] || die "${unit} lost its standby mask"
+  done
+  log 'standby runtime prepared; restore verified state and credentials before starting services'
 }
 
 nginx_base() {
@@ -367,9 +455,8 @@ main() {
   log "bootstrap complete for: $*"
 }
 
-if [[ "${1:-}" == restore ]]; then
-  shift
-  exec "${HERE}/install-recovery-state.sh" "$@"
-fi
-
-main "$@"
+case "${1:-}" in
+  prepare-recovery) shift; prepare_recovery "$@" ;;
+  restore) shift; exec "${HERE}/install-recovery-state.sh" "$@" ;;
+  *) main "$@" ;;
+esac

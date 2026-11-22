@@ -248,16 +248,32 @@ directory after consuming the files.
 
 ### Install the staged files on a standby
 
-Prepare a fresh Ubuntu standby with PostgreSQL 18, Headscale and SQLite.
-Generate `en_US.UTF-8` with `locale-gen` so PostgreSQL can open the restored
-production databases. The Hetzner drill installs and generates this locale
-through cloud-init.
-Set `create_main_cluster = false` in
-`/etc/postgresql-common/createcluster.conf` before installing PostgreSQL,
-and persistently mask `headscale.service` before installing Headscale.
-Run staging as `postgres`. As root, run the installer with the reported
-directory. Plan for the space needed by both the stage and the installed copy.
-[Ubuntu cluster startup control](https://manpages.ubuntu.com/manpages/resolute/man1/pg_createcluster.1.html)
+From the matching checkout, package the deployment toolkit and transfer it
+over verified SSH to a fresh Ubuntu 26.04 standby. Use the standby's admin
+SSH destination in `standby_ssh`.
+
+```sh
+toolkit="$(mktemp -d)"
+deploy/deploy.sh --package-recovery-toolkit "$toolkit"
+tar -C "$toolkit" -cf - . | ssh "$standby_ssh" '
+  sudo -n install -d -m 0755 /usr/local/lib/headmesh &&
+  sudo -n tar -xf - --no-same-owner -C /usr/local/lib/headmesh &&
+  sudo -n /usr/local/lib/headmesh/bootstrap.sh prepare-recovery'
+```
+
+Preparation installs PostgreSQL 18, pgBackRest, Headscale, nginx, Node,
+certbot and the service units and users. It generates `en_US.UTF-8` for the
+restored PostgreSQL databases and disables automatic cluster creation before
+installing PostgreSQL. nginx and Headscale stay persistently masked. Use
+the restore payload to supply Litestream and `headmesh-server` for staging.
+Build it with Docker, `jq` and `deploy/ha/package-restore.sh "$payload_dir" "$architecture"`,
+using an existing empty directory and the standby's `amd64` or `arm64`
+architecture.
+[PostgreSQL cluster startup control](https://manpages.debian.org/unstable/postgresql-common/pg_createcluster.1.en.html)
+
+Run the isolated restore with `--stage-for-recovery` as `postgres`. Allow
+room for the stage and the installed copy. Run the installer as root with
+the reported directory.
 
 ```sh
 /usr/local/lib/headmesh/bootstrap.sh restore "$staged_directory"
@@ -274,8 +290,7 @@ configuration and recovery startup are ready.
 ### Start the restored backend and cell agent
 
 Install the matching `headmesh-server` and `headmesh-cellagent` release under
-`/srv/headmesh/prod/backend/releases/`, along with the deployment toolkit and
-backend systemd unit. Restore the original private backend configuration
+`/srv/headmesh/prod/backend/releases/`. Restore the original private backend configuration
 under `/etc/headmesh/prod/`, including `backend.env`, `db.env`, `secrets.env`,
 the operation-signing key, the cell CA certificate and any OAuth secrets that
 configuration references. Install the backend's TLS certificate and key under
@@ -397,7 +412,7 @@ cloud-init and the required network namespace before uploading the backup
 credentials. The runner starts the recovered services inside the namespace
 and confirms the VM is deleted before emitting the result. [Hetzner Cloud API](https://docs.hetzner.cloud/reference/cloud)
 
-The manual runner uses Python 3, Docker, the repository's Go toolchain and
+The manual runner uses Python 3, Docker, `jq`, the repository's Go toolchain and
 OpenSSH. Set `HCLOUD_TOKEN` for the Hetzner recovery project and
 `HEADMESH_R2_ENDPOINT` for its backups. Provide these private files with mode
 `0600` in the credentials directory.
