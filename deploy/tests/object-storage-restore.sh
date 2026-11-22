@@ -5,9 +5,8 @@ umask 077
 
 ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/../.." && pwd)"
 S3=chrislusf/seaweedfs:4.54@sha256:4b42c212543a0acd4c0e675215ecdcaf62a186ef98def76c7e12701871222d15
-LITESTREAM=litestream/litestream:0.5.17@sha256:4b02b9859a6b6b4087d8b8944e15f7e984bd7957cba322bbeee38b0e27b9656a
-HEADSCALE=headscale/headscale:v0.29.7@sha256:11f81665e842809db9fe3006a38c56a66e968baa5abd4bac498e86445572b970
-TAILSCALE=tailscale/tailscale:v1.104.7@sha256:72c1e19e0aedca96b8533bbb0b4368564410ff20b17e53b804eb6c1f04a31be4
+# shellcheck source=deploy/backup/tool-images.sh
+source "${ROOT}/deploy/backup/tool-images.sh"
 WORK="$(mktemp -d)"
 NETWORK="hm-drill-${WORK##*.}"
 S3_CONTAINER="${NETWORK}-s3"
@@ -31,11 +30,12 @@ cleanup() {
 trap cleanup EXIT
 
 export HM_DRILL_PG_KEY=headmesh-postgres-drill
-export HM_DRILL_PG_SECRET="$(openssl rand -hex 20)"
+HM_DRILL_PG_SECRET="$(openssl rand -hex 20)"
 export HM_DRILL_SQLITE_KEY=headmesh-sqlite-drill
-export HM_DRILL_SQLITE_SECRET="$(openssl rand -hex 20)"
+HM_DRILL_SQLITE_SECRET="$(openssl rand -hex 20)"
 export HM_DRILL_KEYS_KEY=headmesh-keys-drill
-export HM_DRILL_KEYS_SECRET="$(openssl rand -hex 20)"
+HM_DRILL_KEYS_SECRET="$(openssl rand -hex 20)"
+export HM_DRILL_PG_SECRET HM_DRILL_SQLITE_SECRET HM_DRILL_KEYS_SECRET
 export HEADMESH_R2_ENDPOINT="https://${S3_HOST}:8443"
 export SSL_CERT_FILE=/run/drill-ca.crt
 

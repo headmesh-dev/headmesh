@@ -1,0 +1,59 @@
+name: restore-drill
+
+on:
+  schedule:
+    - cron: '0 6 * * 1'
+  workflow_dispatch:
+
+permissions: {}
+
+concurrency:
+  group: restore-drill
+  cancel-in-progress: false
+
+jobs:
+  restore:
+    if: github.ref == 'refs/heads/main'
+    runs-on: ubuntu-26.04
+    environment: recovery
+    permissions:
+      contents: read
+    timeout-minutes: 45
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - uses: actions/setup-go@b7ad1dad31e06c5925ef5d2fc7ad053ef454303e # v7.0.0
+        with:
+          go-version-file: go.mod
+      - name: Restore and verify backups on an ephemeral VM
+        env:
+          HCLOUD_TOKEN: ${{ secrets.HCLOUD_TOKEN }}
+          HEADMESH_R2_ENDPOINT: ${{ vars.HEADMESH_R2_ENDPOINT }}
+          DRILL_FIREWALL_ID: ${{ vars.HEADMESH_DRILL_FIREWALL_ID }}
+          LITESTREAM_AWS: ${{ secrets.DRILL_LITESTREAM_AWS }}
+          MANIFEST_NETRC: ${{ secrets.DRILL_MANIFEST_NETRC }}
+          KEYS_NETRC: ${{ secrets.DRILL_KEYS_NETRC }}
+          AGE_IDENTITY: ${{ secrets.DRILL_AGE_IDENTITY }}
+          PGBACKREST_CONFIG_TEXT: ${{ secrets.DRILL_PGBACKREST_CONFIG }}
+        shell: bash
+        run: |
+          umask 077
+          credentials=$(mktemp -d)
+          trap 'rm -r -- "$credentials"' EXIT
+          printf '%s' "$LITESTREAM_AWS" >"$credentials/litestream.aws"
+          printf '%s' "$MANIFEST_NETRC" >"$credentials/manifest.netrc"
+          printf '%s' "$KEYS_NETRC" >"$credentials/keys.netrc"
+          printf '%s' "$AGE_IDENTITY" >"$credentials/recovery.agekey"
+          printf '%s' "$PGBACKREST_CONFIG_TEXT" >"$credentials/pgbackrest.conf"
+          unset LITESTREAM_AWS MANIFEST_NETRC KEYS_NETRC AGE_IDENTITY PGBACKREST_CONFIG_TEXT
+          args=(--credentials "$credentials")
+          if [[ -n "$DRILL_FIREWALL_ID" ]]; then args+=(--firewall-id "$DRILL_FIREWALL_ID"); fi
+          python3 deploy/ha/restore_drill.py run "${args[@]}" | tee "$RUNNER_TEMP/headmesh-restore-drill.json"
+          jq -r '"- RTO: \(.rto_seconds) seconds\n- Recovery point age: \(.recovery_point_age_seconds) seconds\n- Server deleted: \(.server_deleted)"' \
+            "$RUNNER_TEMP/headmesh-restore-drill.json" >>"$GITHUB_STEP_SUMMARY"
+      - uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
+        with:
+          name: headmesh-restore-drill-metrics
+          path: ${{ runner.temp }}/headmesh-restore-drill.json
+          if-no-files-found: error

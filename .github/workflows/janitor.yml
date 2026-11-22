@@ -1,0 +1,29 @@
+name: restore-drill-janitor
+
+on:
+  schedule:
+    - cron: '17 * * * *'
+  workflow_dispatch:
+
+permissions: {}
+
+concurrency:
+  group: restore-drill-janitor
+  cancel-in-progress: false
+
+jobs:
+  delete-expired-drills:
+    if: github.ref == 'refs/heads/main'
+    runs-on: ubuntu-26.04
+    environment: recovery
+    permissions:
+      contents: read
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - name: Delete expired Headmesh restore drill VMs
+        env:
+          HCLOUD_TOKEN: ${{ secrets.HCLOUD_TOKEN }}
+        run: python3 deploy/ha/restore_drill.py janitor

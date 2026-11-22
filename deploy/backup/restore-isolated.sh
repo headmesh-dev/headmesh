@@ -104,5 +104,6 @@ if (( check_cell )); then
   args=("${work}")
   if (( check_control )); then args+=("${database_url}"); fi
   unshare --user --map-root-user --net bash "${script_dir}/check-restored-cell.sh" "${args[@]}"
-  printf 'Isolated service verification completed in %d seconds.\n' "${SECONDS}"
+  jq -cn --argjson verification "${SECONDS}" --argjson age "$((fetched - captured))" \
+    '{verification_seconds: $verification, manifest_age_seconds: $age}'
 fi

@@ -241,3 +241,49 @@ row-level security and the sample key expires after five minutes.
 It reports elapsed service verification time. Record cloud VM creation
 and deletion and production backup freshness in the full
 [restore drill](../../docs/plan.md#135-restore-drills-requirement-2).
+
+## Hetzner restore drill
+
+The cloud runner creates a disposable `cx23` in `fsn1` and runs the full
+isolated verification. It uses Ubuntu 26.04, labels the VM as a drill, and
+authenticates SSH against a host key generated for that run. It verifies
+cloud-init and the required network namespace before uploading the backup
+credentials. The runner starts the recovered services inside the namespace
+and confirms the VM is deleted before emitting the result. [Hetzner Cloud API](https://docs.hetzner.cloud/reference/cloud)
+
+The manual runner uses Python 3, Docker, the repository's Go toolchain and
+OpenSSH. Set `HCLOUD_TOKEN` for the Hetzner recovery project and
+`HEADMESH_R2_ENDPOINT` for its backups. Provide these private files with mode
+`0600` in the credentials directory.
+
+| File | Contents |
+| --- | --- |
+| `litestream.aws` | Read-only access to `hm-hs1-litestream` |
+| `manifest.netrc` | Read-only access to the `hm-pg` manifest |
+| `keys.netrc` | Read-only access to `hm-keys` |
+| `recovery.agekey` | One approved recovery identity |
+| `pgbackrest.conf` | Recovery repository configuration, read-only access to `hm-pg`, and its encryption passphrase |
+
+```sh
+python3 deploy/ha/restore_drill.py run --credentials /path/to/private-drill-credentials
+```
+
+`--firewall-id` attaches a provider firewall configured to admit the SSH
+runner and allow the VM to reach R2. RTO measures provider creation through
+service verification. Recovery point age measures the age of the verified
+manifest when the VM fetched it. The runner emits those values in JSON.
+
+The `restore-drill.yml` workflow runs Mondays at 06:00 UTC and on demand.
+Its `recovery` environment uses secrets `HCLOUD_TOKEN`,
+`DRILL_LITESTREAM_AWS`, `DRILL_MANIFEST_NETRC`, `DRILL_KEYS_NETRC`,
+`DRILL_AGE_IDENTITY` and `DRILL_PGBACKREST_CONFIG`. Set the environment
+variable `HEADMESH_R2_ENDPOINT`. `HEADMESH_DRILL_FIREWALL_ID` is optional.
+The workflow publishes the JSON metrics as a build artifact.
+
+The hourly janitor deletes drill servers older than two hours. It verifies
+the drill's name and ownership labels before every deletion. The same
+command runs manually with `HCLOUD_TOKEN`.
+
+```sh
+python3 deploy/ha/restore_drill.py janitor
+```

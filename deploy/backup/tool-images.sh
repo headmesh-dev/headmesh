@@ -1,0 +1,4 @@
+# Pinned restore binaries used by the local rehearsal and the Hetzner drill.
+readonly LITESTREAM=litestream/litestream:0.5.17@sha256:4b02b9859a6b6b4087d8b8944e15f7e984bd7957cba322bbeee38b0e27b9656a
+readonly HEADSCALE=headscale/headscale:v0.29.7@sha256:11f81665e842809db9fe3006a38c56a66e968baa5abd4bac498e86445572b970
+readonly TAILSCALE=tailscale/tailscale:v1.104.7@sha256:72c1e19e0aedca96b8533bbb0b4368564410ff20b17e53b804eb6c1f04a31be4
