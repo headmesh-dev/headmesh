@@ -10,6 +10,7 @@
 #   activate-static  <env> <release>                   atomically switch the marketing site to a release
 #   activate-service <service> <env> <release> [drain] blue-green switch of waitlist or backend
 #   start-recovery   <release>                        start a restored prod backend and cell behind closed ingress
+#   prepare-recovery-ingress <nginx-dir> <site-release>  start and check nginx on the ready standby
 #   rollback         <component> <env> [keep-schema]   back to the previous release (marketing) or colour (services);
 #                                                      the backend's schema follows to what that colour ran with
 #   status           [env...]                          releases, colours, units and health
@@ -565,6 +566,11 @@ cmd_activate_service() {
 
 recovery_http_code() { curl -qsS --noproxy '*' --max-time 3 -o /dev/null -w '%{http_code}' "$@"; }
 
+recovery_noise_hash() {
+  curl -qfsS --noproxy '*' --max-time 3 "$@" |
+    jq -erj '.publicKey | select(test("^mkey:[[:xdigit:]]{64}$"))' | sha256sum | cut -d ' ' -f 1
+}
+
 start_recovery_headscale() {
   local saved_config="$1" cell_host="$2" conf=/etc/headscale/config.yaml
   install -m 0640 -o root -g headscale "${saved_config}" "${conf}"
@@ -679,8 +685,7 @@ SQL
 
   start_recovery_headscale "${record}/config.yaml" "$(hm_env "${env}" CELL_HOST)"
   wait_healthy http://127.0.0.1:8080/health || die 'restored Headscale did not become healthy'
-  actual_noise="$(curl -qfsS --noproxy '*' --max-time 3 'http://127.0.0.1:8080/key?v=130' |
-    jq -erj '.publicKey | select(test("^mkey:[[:xdigit:]]{64}$"))' | sha256sum | cut -d ' ' -f 1)"
+  actual_noise="$(recovery_noise_hash 'http://127.0.0.1:8080/key?v=130')"
   [[ "${actual_noise}" == "${expected_noise}" ]] || die 'restored Headscale is serving a different Noise identity'
   headscale --output json nodes list | jq -e --argjson minimum "${minimum_nodes}" 'length >= $minimum' >/dev/null ||
     die 'restored Headscale has fewer nodes than the manifest'
@@ -706,6 +711,90 @@ SQL
   mv -f "${record}/backend-ready.tmp" "${record}/backend-ready"
   trap - EXIT
   log 'restored backend is ready and nginx remains masked'
+}
+
+rollback_recovery_ingress() {
+  local status="$1"
+  trap - EXIT INT TERM ERR
+  set +e
+  systemctl stop nginx.service || log 'check that nginx stopped'
+  systemctl mask --quiet nginx.service || log 'could not restore the nginx mask'
+  systemctl reset-failed nginx.service 2>/dev/null || true
+  nginx_txn_restore || log "check the previous nginx files in ${NGINX_TXN_DIR}"
+  exit "${status}"
+}
+
+cmd_prepare_recovery_ingress() {
+  [[ $# == 2 ]] || die 'prepare-recovery-ingress requires a rendered prod nginx directory and a marketing release'
+  umask 077
+  local staging="$1" site_release="$2" env=prod record="${HM_STATE_ROOT}/recovery"
+  local root="${HM_SRV_ROOT}/prod/marketing" tls="${HM_ETC_ROOT}/tls/fullchain.pem"
+  local ca=/etc/ssl/certs/ca-certificates.crt enabled=/etc/nginx/sites-enabled
+  local backend api cell site expected_noise actual_noise host pair service waitlist
+  require_release "${site_release}"
+  install -d -m 0700 /run/headmesh-recovery-state
+  exec 9>/run/headmesh-recovery-state/lock
+  flock -n 9 || die 'another recovery operation is in progress'
+  [[ -s "${record}/manifest.json" && -s "${record}/backend-ready" && -z "$(state_get "${env}" backend.active)" ]] ||
+    die 'start the restored backend first'
+  [[ ! -e "${record}/ingress-ready" && "$(readlink /etc/systemd/system/nginx.service || true)" == /dev/null &&
+    "$(systemctl show -p ActiveState --value nginx.service)" == inactive ]] || die 'nginx must be masked and inactive on the standby'
+  backend="$(<"${record}/backend-ready")"
+  require_release "${backend}"
+  [[ "$(readlink "$(slot_path backend "${env}" blue)" || true)" == "${HM_SRV_ROOT}/prod/backend/releases/${backend}" &&
+    "$(recovery_http_code "$(health_url "${env}" backend blue)")" == 204 ]] || die 'the recorded standby backend is unready'
+  [[ -s "${root}/releases/${site_release}/site/index.html" && -s "${root}/releases/${site_release}/nginx/security-headers.conf" ]] ||
+    die 'install the matching marketing release first'
+  api="$(hm_env "${env}" API_HOST)"
+  cell="$(hm_env "${env}" CELL_HOST)"
+  site="$(hm_env "${env}" SITE_HOST)"
+  expected_noise="$(jq -er '.headscale.noise_public_key_sha256 | select(test("^[0-9a-f]{64}$"))' "${record}/manifest.json")"
+  [[ -s "${tls}" && -s "${HM_ETC_ROOT}/tls/privkey.pem" ]] || die 'install the DNS-01 certificate and private key first'
+  local -a tls_hosts=("${api}" "${cell}" "${site}") extra_hosts
+  read -r -a extra_hosts <<<"$(hm_env "${env}" EXTRA_HOSTS)"
+  for host in "${tls_hosts[@]}" "${extra_hosts[@]}"; do
+    openssl verify -CAfile "${ca}" -no-CApath -no-CAstore -untrusted "${tls}" -purpose sslserver \
+      -verify_hostname "${host}" "${tls}" >/dev/null || die "the standby certificate is untrusted or invalid for ${host}"
+  done
+  nginx_files "${env}"
+  for pair in "${NGINX_GENERATED[@]}" "${NGINX_MANAGED[@]}"; do
+    [[ -s "${staging}/${pair%%:*}" ]] || die "missing rendered file ${pair%%:*}"
+  done
+  waitlist="$(state_get "${env}" waitlist.active)"
+  nginx_txn_begin
+  trap 'rollback_recovery_ingress "$?"' EXIT
+  trap 'exit 130' INT
+  trap 'exit 143' TERM
+  render_upstream "${env}" backend blue "${NGINX_TXN_DIR}"
+  render_upstream "${env}" waitlist "${waitlist:-blue}" "${NGINX_TXN_DIR}"
+  for service in waitlist backend cell; do
+    nginx_txn_put "${NGINX_TXN_DIR}/${service}-upstream.conf" "$(upstream_file "${env}" "${service}")"
+  done
+  for pair in "${NGINX_GENERATED[@]}" "${NGINX_MANAGED[@]}"; do
+    nginx_txn_put "${staging}/${pair%%:*}" "${pair#*:}"
+  done
+  if [[ "$(readlink "${enabled}/default" || true)" == /etc/nginx/sites-available/default ]]; then
+    nginx_txn_remember "${enabled}/default"
+    rm "${enabled}/default"
+  fi
+  nginx_txn_link "/etc/nginx/sites-available/headmesh-${env}.conf" "${enabled}/headmesh-${env}.conf"
+  nginx_txn_link "releases/${site_release}" "${root}/current"
+  nginx_check || die 'the standby nginx configuration failed validation'
+  systemctl unmask --quiet nginx.service
+  systemctl disable --quiet nginx.service
+  systemctl start nginx.service
+  [[ "$(recovery_http_code --cacert "${ca}" --resolve "${api}:443:127.0.0.1" "https://${api}/readyz")" == 204 ]] ||
+    die 'the standby API is unready through nginx'
+  [[ "$(recovery_http_code --cacert "${ca}" --resolve "${cell}:443:127.0.0.1" "https://${cell}/health")" == 200 ]] ||
+    die 'the standby Headscale is unready through nginx'
+  actual_noise="$(recovery_noise_hash --cacert "${ca}" --resolve "${cell}:443:127.0.0.1" "https://${cell}/key?v=130")"
+  [[ "${actual_noise}" == "${expected_noise}" ]] || die 'nginx served a different Headscale Noise identity'
+  [[ "$(recovery_http_code --cacert "${ca}" --resolve "${site}:443:127.0.0.1" "https://${site}/")" == 200 ]] ||
+    die 'the standby site is unready through nginx'
+  printf '%s\n%s\n' "${backend}" "${site_release}" >"${record}/ingress-ready.tmp"
+  mv -f "${record}/ingress-ready.tmp" "${record}/ingress-ready"
+  trap - EXIT INT TERM
+  log 'standby HTTPS passed on loopback; run headmesh-recover prove-ingress from the recovery runner'
 }
 
 cmd_rollback() {
@@ -1034,6 +1123,7 @@ main() {
     activate-static) cmd_activate_static "$@" ;;
     activate-service) cmd_activate_service "$@" ;;
     start-recovery) cmd_start_recovery "$@" ;;
+    prepare-recovery-ingress) cmd_prepare_recovery_ingress "$@" ;;
     rollback) cmd_rollback "$@" ;;
     status) cmd_status "$@" ;;
     prune) cmd_prune "$@" ;;
@@ -1042,7 +1132,7 @@ main() {
     smoke) cmd_smoke "$@" ;;
     cell-agent) cmd_cell_agent "$@" ;;
     tls-renewed) cmd_tls_renewed ;;
-    *) sed -n '2,24p' "${BASH_SOURCE[0]}" | sed 's/^# \{0,1\}//' >&2; exit 2 ;;
+    *) sed -n '2,25p' "${BASH_SOURCE[0]}" | sed 's/^# \{0,1\}//' >&2; exit 2 ;;
   esac
 }
 

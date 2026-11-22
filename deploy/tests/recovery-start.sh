@@ -115,3 +115,59 @@ SELECT count(*) > 0 FROM policy_revisions WHERE status = 'applied' AND applied_a
 SQL
 )" == t ]]
 echo 'Standby kept nginx offline and became ready after a fresh cell acknowledgement and one late-expiry audit.'
+
+# Recreate the render directory and install a minimal site release for nginx.
+rendered="${tmp}/nginx"
+mkdir -p "${rendered}"/{snippets,sites,stream}
+cp /etc/nginx/headmesh/cloudflare-realip.conf "${rendered}/"
+cp /etc/nginx/conf.d/headmesh.conf "${rendered}/"
+cp /etc/nginx/modules-enabled/99-headmesh-stream.conf "${rendered}/stream-include.conf"
+cp /etc/nginx/snippets/headmesh-{tls,proxy}.conf "${rendered}/snippets/"
+cp /etc/nginx/sites-available/headmesh-prod.conf "${rendered}/sites/"
+cp /etc/nginx/headmesh/prod/stream.conf "${rendered}/stream/prod.conf"
+site_root=/srv/headmesh/prod/marketing
+site="${site_root}/releases/${release}"
+install -d -m 0755 "${site_root}" "${site_root}/releases" "${site}" "${site}/site" "${site}/nginx"
+echo '<title>Headmesh</title>' >"${site}/site/index.html"
+echo '# Fixture security headers' >"${site}/nginx/security-headers.conf"
+chmod 0644 "${site}/site/index.html" "${site}/nginx/security-headers.conf"
+ln -s /etc/nginx/sites-available/default /etc/nginx/sites-enabled/default
+before_upstream="$(sha256sum /etc/nginx/headmesh/prod/backend-upstream.conf)"
+before_vhost="$(sha256sum /etc/nginx/sites-available/headmesh-prod.conf)"
+ingress_closed() {
+  [[ "$(systemctl show -p ActiveState --value nginx.service)" == inactive &&
+    "$(readlink /etc/systemd/system/nginx.service)" == /dev/null &&
+    -L /etc/nginx/sites-enabled/default && ! -L "${site_root}/current" && ! -e "${record}/ingress-ready" &&
+    "$(sha256sum /etc/nginx/headmesh/prod/backend-upstream.conf)" == "${before_upstream}" &&
+    "$(sha256sum /etc/nginx/sites-available/headmesh-prod.conf)" == "${before_vhost}" ]]
+}
+
+if "${ctl}" prepare-recovery-ingress "${rendered}" "${release}" >"${tmp}/untrusted.log" 2>&1; then exit 1; fi
+grep -q 'certificate is untrusted or invalid' "${tmp}/untrusted.log"
+ingress_closed
+install -m 0644 /etc/headmesh/tls/fullchain.pem /usr/local/share/ca-certificates/recovery-fixture.crt
+update-ca-certificates >/dev/null
+
+# A syntactically valid misroute fails after nginx starts. The previous config
+# and mask must be restored, and the staged backend must remain available.
+cp -a "${rendered}" "${tmp}/misrouted"
+sed -i 's#proxy_pass http://headmesh_prod_backend;#return 418;#' "${tmp}/misrouted/sites/headmesh-prod.conf"
+if "${ctl}" prepare-recovery-ingress "${tmp}/misrouted" "${release}" >"${tmp}/misrouted.log" 2>&1; then exit 1; fi
+if ! grep -q 'API is unready through nginx' "${tmp}/misrouted.log"; then
+  cat "${tmp}/misrouted.log" >&2
+  exit 1
+fi
+ingress_closed
+[[ "$(probe http://127.0.0.1:8101/readyz)" == 204 ]]
+
+"${ctl}" prepare-recovery-ingress "${rendered}" "${release}"
+systemctl is-active --quiet nginx.service
+[[ "$(systemctl show -p UnitFileState --value nginx.service)" == disabled ]]
+[[ "$(cat "${record}/ingress-ready")" == "$(printf '%s\n%s' "${release}" "${release}")" ]]
+[[ ! -e /etc/nginx/sites-enabled/default && ! -e /var/lib/headmesh/prod/state/backend.active ]]
+for address in 127.0.0.1 '[::1]'; do
+  [[ "$(probe --resolve "api.headmesh.dev:443:${address}" https://api.headmesh.dev/readyz)" == 204 ]]
+  [[ "$(probe --resolve "hs1.headmesh.dev:443:${address}" https://hs1.headmesh.dev/health)" == 200 ]]
+  [[ "$(probe --resolve "headmesh.dev:443:${address}" https://headmesh.dev/)" == 200 ]]
+done
+echo 'Standby rejected untrusted TLS, rolled back a misroute, and served verified HTTPS on IPv4 and IPv6 after retry.'

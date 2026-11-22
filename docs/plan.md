@@ -1108,7 +1108,7 @@ volumes: { hm-cache-mise: {}, hm-cache-uv: {}, hm-cache-npm: {}, hm-cache-pnpm: 
 
 ### 13.4 Failure detection, fencing and recovery (requirements 1, 4, 7)
 
-**Status 2026-11-22:** `headmesh-server serve -recovery` keeps readiness and writes closed until the overdue grant sweep and enforce-mode policy acknowledgements succeed. The detection Worker, independent confirmation, Hetzner fencing, standby allocation, state installation, gated startup and direct HTTPS verification have local coverage. Live Worker activation, standby ingress configuration and promotion, and `recover.yml` remain open. [Detector runbook](../deploy/ha/detector/README.md) · [Hetzner recovery code](../deploy/ha/recovery)
+**Status 2026-11-22:** `headmesh-server serve -recovery` keeps readiness and writes closed until the overdue grant sweep and enforce-mode policy acknowledgements succeed. The detection Worker, independent confirmation, Hetzner fencing, standby allocation, state installation, gated startup, nginx preparation and direct HTTPS verification have local coverage. Live Worker activation, a provider-backed standby exercise, promotion, and `recover.yml` remain open. [Detector runbook](../deploy/ha/detector/README.md) · [Hetzner recovery code](../deploy/ha/recovery)
 - **External detection** (the recovery logic never runs on the failed VM):
   - A **Cloudflare Worker with a 1-minute cron trigger** (free) probes `https://hs1.headmesh.dev/health` and `https://api.headmesh.dev/readyz` from the edge.
   - After **3 consecutive failures** of a service it sends a `repository_dispatch` (`control-plane-down`) to `headmesh-dev/headmesh`. GitHub requires a fine-grained credential with Contents write scoped to this repository.
@@ -1135,7 +1135,7 @@ volumes: { hm-cache-mise: {}, hm-cache-uv: {}, hm-cache-npm: {}, hm-cache-pnpm: 
      - It **first** sweeps overdue grants (`expires_at < now` → expired/revoked, audited as `grant.expired_late` with how late they were).
      - It compiles and applies the policy to **all** cells and waits for cell-agent acknowledgements of the new hash.
      - Only then does it accept other requests.
-  6. **Prove ingress.** Obtain the DNS-01 certificate for nginx. Run `headmesh-recover prove-ingress` to check HTTPS for `hs1.headmesh.dev`, `api.headmesh.dev` and `headmesh.dev` directly against both standby addresses. Verify the served Noise key against the manifest before moving DNS. [Standby ingress runbook](../deploy/backup/README.md#verify-standby-ingress-before-dns)
+  6. **Prove ingress.** Install the DNS-01 certificate and production marketing release on the standby. Run `deployctl.sh prepare-recovery-ingress` with the rendered nginx config. From the recovery runner, run `headmesh-recover prove-ingress` to check HTTPS for `hs1.headmesh.dev`, `api.headmesh.dev` and `headmesh.dev` against both standby addresses and verify the served Noise key against the manifest. Restore and verify the waitlist and public DERP STUN before promotion. [Standby ingress runbook](../deploy/backup/README.md#verify-standby-ingress-before-dns)
   7. **Flip DNS:** Cloudflare A/AAAA records (grey-cloud, TTL 60) for `hs1`, `api` and `app`.
   8. **Post-checks:** an ephemeral `tailscale` client in the GitHub runner registers with a CI key; `headscale nodes list` count; a policy hash match.
   9. **Notify** by Telegram and email with an RTO report. The fenced VM is kept powered off for forensics, and a reminder fires at 24 h to delete it (it still bills).

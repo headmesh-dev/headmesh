@@ -298,9 +298,32 @@ ingress step. Always check live readiness again before promotion.
 
 ### Verify standby ingress before DNS
 
-After configuring nginx with the DNS-01 certificate on the standby, run
-this from an independent runner with IPv4 and IPv6 connectivity. Pass the
-addresses assigned by Hetzner and the manifest used for the restore.
+Install the DNS-01 certificate and key under `/etc/headmesh/tls/` before
+starting nginx. Install the production marketing release under
+`/srv/headmesh/prod/marketing/releases/`, including `site/` and `nginx/`.
+Render the production nginx configuration from the matching checkout.
+[Let's Encrypt DNS-01](https://letsencrypt.org/docs/challenge-types/#dns-01-challenge)
+
+```sh
+deploy/deploy.sh --render-recovery-nginx "$rendered_nginx"
+```
+
+Transfer that directory to the standby. With nginx still masked, run this
+as root on the standby, using the directory you transferred.
+
+```sh
+/usr/local/lib/headmesh/deployctl.sh prepare-recovery-ingress "$rendered_nginx" "$site_release"
+```
+
+The command checks live backend readiness and verifies that the certificate
+is trusted for the production hostnames. It validates the config, starts
+nginx, then checks the site, API readiness, and Headscale's Noise key over
+local HTTPS. On failure it restores the previous files and masks nginx.
+On success nginx stays running for verification during this boot.
+
+Run the external proof from an independent runner with IPv4 and IPv6
+connectivity. Pass the addresses assigned by Hetzner and the manifest
+used for the restore.
 
 ```sh
 go run ./cmd/headmesh-recover prove-ingress \
@@ -312,6 +335,9 @@ verifying TLS for each live hostname. It checks Headscale health and its
 served Noise key, API readiness, and the site at `headmesh.dev`. A failed
 certificate check, redirect, unexpected key, or unready service stops the
 proof. [Direct HTTPS resolution and SNI](https://everything.curl.dev/usingcurl/connections/name.html)
+
+Keep DNS pointed at the existing records during verification. Promotion also
+needs the waitlist service and public DERP STUN listener restored and checked.
 
 ### Headscale startup and registration
 
