@@ -452,6 +452,31 @@ the runner over TCP 443 and UDP 3478 on both address families.
 
 Keep DNS pointed at the existing records during verification.
 
+### Make the verified standby bootable
+
+With the primary fenced and the recovery lock held, run this as root on the
+standby. Pause ordinary deploys to the standby until recovery and cutover
+are complete.
+
+```sh
+/usr/local/lib/headmesh/deployctl.sh finalize-recovery
+```
+
+The command rechecks trusted loopback HTTPS and the restored Noise identity.
+It reconnects the restored cell agent through nginx's mTLS proxy and waits
+for a fresh Hello. A connection failure restores the direct recovery route.
+On success, it records the active Blue slots, marketing release and restored
+schema version in deploy state. It enables PostgreSQL, Headscale, the Blue
+API and waitlist, nginx and the cell agent at boot. The Blue API runs its
+recovery policy and acknowledgement checks on startup.
+
+Reboot the standby before changing DNS. After SSH returns and the API is
+ready, run `finalize-recovery` again to check the saved state and boot
+links. Repeat `headmesh-recover prove-ingress` from the dual-stack runner
+to check both standby addresses after the reboot. Schedule certificate
+renewal and offsite backup publishers for the replacement primary after
+cutover.
+
 ### Review and apply the Cloudflare DNS cutover
 
 Use the same primary and standby pins as allocation and keep the recovery

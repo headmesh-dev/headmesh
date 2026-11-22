@@ -12,6 +12,7 @@
 #   start-recovery   <release>                        start a restored prod backend and cell behind closed ingress
 #   start-recovery-waitlist <release> <snapshot>        install a waitlist snapshot and start the private service
 #   prepare-recovery-ingress <nginx-dir> <site-release> <ipv4> <ipv6>  check standby HTTPS and publish its DERP/STUN
+#   finalize-recovery                                  adopt the recovered releases and persist startup
 #   rollback         <component> <env> [keep-schema]   back to the previous release (marketing) or colour (services);
 #                                                      the backend's schema follows to what that colour ran with
 #   status           [env...]                          releases, colours, units and health
@@ -819,6 +820,30 @@ restart_recovery_cell() {
   wait_cell_seen prod "${cell}" "${since}"
 }
 
+check_recovery_ingress() {
+  local expected_noise="$1" ca=/etc/ssl/certs/ca-certificates.crt api cell site actual_noise ready
+  api="$(hm_env prod API_HOST)"
+  cell="$(hm_env prod CELL_HOST)"
+  site="$(hm_env prod SITE_HOST)"
+  [[ "$(recovery_http_code --cacert "${ca}" --resolve "${api}:443:127.0.0.1" "https://${api}/readyz")" == 204 ]] ||
+    die 'the standby API is unready through nginx'
+  [[ "$(recovery_http_code --cacert "${ca}" --resolve "${cell}:443:127.0.0.1" "https://${cell}/health")" == 200 ]] ||
+    die 'the standby Headscale is unready through nginx'
+  [[ "$(recovery_http_code --cacert "${ca}" --resolve "${cell}:443:127.0.0.1" "https://${cell}/derp/probe")" == 200 ]] ||
+    die 'the standby DERP probe is unready through nginx'
+  actual_noise="$(recovery_noise_hash --cacert "${ca}" --resolve "${cell}:443:127.0.0.1" "https://${cell}/key?v=130")"
+  [[ "${actual_noise}" == "${expected_noise}" ]] || die 'nginx served a different Headscale Noise identity'
+  [[ "$(recovery_http_code --cacert "${ca}" --resolve "${site}:443:127.0.0.1" "https://${site}/")" == 200 ]] ||
+    die 'the standby site is unready through nginx'
+  ready="$(recovery_http_code --cacert "${ca}" --resolve "${site}:443:127.0.0.1" "https://${site}/api/waitlist/readyz")"
+  if [[ "${ready}" == 429 ]]; then
+    # nginx shares a six-requests-per-minute bucket with the waitlist route.
+    sleep 10
+    ready="$(recovery_http_code --cacert "${ca}" --resolve "${site}:443:127.0.0.1" "https://${site}/api/waitlist/readyz")"
+  fi
+  [[ "${ready}" == 204 ]] || die "the standby waitlist is unready through nginx (HTTP ${ready})"
+}
+
 cmd_prepare_recovery_ingress() {
   [[ $# == 4 ]] || die 'prepare-recovery-ingress requires an nginx directory, a marketing release and the standby IPv4 and IPv6'
   umask 077
@@ -826,7 +851,7 @@ cmd_prepare_recovery_ingress() {
   local root="${HM_SRV_ROOT}/prod/marketing" tls="${HM_ETC_ROOT}/tls/fullchain.pem"
   local ca=/etc/ssl/certs/ca-certificates.crt enabled=/etc/nginx/sites-enabled
   local relay_conf=/etc/systemd/system/headscale.service.d/standby-relay.conf
-  local backend api cell cell_name site expected_noise actual_noise host pair service waitlist stun_pid
+  local backend api cell cell_name site expected_noise host pair service waitlist stun_pid
   require_release "${site_release}"
   install -d -m 0700 /run/headmesh-recovery-state
   exec 9>/run/headmesh-recovery-state/lock
@@ -899,23 +924,139 @@ EOF
   systemctl unmask --quiet nginx.service
   systemctl disable --quiet nginx.service
   systemctl start nginx.service
-  [[ "$(recovery_http_code --cacert "${ca}" --resolve "${api}:443:127.0.0.1" "https://${api}/readyz")" == 204 ]] ||
-    die 'the standby API is unready through nginx'
-  [[ "$(recovery_http_code --cacert "${ca}" --resolve "${cell}:443:127.0.0.1" "https://${cell}/health")" == 200 ]] ||
-    die 'the standby Headscale is unready through nginx'
-  [[ "$(recovery_http_code --cacert "${ca}" --resolve "${cell}:443:127.0.0.1" "https://${cell}/derp/probe")" == 200 ]] ||
-    die 'the standby DERP probe is unready through nginx'
-  actual_noise="$(recovery_noise_hash --cacert "${ca}" --resolve "${cell}:443:127.0.0.1" "https://${cell}/key?v=130")"
-  [[ "${actual_noise}" == "${expected_noise}" ]] || die 'nginx served a different Headscale Noise identity'
-  [[ "$(recovery_http_code --cacert "${ca}" --resolve "${site}:443:127.0.0.1" "https://${site}/")" == 200 ]] ||
-    die 'the standby site is unready through nginx'
-  [[ "$(recovery_http_code --cacert "${ca}" --resolve "${site}:443:127.0.0.1" "https://${site}/api/waitlist/readyz")" == 204 &&
-    "$(recovery_http_code --cacert "${ca}" --resolve "${site}:443:127.0.0.1" "https://${site}/api/waitlist")" == 405 ]] ||
-    die 'the standby waitlist is unready through nginx'
+  check_recovery_ingress "${expected_noise}"
+  [[ "$(recovery_http_code --cacert "${ca}" --resolve "${site}:443:127.0.0.1" "https://${site}/api/waitlist")" == 405 ]] ||
+    die 'the standby waitlist route is unready through nginx'
   printf '%s\n%s\n' "${backend}" "${site_release}" >"${record}/ingress-ready.tmp"
   mv -f "${record}/ingress-ready.tmp" "${record}/ingress-ready"
   trap - EXIT INT TERM
   log 'standby HTTPS passed on loopback and Headscale STUN is listening; run headmesh-recover prove-ingress from the recovery runner'
+}
+
+reconnect_recovery_agent() {
+  local cell="$1" since
+  systemctl stop headmesh-cellagent.service || return 1
+  since="$(psql_env prod <<<"SELECT now();")" || return 1
+  systemctl start headmesh-cellagent.service || return 1
+  wait_cell_seen prod "${cell}" "${since}"
+}
+
+cmd_finalize_recovery() {
+  [[ $# == 0 ]] || die 'finalize-recovery takes no arguments'
+  umask 077
+  local record="${HM_STATE_ROOT}/recovery" state backend waitlist site schema expected_noise agent_cell tmp file unit
+  local start_conf=/etc/postgresql/18/main/start.conf agent=/usr/local/bin/headmesh-cellagent
+  local agent_config="${CELLAGENT_ETC}/cellagent.json" direct_dropin="${CELLAGENT_DROPIN%/*}/recovery.conf"
+  local -a ingress new_boot_units=() files=("${start_conf}" "${agent}" "${agent_config}" "${CELLAGENT_DROPIN}" "${direct_dropin}")
+  local -a units=(postgresql.service headscale.service headmesh-backend@prod-blue.service
+    headmesh-waitlist@prod-blue.service nginx.service headmesh-cellagent.service)
+  state="$(state_dir prod)"
+  install -d -m 0700 /run/headmesh-recovery-state
+  exec 9>/run/headmesh-recovery-state/lock
+  flock -n 9 || die 'another recovery operation is in progress'
+  [[ -s "${record}/manifest.json" && -s "${record}/backend-ready" && -s "${record}/waitlist-ready" && -s "${record}/ingress-ready" ]] ||
+    die 'prepare the restored standby ingress first'
+  backend="$(<"${record}/backend-ready")"
+  waitlist="$(<"${record}/waitlist-ready")"
+  mapfile -t ingress <"${record}/ingress-ready"
+  [[ ${#ingress[@]} == 2 && "${ingress[0]}" == "${backend}" ]] || die 'the standby records disagree on the backend release'
+  site="${ingress[1]}"
+  require_release "${backend}"
+  require_release "${waitlist}"
+  require_release "${site}"
+
+  if [[ -e "${state}" || -L "${state}" ]]; then
+    [[ "$(state_get prod recovery.finalized)" == "${backend} ${waitlist} ${site}" &&
+      "$(state_get prod backend.active)" == blue && "$(state_get prod waitlist.active)" == blue &&
+      "$(state_get prod marketing.active)" == "${site}" ]] || die 'production deploy state already exists'
+  fi
+  [[ "$(readlink "$(slot_path backend prod blue)" || true)" == "${HM_SRV_ROOT}/prod/backend/releases/${backend}" &&
+    "$(readlink "$(slot_path waitlist prod blue)" || true)" == "${HM_SRV_ROOT}/prod/waitlist/releases/${waitlist}" &&
+    "$(readlink "${HM_SRV_ROOT}/prod/marketing/current" || true)" == "releases/${site}" ]] ||
+    die 'the standby releases differ from the verified ingress'
+  for unit in "${units[@]:1}" postgresql@18-main.service; do
+    systemctl is-active --quiet "${unit}" || die "${unit} is not running on the standby"
+  done
+  expected_noise="$(jq -er '.headscale.noise_public_key_sha256 | select(test("^[0-9a-f]{64}$"))' "${record}/manifest.json")"
+  if [[ -d "${state}" ]]; then
+    [[ "$(<"${start_conf}")" == auto && ! -e "${direct_dropin}" ]] || die 'the finalized standby startup configuration changed'
+    for unit in "${units[@]}"; do
+      systemctl is-enabled --quiet "${unit}" || die "${unit} is no longer enabled"
+    done
+    check_recovery_ingress "${expected_noise}"
+    log 'the restored standby is already finalized'
+    return 0
+  fi
+
+  [[ "$(<"${start_conf}")" == manual && -s "${direct_dropin}" && -s "${agent_config}" ]] ||
+    die 'expected manually started recovery services'
+  schema="$(schema_version prod)"
+  [[ "${schema}" =~ ^[1-9][0-9]*$ ]] || die 'could not read the restored schema version'
+  for unit in "${units[@]}"; do
+    case "$(systemctl is-enabled "${unit}" 2>/dev/null || true)" in
+      enabled) ;;
+      disabled) new_boot_units+=("${unit}") ;;
+      *) die "unexpected startup state for ${unit}" ;;
+    esac
+  done
+
+  tmp="$(mktemp -d "${state%/*}/.finalize.XXXXXX")"
+  trap 'rm -rf -- "${tmp}"' EXIT
+  install -d -m 0750 "${tmp}/state"
+  printf '%s\n' blue >"${tmp}/state/backend.active"
+  printf '%s\n' blue >"${tmp}/state/waitlist.active"
+  printf '%s\n' "${site}" >"${tmp}/state/marketing.active"
+  printf '%s\n' "${schema}" >"${tmp}/state/backend-blue.schema"
+  printf '%s %s %s\n' "${backend}" "${waitlist}" "${site}" >"${tmp}/state/recovery.finalized"
+  for file in "${files[@]}"; do
+    if [[ -e "${file}" || -L "${file}" ]]; then cp -a -- "${file}" "${tmp}/${file##*/}"; fi
+  done
+  jq --arg url "https://127.0.0.1:$(hm_env prod CELL_PORT)" '.server_url = $url' "${agent_config}" >"${tmp}/agent.json"
+
+  # shellcheck disable=SC2329 # Called by the EXIT trap.
+  rollback_finalization() {
+    local status="$1" saved
+    trap - EXIT ERR INT TERM
+    # The atomic state publication commits the change, including when interrupted immediately afterward.
+    if [[ -d "${tmp}/state" ]]; then
+      set +e
+      if (( ${#new_boot_units[@]} )); then
+        systemctl disable --quiet "${new_boot_units[@]}" || log 'check the affected standby boot links'
+      fi
+      for file in "${files[@]}"; do
+        saved="${tmp}/${file##*/}"
+        if [[ -e "${saved}" || -L "${saved}" ]]; then
+          cp -a --remove-destination -- "${saved}" "${file}" || log "could not restore ${file}"
+        else
+          rm -f -- "${file}" || log "could not remove ${file}"
+        fi
+      done
+      if ! { systemctl daemon-reload && reconnect_recovery_agent "${agent_cell}"; }; then
+        log 'check the restored direct recovery agent connection'
+      fi
+    fi
+    rm -rf -- "${tmp}"
+    exit "${status}"
+  }
+  agent_cell="$(hm_env prod CELL_NAME)"
+  trap 'rollback_finalization "$?"' EXIT
+  trap 'exit 130' INT
+  trap 'exit 143' TERM
+  install -o root -g headmesh-cellagent -m 0640 "${tmp}/agent.json" "${agent_config}"
+  install -o root -g root -m 0755 "${HM_SRV_ROOT}/prod/backend/releases/${backend}/headmesh-cellagent" "${agent}"
+  write_cellagent_dropin "${tmp}/normal.conf"
+  rm -- "${direct_dropin}"
+  systemctl daemon-reload
+  reconnect_recovery_agent "${agent_cell}" || die 'the standby cell did not connect through the nginx mTLS proxy'
+  check_recovery_ingress "${expected_noise}"
+
+  printf '%s\n' auto >"${start_conf}"
+  systemctl enable --quiet "${units[@]}"
+  mv -nT -- "${tmp}/state" "${state}"
+  [[ ! -d "${tmp}/state" ]] || die 'production deploy state appeared during finalization'
+  trap - EXIT INT TERM
+  rm -rf -- "${tmp}"
+  log 'restored standby adopted on Blue and enabled for normal startup'
 }
 
 cmd_rollback() {
@@ -1140,6 +1281,18 @@ wait_cell_seen() {
   return 1
 }
 
+write_cellagent_dropin() {
+  # Ubuntu 26.04's install (uutils) can't copy /dev/stdin over an existing file.
+  cat >"$1" <<EOF
+# Written by deployctl: this server keeps the agent's files apart from /etc/headmesh, which only the backend reads.
+[Service]
+ExecStart=
+ExecStart=/usr/local/bin/headmesh-cellagent run -config ${CELLAGENT_ETC}/cellagent.json
+ReadOnlyPaths=${CELLAGENT_ETC}
+EOF
+  install -m 0644 "$1" "${CELLAGENT_DROPIN}"
+}
+
 cmd_cell_agent() {
   local env="$1" cell colour release before since server_ca="" tmp
   require_env "${env}"
@@ -1189,16 +1342,8 @@ EOF
   install -m 0755 -o root -g root "${release}/headmesh-cellagent" /usr/local/bin/headmesh-cellagent
   install -m 0644 "${HM_LIB_ROOT}/cellagent/headmesh-cellagent.service" "${CELLAGENT_UNIT}"
   install -d -m 0755 "$(dirname "${CELLAGENT_DROPIN}")"
-  # Through a file: Ubuntu 26.04's install (uutils) can't copy /dev/stdin over an existing file.
   tmp="$(mktemp)"
-  cat >"${tmp}" <<EOF
-# Written by deployctl: this server keeps the agent's files apart from /etc/headmesh, which only the backend reads.
-[Service]
-ExecStart=
-ExecStart=/usr/local/bin/headmesh-cellagent run -config ${CELLAGENT_ETC}/cellagent.json
-ReadOnlyPaths=${CELLAGENT_ETC}
-EOF
-  install -m 0644 "${tmp}" "${CELLAGENT_DROPIN}"
+  write_cellagent_dropin "${tmp}"
   rm -f "${tmp}"
   systemctl daemon-reload
   systemctl enable --quiet headmesh-cellagent.service "headmesh-cellcert@${env}.timer"
@@ -1246,6 +1391,7 @@ main() {
     start-recovery) cmd_start_recovery "$@" ;;
     start-recovery-waitlist) cmd_start_recovery_waitlist "$@" ;;
     prepare-recovery-ingress) cmd_prepare_recovery_ingress "$@" ;;
+    finalize-recovery) cmd_finalize_recovery "$@" ;;
     rollback) cmd_rollback "$@" ;;
     status) cmd_status "$@" ;;
     prune) cmd_prune "$@" ;;
@@ -1255,7 +1401,7 @@ main() {
     smoke) cmd_smoke "$@" ;;
     cell-agent) cmd_cell_agent "$@" ;;
     tls-renewed) cmd_tls_renewed ;;
-    *) sed -n '2,27p' "${BASH_SOURCE[0]}" | sed 's/^# \{0,1\}//' >&2; exit 2 ;;
+    *) sed -n '2,28p' "${BASH_SOURCE[0]}" | sed 's/^# \{0,1\}//' >&2; exit 2 ;;
   esac
 }
 

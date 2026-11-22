@@ -244,6 +244,20 @@ say "Status"
 say "Start the restored standby with ingress closed"
 docker exec -i "${NAME}" bash -s <"${ROOT}/deploy/tests/recovery-start.sh"
 
+say "Boot the finalized standby without starting any services by hand"
+cutoff="$(psql_su -d headmesh_prod -c 'SELECT now()')"
+docker restart "${NAME}" >/dev/null
+for _ in {1..60}; do
+  [[ "$(code api.headmesh.dev /readyz)" == 204 && "$(code headmesh.dev /api/waitlist/readyz)" == 204 ]] && break
+  sleep 1
+done
+check "boot restored trusted HTTPS, the Noise key and deploy state" on /usr/local/lib/headmesh/deployctl.sh finalize-recovery
+check "boot re-ran recovery policy and received a fresh acknowledgement" test \
+  "$(psql_su -d headmesh_prod -c "SELECT EXISTS (SELECT FROM policy_revisions WHERE status = 'applied' AND applied_at >= '${cutoff}')")" = t
+check "boot preserved the recovered signup" test \
+  "$(on sqlite3 -readonly /var/lib/headmesh/prod/waitlist/waitlist.db "SELECT count(*) FROM waitlist WHERE email = 'e2e@example.com' AND confirmed_at IS NOT NULL")" = 1
+check "boot restored the dual-stack UDP relay socket" grep -q ':3478' <<<"$(on ss -6 -Hlun 'sport = :3478')"
+
 say "Prepare a fresh standby with the runtime held offline"
 bash "${ROOT}/deploy/tests/recovery-prepare.sh" "${IMAGE}"
 

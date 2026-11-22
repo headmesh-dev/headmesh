@@ -222,3 +222,56 @@ derp_log="$(journalctl -u headscale.service -n 80 --no-pager -o cat)"
 grep -F "IPv4:${standby_ipv4} IPv6:${standby_ipv6} STUNPort:3478" <<<"${derp_log}" >/dev/null
 echo 'Standby rejected untrusted TLS, rolled back a misroute, and served verified HTTPS on IPv4 and IPv6 after retry.'
 echo 'Standby preserved a confirmed waitlist signup and served the recovered waitlist behind nginx.'
+
+state=/var/lib/headmesh/prod/state
+mkdir "${state}"
+echo green >"${state}/backend.active"
+if "${ctl}" finalize-recovery >"${tmp}/existing-state.log" 2>&1; then exit 1; fi
+grep -q 'production deploy state already exists' "${tmp}/existing-state.log"
+[[ "$(<"${state}/backend.active")" == green ]]
+rm "${state}/backend.active"
+rmdir "${state}"
+
+stream=/etc/nginx/headmesh/prod/cell-upstream.conf
+direct=/etc/systemd/system/headmesh-cellagent.service.d/recovery.conf
+cp -a "${stream}" "${tmp}/cell-upstream.conf"
+cp -a "${direct}" "${tmp}/direct.conf"
+
+# If a check fails after a proxied Hello, rollback must confirm a newer direct Hello.
+waitlist_upstream=/etc/nginx/headmesh/prod/waitlist-upstream.conf
+cp -a "${waitlist_upstream}" "${tmp}/waitlist-upstream.conf"
+sed -i 's/127.0.0.1:8301/127.0.0.1:1/' "${waitlist_upstream}"
+systemctl reload nginx.service
+hello_count() { sql -t -c "SELECT count(*) FROM audit_events WHERE action = 'cell.connected' AND actor_id = 'hs1'"; }
+before="$(hello_count)"
+if HM_HEALTH_TIMEOUT=8 "${ctl}" finalize-recovery >"${tmp}/bad-waitlist.log" 2>&1; then exit 1; fi
+grep -q 'standby waitlist is unready through nginx (HTTP 502)' "${tmp}/bad-waitlist.log"
+if grep -q 'check the restored direct recovery agent connection' "${tmp}/bad-waitlist.log"; then exit 1; fi
+[[ "$(hello_count)" -ge $((before + 2)) && ! -e "${state}" ]]
+cp -a "${tmp}/waitlist-upstream.conf" "${waitlist_upstream}"
+systemctl reload nginx.service
+
+sed -i 's/127.0.0.1:8201/127.0.0.1:1/' "${stream}"
+systemctl reload nginx.service
+if HM_HEALTH_TIMEOUT=6 "${ctl}" finalize-recovery >"${tmp}/bad-proxy.log" 2>&1; then exit 1; fi
+if ! grep -q 'did not connect through the nginx mTLS proxy' "${tmp}/bad-proxy.log"; then
+  cat "${tmp}/bad-proxy.log" >&2
+  exit 1
+fi
+[[ ! -e "${state}" && "$(</etc/postgresql/18/main/start.conf)" == manual ]]
+[[ "$(systemctl show -p UnitFileState --value nginx.service)" == disabled ]]
+cmp "${tmp}/direct.conf" "${direct}"
+systemctl is-active --quiet headmesh-cellagent.service
+grep -q 'cellagent-recovery.json' < <(systemctl show -p ExecStart headmesh-cellagent.service)
+[[ "$(probe http://127.0.0.1:8101/readyz)" == 204 ]]
+
+cp -a "${tmp}/cell-upstream.conf" "${stream}"
+systemctl reload nginx.service
+"${ctl}" finalize-recovery
+"${ctl}" finalize-recovery
+[[ "$(<"${state}/backend.active")" == blue && "$(<"${state}/waitlist.active")" == blue &&
+  "$(<"${state}/marketing.active")" == "${release}" && ! -e "${state}/backend.previous" && ! -e "${direct}" ]]
+[[ "$(<"${state}/backend-blue.schema")" == "$(sql -t -c 'SELECT max(version_id) FROM goose_db_version WHERE is_applied')" ]]
+jq -e '.server_url == "https://127.0.0.1:7443"' "${app}" >/dev/null
+diff <(jq -S 'del(.server_url)' "${tmp}/agent.json") <(jq -S 'del(.server_url)' "${app}")
+echo 'Standby refused existing deploy state, recovered from a broken nginx mTLS route, and adopted Blue.'
