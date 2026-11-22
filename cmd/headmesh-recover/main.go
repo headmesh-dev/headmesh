@@ -23,14 +23,23 @@ func main() {
 }
 
 func run(ctx context.Context, args []string) error {
-	if len(args) == 0 || args[0] != "prove-ingress" {
-		return fmt.Errorf("usage: headmesh-recover prove-ingress -ipv4 ADDRESS -ipv6 ADDRESS -manifest FILE")
+	if len(args) != 0 {
+		switch args[0] {
+		case "create-standby", "start-standby":
+			return runStandby(ctx, args[0], args[1:], os.Stdout, hetznerClient)
+		case "prove-ingress":
+			return runProveIngress(ctx, args[1:])
+		}
 	}
+	return fmt.Errorf("usage: headmesh-recover {create-standby | start-standby | prove-ingress} [flags]")
+}
+
+func runProveIngress(ctx context.Context, args []string) error {
 	flags := flag.NewFlagSet("prove-ingress", flag.ContinueOnError)
 	ipv4 := flags.String("ipv4", "", "standby's assigned public IPv4 address")
 	ipv6 := flags.String("ipv6", "", "standby's assigned public IPv6 address")
 	manifestPath := flags.String("manifest", "", "verified recovery manifest")
-	if err := flags.Parse(args[1:]); err != nil {
+	if err := flags.Parse(args); err != nil {
 		return fmt.Errorf("parse ingress flags: %w", err)
 	}
 	if flags.NArg() != 0 || *manifestPath == "" {

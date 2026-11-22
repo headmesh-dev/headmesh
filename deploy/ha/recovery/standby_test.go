@@ -76,6 +76,78 @@ func TestCreateStandbyFailsClosed(t *testing.T) {
 	}
 }
 
+func TestStartStandbyChecksFenceAndReconcilesLostResponse(t *testing.T) {
+	api := newStandbyAPI(t)
+	api.name = standbyName(fixturePrimary.ServerID, fixtureStandbyConfig().RunID)
+	api.loseBootResponse = true
+	client := api.client(t)
+	target := fixtureStandbyTarget()
+	if _, err := StartStandby(t.Context(), client, fixturePrimary, target); err == nil || !strings.Contains(err.Error(), "request standby boot") {
+		t.Fatalf("lost boot response = %v", err)
+	}
+	server, err := StartStandby(t.Context(), client, fixturePrimary, target)
+	if err != nil || server == nil || server.Status != hcloud.ServerStatusRunning {
+		t.Fatalf("standby = %v, error = %v", server, err)
+	}
+	api.checkBootTrace(t, "read standby", "read primary", "poweron", "read standby", "read primary")
+}
+
+func TestStartStandbyVerifiesRunningState(t *testing.T) {
+	api := newStandbyAPI(t)
+	api.name = standbyName(fixturePrimary.ServerID, fixtureStandbyConfig().RunID)
+	server, err := StartStandby(t.Context(), api.client(t), fixturePrimary, fixtureStandbyTarget())
+	if err != nil || server == nil || server.Status != hcloud.ServerStatusRunning {
+		t.Fatalf("standby = %v, error = %v", server, err)
+	}
+	api.checkBootTrace(t, "read standby", "read primary", "poweron", "read standby", "read primary")
+}
+
+func TestStartStandbyFailsClosed(t *testing.T) {
+	for _, tc := range []struct {
+		name      string
+		setup     func(*standbyAPI, *StandbyTarget)
+		want      string
+		bootCalls int
+	}{
+		{"original server ID", func(_ *standbyAPI, g *StandbyTarget) { g.ServerID = fixturePrimary.ServerID }, "invalid recovery standby pins", 0},
+		{"wrong run", func(_ *standbyAPI, g *StandbyTarget) { g.RunID = "other-run" }, "pinned standby", 0},
+		{"running primary", func(a *standbyAPI, _ *StandbyTarget) { a.primary.status = "running" }, "fence before standby boot", 0},
+		{"running standby still needs a fence", func(a *standbyAPI, _ *StandbyTarget) {
+			a.status = "running"
+			a.primary.status = "running"
+		}, "fence before standby boot", 0},
+		{"pending firewall", func(a *standbyAPI, _ *StandbyTarget) { a.firewallStatus = "pending" }, "only applied firewall", 0},
+		{"extra firewall", func(a *standbyAPI, _ *StandbyTarget) { a.extraFirewall = true }, "only applied firewall", 0},
+		{"address blocked", func(a *standbyAPI, _ *StandbyTarget) { a.ipBlocked = true }, "assigned and unblocked", 0},
+		{"starting standby", func(a *standbyAPI, _ *StandbyTarget) { a.status = "starting" }, "does not permit boot", 0},
+		{"provider still shows off", func(a *standbyAPI, _ *StandbyTarget) { a.ignoreBoot = true }, "same public addresses", 1},
+		{"network changed during boot", func(a *standbyAPI, _ *StandbyTarget) { a.changeIPAfterBoot = true }, "same public addresses", 1},
+		{"fence lost during boot", func(a *standbyAPI, _ *StandbyTarget) { a.breakFenceAfterBoot = true }, "fence after standby boot", 1},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			api := newStandbyAPI(t)
+			target := fixtureStandbyTarget()
+			api.name = standbyName(fixturePrimary.ServerID, target.RunID)
+			tc.setup(api, &target)
+			server, err := StartStandby(t.Context(), api.client(t), fixturePrimary, target)
+			if server != nil || err == nil || !strings.Contains(err.Error(), tc.want) {
+				t.Fatalf("standby = %v, error = %v, wanted %q", server, err, tc.want)
+			}
+			api.mu.Lock()
+			defer api.mu.Unlock()
+			got := 0
+			for _, entry := range api.bootTrace {
+				if entry == "poweron" {
+					got++
+				}
+			}
+			if got != tc.bootCalls {
+				t.Fatalf("boot calls = %d, want %d", got, tc.bootCalls)
+			}
+		})
+	}
+}
+
 func fixtureStandbyConfig() StandbyConfig {
 	return StandbyConfig{
 		RunID: "fixture-outage", ServerLimit: 4, Image: "ubuntu-26.04",
@@ -83,16 +155,29 @@ func fixtureStandbyConfig() StandbyConfig {
 	}
 }
 
+func fixtureStandbyTarget() StandbyTarget {
+	config := fixtureStandbyConfig()
+	return StandbyTarget{RunID: config.RunID, ServerID: 91, FirewallID: config.FirewallID}
+}
+
 type standbyAPI struct {
-	t                *testing.T
-	mu               sync.Mutex
-	primary          *fenceAPI
-	createCalls      []string
-	createErrors     []string
-	name             string
-	firewallStatus   string
-	extraServer      bool
-	breakFenceOnList bool
+	t                   *testing.T
+	mu                  sync.Mutex
+	primary             *fenceAPI
+	createCalls         []string
+	createErrors        []string
+	name                string
+	firewallStatus      string
+	extraServer         bool
+	breakFenceOnList    bool
+	status              string
+	bootTrace           []string
+	loseBootResponse    bool
+	ignoreBoot          bool
+	extraFirewall       bool
+	ipBlocked           bool
+	changeIPAfterBoot   bool
+	breakFenceAfterBoot bool
 }
 
 func newStandbyAPI(t *testing.T) *standbyAPI {
@@ -100,7 +185,7 @@ func newStandbyAPI(t *testing.T) *standbyAPI {
 	primary.status = "off"
 	primary.labels["fenced"] = "true"
 	primary.ipv4Attached, primary.ipv6Attached, primary.ipv4Assignee = false, false, nil
-	return &standbyAPI{t: t, primary: primary, firewallStatus: "applied"}
+	return &standbyAPI{t: t, primary: primary, firewallStatus: "applied", status: "off"}
 }
 
 func (a *standbyAPI) client(t *testing.T) *hcloud.Client {
@@ -118,6 +203,15 @@ func (a *standbyAPI) checkCreates(t *testing.T, want ...string) {
 	}
 }
 
+func (a *standbyAPI) checkBootTrace(t *testing.T, want ...string) {
+	t.Helper()
+	a.mu.Lock()
+	defer a.mu.Unlock()
+	if !slices.Equal(a.bootTrace, want) {
+		t.Fatalf("boot trace = %v, want %v", a.bootTrace, want)
+	}
+}
+
 func (a *standbyAPI) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	a.mu.Lock()
 	defer a.mu.Unlock()
@@ -130,8 +224,26 @@ func (a *standbyAPI) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	case "POST /servers":
 		body = a.create(w, r)
 	case "GET /servers/91":
+		a.bootTrace = append(a.bootTrace, "read standby")
 		body = map[string]any{"server": a.standby()}
+	case "POST /servers/91/actions/poweron":
+		a.bootTrace = append(a.bootTrace, "poweron")
+		if !a.ignoreBoot {
+			a.status = "running"
+		}
+		if a.breakFenceAfterBoot {
+			a.primary.status = "running"
+		}
+		if a.loseBootResponse {
+			w.WriteHeader(http.StatusGatewayTimeout)
+			body = map[string]any{"error": map[string]string{"code": "timeout", "message": "fixture timeout"}}
+		} else {
+			body = map[string]any{"action": actionResponse(106, "success")}
+		}
 	default:
+		if r.Method == http.MethodGet && r.URL.Path == "/servers/71" {
+			a.bootTrace = append(a.bootTrace, "read primary")
+		}
 		a.primary.ServeHTTP(w, r)
 		return
 	}
@@ -210,12 +322,20 @@ func (a *standbyAPI) create(w http.ResponseWriter, r *http.Request) map[string]a
 }
 
 func (a *standbyAPI) standby() map[string]any {
+	firewalls := []map[string]any{{"id": 12, "status": a.firewallStatus}}
+	if a.extraFirewall {
+		firewalls = append(firewalls, map[string]any{"id": 18, "status": "applied"})
+	}
+	ipv4 := "192.0.2.91"
+	if a.status == "running" && a.changeIPAfterBoot {
+		ipv4 = "192.0.2.92"
+	}
 	return map[string]any{
-		"name": a.name, "id": 91, "status": "off", "labels": map[string]string{standbyLabel: "71"},
+		"name": a.name, "id": 91, "status": a.status, "labels": map[string]string{standbyLabel: "71"},
 		"public_net": map[string]any{
-			"ipv4":      map[string]any{"id": 83, "ip": "192.0.2.91"},
+			"ipv4":      map[string]any{"id": 83, "ip": ipv4, "blocked": a.ipBlocked},
 			"ipv6":      map[string]any{"id": 84, "ip": "2001:db8:91::/64"},
-			"firewalls": []map[string]any{{"id": 12, "status": a.firewallStatus}},
+			"firewalls": firewalls,
 		},
 	}
 }

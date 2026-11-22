@@ -246,6 +246,44 @@ contains the manifest, both databases and the decrypted Headscale keys.
 PostgreSQL is stopped before the path is returned. Remove the private
 directory after consuming the files.
 
+### Allocate and boot a standby on Hetzner
+
+Run from the recovery runner after independent outage confirmation and
+fencing. Hold the recovery workflow's exclusive lock across these steps.
+Use `HCLOUD_TOKEN` for the Hetzner project. Get the pinned primary server
+and Primary IP IDs, the approved standby firewall and SSH key IDs, and the
+project server limit from Hetzner. Keep the same `run_id` throughout recovery.
+Set `primary_ipv6_id` to `0` if the original server had no Primary IPv6.
+Supply restore-mode cloud-init with admin access and no secrets. Hetzner
+retains the cloud-init data. [Hetzner Cloud Console](https://console.hetzner.cloud/)
+
+```bash
+umask 077
+primary=(
+  -primary-id "$primary_id" -primary-name "$primary_name"
+  -primary-ipv4-id "$primary_ipv4_id" -primary-ipv6-id "$primary_ipv6_id"
+  -run-id "$run_id" -firewall-id "$standby_firewall_id"
+)
+go run ./cmd/headmesh-recover create-standby "${primary[@]}" \
+  -server-limit "$server_limit" -ssh-key-ids "$ssh_key_ids" \
+  -cloud-init "$cloud_init" >"$allocation"
+standby_id="$(jq -er .server_id "$allocation")"
+go run ./cmd/headmesh-recover start-standby "${primary[@]}" \
+  -standby-id "$standby_id" >"$standby_record"
+```
+
+Allocation leaves the VM powered off and checks the assigned addresses and
+the applied firewall. Startup checks the same run and server, both public
+addresses and the firewall, and rechecks the primary fence before and after
+booting. The JSON record includes the server ID, power state, restore payload
+architecture and addresses. Verify SSH and cloud-init before copying any
+credentials or state. [Hetzner server addressing](https://docs.hetzner.com/cloud/servers/getting-started/connecting-to-the-server/)
+
+If allocation returns an ambiguous result, find the matching recovery server
+in Hetzner and reconcile its identity before continuing with the same run ID.
+If a boot response is lost, retry `start-standby` with the same inputs. It
+accepts an already running standby only after the provider checks pass.
+
 ### Install the staged files on a standby
 
 From the matching checkout, package the deployment toolkit and transfer it
