@@ -52,3 +52,33 @@ deploy/tests/object-storage-restore.sh
 
 Production acceptance includes a restore from the actual R2 buckets on
 an isolated recovery host and the checks in [plan §13.5](../../docs/plan.md#135-restore-drills-requirement-2).
+
+## Recovery manifest
+
+Capture the primary's recovery evidence with the deployed `headmesh-server`
+binary. Its PostgreSQL connection comes from `HEADMESH_DATABASE_URL` or the
+libpq environment. Use a role that can read the grant audit log at system
+scope and query `pg_control_system()`. The commands use read-only
+transactions.
+
+```sh
+headmesh-server backup-manifest capture > candidate-manifest.json
+```
+
+Keep the manifest with the corresponding backups. On the isolated recovery
+host, connect to the restored PostgreSQL database and point the verifier at
+the restored SQLite database and decrypted keys before starting Headscale.
+
+```sh
+headmesh-server backup-manifest verify -manifest candidate-manifest.json \
+  -sqlite /path/to/restore/db.sqlite \
+  -noise-key /path/to/restore/noise_private.key \
+  -derp-key /path/to/restore/derp_server_private.key
+```
+
+The verifier requires SQLite integrity, live node and user counts at least
+as large as the manifest's, and matching Noise and policy fingerprints.
+For PostgreSQL it checks the physical cluster ID, database name, replayed
+WAL position, and the recorded grant audit event. Use the manifest that
+matches the restored policy and falls within the replayed WAL. Periodic
+publication to R2 remains a separate activation step.

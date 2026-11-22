@@ -8,6 +8,7 @@
 //	headmesh-server keygen -out FILE      create the Ed25519 operation-signing key
 //	headmesh-server ca-init -dir DIR      create the CA that signs cell client certificates
 //	headmesh-server cell-cert -dir DIR -cell NAME   issue a client certificate for a cell agent
+//	headmesh-server backup-manifest capture|verify  record or check recovery evidence
 //
 // Configuration comes from HEADMESH_* environment variables (see config.go).
 package main
@@ -55,7 +56,7 @@ func run(args []string) int {
 	logger := slog.New(slog.NewJSONHandler(os.Stderr, &slog.HandlerOptions{Level: logLevel()}))
 	slog.SetDefault(logger)
 	if len(args) == 0 {
-		fmt.Fprintln(os.Stderr, "usage: headmesh-server serve|migrate|bootstrap|oauth-grant|keygen|ca-init|cell-cert|version")
+		fmt.Fprintln(os.Stderr, "usage: headmesh-server serve|migrate|bootstrap|oauth-grant|keygen|ca-init|cell-cert|backup-manifest|version")
 		return 2
 	}
 	ctx, stop := signal.NotifyContext(context.Background(), os.Interrupt, syscall.SIGTERM)
@@ -76,6 +77,8 @@ func run(args []string) int {
 		err = caInit(args[1:])
 	case "cell-cert":
 		err = cellCert(args[1:])
+	case "backup-manifest":
+		err = backupManifest(ctx, args[1:], os.Stdout)
 	case "version":
 		fmt.Println(version)
 	default:

@@ -67,8 +67,6 @@ docker run -d --name "${S3_CONTAINER}" --network "${NETWORK}" --network-alias "$
   -ip.bind=0.0.0.0 -s3.port.https=8443 -s3.cert.file=/sandbox/ca.crt -s3.key.file=/sandbox/server.key \
   -s3.config=/sandbox/iam.json >/dev/null
 
-"${ROOT}/deploy/tests/pgbackrest-restore.sh" "${NETWORK}" "${WORK}/ca.crt"
-
 sqlite_fixture() {
   python3 - "${WORK}/primary/db.sqlite" "$1" <<'PY'
 import sqlite3
@@ -76,7 +74,15 @@ import sys
 
 with sqlite3.connect(sys.argv[1]) as database:
     assert database.execute("PRAGMA journal_mode=WAL").fetchone() == ("wal",)
-    database.execute("CREATE TABLE IF NOT EXISTS recovery_probe (entry TEXT PRIMARY KEY)")
+    if sys.argv[2] == "initial":
+        database.executescript("""
+            CREATE TABLE nodes (id INTEGER PRIMARY KEY, deleted_at TEXT);
+            CREATE TABLE users (id INTEGER PRIMARY KEY, deleted_at TEXT);
+            CREATE TABLE policies (id INTEGER PRIMARY KEY, deleted_at TEXT, data TEXT);
+            CREATE TABLE recovery_probe (entry TEXT PRIMARY KEY);
+            INSERT INTO policies VALUES (1,NULL,'{"grants":[]}');
+        """)
+    database.execute("INSERT INTO nodes DEFAULT VALUES")
     database.execute("INSERT INTO recovery_probe VALUES (?)", (sys.argv[2],))
 PY
 }
@@ -128,7 +134,16 @@ wait_for_entries initial
 sqlite_fixture later
 wait_for_entries initial,later
 docker stop -t 8 "${REPLICATOR}" >/dev/null
+python3 - "${WORK}/primary/db.sqlite" <<'PY'
+import sqlite3
+import sys
+
+with sqlite3.connect(sys.argv[1]) as database:
+    assert database.execute("PRAGMA wal_checkpoint(TRUNCATE)").fetchone()[0] == 0
+PY
 mv "${WORK}/primary" "${WORK}/offline-primary"
 restore_sqlite final.sqlite
 [[ "$(sqlite_entries "${WORK}/restored/final.sqlite")" == initial,later ]]
 printf '%s\n' 'Litestream restored both SQLite transactions over TLS with the source offline.'
+chmod 0644 "${WORK}/offline-primary/db.sqlite" "${WORK}/restored/final.sqlite"
+"${ROOT}/deploy/tests/pgbackrest-restore.sh" "${NETWORK}" "${WORK}/ca.crt" "${WORK}"
