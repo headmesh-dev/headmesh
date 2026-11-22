@@ -332,3 +332,52 @@ func TestRefreshAndWait(t *testing.T) {
 		t.Fatalf("want ErrCellOffline, got %v", err)
 	}
 }
+
+func TestRefreshAndWaitRequiresAcknowledgementOfUnchangedPolicy(t *testing.T) {
+	_, priv, err := ed25519.GenerateKey(rand.Reader)
+	if err != nil {
+		t.Fatal(err)
+	}
+	now := time.Now()
+	hub, err := cellserver.NewHub(cellserver.Config{
+		Signer: priv, Store: &memStore{snap: snapshot(false, now)}, Logger: slog.New(slog.DiscardHandler),
+		Now: func() time.Time { return now }, Authenticate: func(context.Context) (string, error) { return "hs1", nil },
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+	server := connect.NewServer()
+	cellv1connect.RegisterCellServiceHandler(server, hub)
+	client := cellv1connect.NewCellServiceClient(connect.NewClient(connectinprocess.New(server)))
+	ctx, cancel := context.WithTimeout(t.Context(), 5*time.Second)
+	defer cancel()
+	stream, err := client.Sync(ctx)
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer func() { _ = stream.Close() }()
+	if err := stream.Send(&cellv1.SyncRequest{Msg: &cellv1.SyncRequest_Hello{Hello: &cellv1.Hello{CellName: "hs1"}}}); err != nil {
+		t.Fatal(err)
+	}
+	if welcome, err := stream.Receive(); err != nil || welcome.GetWelcome() == nil {
+		t.Fatalf("receive welcome: %v", err)
+	}
+	message, err := stream.Receive()
+	if err != nil || len(message.GetDesiredPolicy().GetTimeline()) == 0 {
+		t.Fatalf("receive policy: %v", err)
+	}
+	revision := message.GetDesiredPolicy().GetTimeline()[0]
+	waitCtx, stop := context.WithTimeout(ctx, 50*time.Millisecond)
+	defer stop()
+	if err := hub.RefreshAndWait(waitCtx, "hs1"); !errors.Is(err, context.DeadlineExceeded) {
+		t.Fatalf("refresh returned without a policy acknowledgement: %v", err)
+	}
+	if err := stream.Send(&cellv1.SyncRequest{Msg: &cellv1.SyncRequest_PolicyApplied{PolicyApplied: &cellv1.PolicyApplied{
+		Revision: revision.GetRevision(), Ok: true, Sha256: revision.GetSha256(), AppliedAt: timestamppb.New(now),
+	}}}); err != nil {
+		t.Fatal(err)
+	}
+	if err := hub.RefreshAndWait(ctx, "hs1"); err != nil {
+		t.Fatalf("refresh after the acknowledgement: %v", err)
+	}
+}

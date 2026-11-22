@@ -91,13 +91,14 @@ func NewHub(cfg Config) (*Hub, error) {
 }
 
 type session struct {
-	cell     string
-	out      chan *cellv1.SyncResponse
-	done     chan struct{}
-	mu       sync.Mutex
-	pushMu   sync.Mutex // serialises timeline pushes so revision numbers are never allocated twice
-	pending  map[string]chan *cellv1.OpResult
-	lastSent string // digest of the last timeline pushed, to avoid resending identical state
+	cell             string
+	out              chan *cellv1.SyncResponse
+	done             chan struct{}
+	mu               sync.Mutex
+	pushMu           sync.Mutex // serialises timeline pushes so revision numbers are never allocated twice
+	pending          map[string]chan *cellv1.OpResult
+	lastSent         string // digest of the last timeline pushed, to avoid resending identical state
+	lastSentRevision uint64
 
 	// appliedRev is the newest revision the agent reported as applied; failed records refused revisions.
 	// appliedCh is closed and replaced whenever either changes, waking RefreshAndWait.
@@ -284,8 +285,8 @@ func (h *Hub) pushTimeline(ctx context.Context, s *session) error {
 	return err
 }
 
-// push sends the cell's current timeline if it changed and returns the revision number of its first entry (the
-// revision in force now), or 0 when nothing was sent.
+// push sends the cell's current timeline if it changed and returns the revision in force now. An unchanged
+// timeline keeps its revision so a caller can wait for an acknowledgement of the earlier push.
 func (h *Hub) push(ctx context.Context, s *session) (uint64, error) {
 	s.pushMu.Lock()
 	defer s.pushMu.Unlock()
@@ -304,9 +305,10 @@ func (h *Hub) push(ctx context.Context, s *session) (uint64, error) {
 	}
 	s.mu.Lock()
 	unchanged := digest == s.lastSent
+	lastRevision := s.lastSentRevision
 	s.mu.Unlock()
 	if unchanged {
-		return 0, nil
+		return lastRevision, nil
 	}
 	base, err := h.cfg.Store.NextRevision(ctx, s.cell)
 	if err != nil {
@@ -327,6 +329,7 @@ func (h *Hub) push(ctx context.Context, s *session) (uint64, error) {
 	}
 	s.mu.Lock()
 	s.lastSent = digest
+	s.lastSentRevision = base
 	s.mu.Unlock()
 	return base, nil
 }
@@ -357,9 +360,6 @@ func (h *Hub) RefreshAndWait(ctx context.Context, cell string) error {
 	want, err := h.push(ctx, s)
 	if err != nil {
 		return err
-	}
-	if want == 0 {
-		return nil // nothing changed; the live policy is already current
 	}
 	for {
 		s.mu.Lock()
