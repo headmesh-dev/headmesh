@@ -13,8 +13,10 @@ files outside this repository.
 
 ## Production rollout
 
-1. Deploy a release containing the backup commands and `deployctl` support
-   for manifest publication. Keep the writer credentials on the primary.
+1. Install the backup commands from a verified Headmesh build. The active
+   backend release or a backup-only copy can publish the encrypted Headscale
+   bundle. The default manifest unit locates the active backend through
+   `deployctl`. Keep the writer credentials on the primary.
 2. Copy `publish/litestream.aws`, `publish/keys.netrc`,
    `publish/manifest.netrc` and `publish/manifest.env` to
    `/etc/headmesh/backup/` with mode `0600`, owned by root. Put the
@@ -41,7 +43,9 @@ files outside this repository.
    `[default]` profile of `/etc/headmesh/backup/litestream.aws` using
    `aws_access_key_id` and `aws_secret_access_key`. Restrict the credential
    file to root with mode `0600`. systemd loads it into the service's
-   private credential directory.
+   private credential directory. The unit also loads `litestream.yml` into
+   that directory so the service user can read it from the private backup
+   directory.
 3. Install `systemd/headmesh-litestream.service`, reload systemd, and
    enable the service after confirming `/var/lib/headscale/db.sqlite`
    belongs to the intended cell. Verify a fresh copy restores from the
@@ -61,13 +65,14 @@ files outside this repository.
    PostgreSQL 18 cluster. Install `postgresql-archive.conf` in that cluster's
    `conf.d` directory during a maintenance window. Enabling `archive_mode`
    requires a PostgreSQL restart.
-3. Run `sudo -u postgres pgbackrest --stanza=headmesh stanza-create`,
-   then `check` and `--type=full backup` with anza=headmesh info` before enabling the
-   timers under `systemd/`. The full backup runs on Sundays at 04:00 UTC.
-   The differential runs at the same time on the other six days.
+3. As `postgres`, run `pgbackrest --stanza=headmesh stanza-create`. After
+   enabling WAL archiving, run `pgbackrest --stanza=headmesh check`, then
+   `pgbackrest --stanza=headmesh --type=full backup`. Verify the completed
+   backup and its WAL range with `pgbackrest --stanza=headmesh info` before
+   enabling the timers. The full backup runs on Sundays at 04:00 UTC and
+   the differential runs at the same time on the other six days.
 
-The workstation drill exercises both database configs, the same stanza. Verify the
-   new backup in `pgbackrest --stthe encrypted
+The workstation drill exercises both database configs, the encrypted
 key bundle and the isolated restore script against a disposable TLS-enabled
 S3 endpoint. Each bucket uses a separate credential. The drill runs
 independently of GitHub Actions.
@@ -276,6 +281,23 @@ the checks fail, the candidate stops and the databases stay installed for
 retry. After readiness succeeds, the command records the release in
 `/var/lib/headmesh/recovery/backend-ready`. nginx stays masked until the
 ingress step. Always check live readiness again before promotion.
+
+### Verify standby ingress before DNS
+
+After configuring nginx with the DNS-01 certificate on the standby, run
+this from an independent runner with IPv4 and IPv6 connectivity. Pass the
+addresses assigned by Hetzner and the manifest used for the restore.
+
+```sh
+go run ./cmd/headmesh-recover prove-ingress \
+  -ipv4 "$standby_ipv4" -ipv6 "$standby_ipv6" -manifest "$verified_manifest"
+```
+
+The command connects directly to each supplied IP on port 443 while
+verifying TLS for each live hostname. It checks Headscale health and its
+served Noise key, API readiness, and the site at `headmesh.dev`. A failed
+certificate check, redirect, unexpected key, or unready service stops the
+proof. [Direct HTTPS resolution and SNI](https://everything.curl.dev/usingcurl/connections/name.html)
 
 ### Headscale startup and registration
 

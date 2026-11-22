@@ -10,11 +10,12 @@ Group=headscale
 WorkingDirectory=/var/lib/headscale
 EnvironmentFile=/etc/headmesh/backup/litestream.env
 LoadCredential=r2-credentials:/etc/headmesh/backup/litestream.aws
+LoadCredential=litestream-config:/etc/headmesh/backup/litestream.yml
 Environment=AWS_SHARED_CREDENTIALS_FILE=%d/r2-credentials
 Environment=AWS_EC2_METADATA_DISABLED=true
 ExecStartPre=/usr/bin/test -s /var/lib/headscale/db.sqlite
 ExecStartPre=/usr/bin/test -n ${HEADMESH_R2_ENDPOINT}
-ExecStart=/usr/bin/litestream replicate -config /etc/headmesh/backup/litestream.yml
+ExecStart=/usr/bin/litestream replicate -config %d/litestream-config
 Restart=on-failure
 RestartSec=5s
 TimeoutStopSec=45s
