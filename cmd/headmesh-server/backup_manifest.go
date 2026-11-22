@@ -17,24 +17,31 @@ import (
 )
 
 func backupManifest(parent context.Context, args []string, stdout io.Writer) error {
-	if len(args) == 0 || (args[0] != "capture" && args[0] != "verify" && args[0] != "publish") {
-		return errors.New("usage: headmesh-server backup-manifest capture|verify|publish [flags]")
+	const usage = "usage: headmesh-server backup-manifest capture|verify|publish|fetch [flags]"
+	if len(args) == 0 {
+		return errors.New(usage)
 	}
-	fs := flag.NewFlagSet(args[0], flag.ContinueOnError)
+	action := args[0]
+	switch action {
+	case "capture", "verify", "publish", "fetch":
+	default:
+		return errors.New(usage)
+	}
+	fs := flag.NewFlagSet(action, flag.ContinueOnError)
 	sqlite := fs.String("sqlite", "/var/lib/headscale/db.sqlite", "Headscale SQLite database")
 	noise := fs.String("noise-key", "/var/lib/headscale/noise_private.key", "Headscale Noise private key")
 	derp := fs.String("derp-key", "/var/lib/headscale/derp_server_private.key", "restored DERP private key")
 	manifest := fs.String("manifest", "", "published manifest file for verification")
 	litestream := fs.String("litestream-config", "/etc/headmesh/backup/litestream.yml", "Litestream configuration for publishing")
-	netrc := fs.String("netrc", "", "private netrc credential file for R2 publication")
+	netrc := fs.String("netrc", "", "private netrc credential file for hm-pg")
 	if err := fs.Parse(args[1:]); err != nil {
 		return fmt.Errorf("parse backup manifest flags: %w", err)
 	}
-	if fs.NArg() != 0 || (args[0] == "verify") != (*manifest != "") || (args[0] == "publish") != (*netrc != "") {
-		return errors.New("verify requires -manifest FILE and publish requires -netrc FILE")
+	if fs.NArg() != 0 || (action == "verify") != (*manifest != "") || (action == "publish" || action == "fetch") != (*netrc != "") {
+		return errors.New("verify requires -manifest FILE; publish and fetch require -netrc FILE")
 	}
 	var expected recovery.Manifest
-	if args[0] == "verify" {
+	if action == "verify" {
 		var err error
 		expected, err = readStoredManifest(*manifest)
 		if err != nil {
@@ -42,17 +49,24 @@ func backupManifest(parent context.Context, args []string, stdout io.Writer) err
 		}
 	}
 	timeout := 60 * time.Second
-	if args[0] == "publish" {
+	if action == "publish" {
 		timeout = 2 * time.Minute
 	}
 	ctx, cancel := context.WithTimeout(parent, timeout)
 	defer cancel()
+	if action == "fetch" {
+		evidence, err := recovery.Fetch(ctx, os.Getenv("HEADMESH_R2_ENDPOINT"), *netrc)
+		if err != nil {
+			return err
+		}
+		return writeManifest(stdout, evidence)
+	}
 	db, err := pgx.Connect(ctx, os.Getenv("HEADMESH_DATABASE_URL"))
 	if err != nil {
 		return errors.New("connect to PostgreSQL for backup evidence")
 	}
 	defer func() { _ = db.Close(ctx) }()
-	if args[0] == "publish" {
+	if action == "publish" {
 		if err := recovery.Publish(ctx, db, recovery.PublishOptions{
 			SQLite: *sqlite, NoiseKey: *noise, LitestreamConfig: *litestream,
 			Endpoint: os.Getenv("HEADMESH_R2_ENDPOINT"), Netrc: *netrc,
@@ -64,23 +78,27 @@ func backupManifest(parent context.Context, args []string, stdout io.Writer) err
 		}
 		return nil
 	}
-	if args[0] == "capture" {
+	if action == "capture" {
 		evidence, err := recovery.Capture(ctx, db, *sqlite, *noise)
 		if err != nil {
 			return err
 		}
-		enc := json.NewEncoder(stdout)
-		enc.SetIndent("", "  ")
-		if err := enc.Encode(evidence); err != nil {
-			return fmt.Errorf("write backup manifest: %w", err)
-		}
-		return nil
+		return writeManifest(stdout, evidence)
 	}
 	if err := recovery.Verify(ctx, db, *sqlite, *noise, *derp, expected); err != nil {
 		return err
 	}
 	if _, err := fmt.Fprintln(stdout, "Backup manifest verified"); err != nil {
 		return fmt.Errorf("write backup verification result: %w", err)
+	}
+	return nil
+}
+
+func writeManifest(out io.Writer, evidence recovery.Manifest) error {
+	enc := json.NewEncoder(out)
+	enc.SetIndent("", "  ")
+	if err := enc.Encode(evidence); err != nil {
+		return fmt.Errorf("write backup manifest: %w", err)
 	}
 	return nil
 }
@@ -94,8 +112,8 @@ func readStoredManifest(path string) (recovery.Manifest, error) {
 		return recovery.Manifest{}, fmt.Errorf("open backup manifest: %w", err)
 	}
 	defer func() { _ = f.Close() }()
-	raw, err := io.ReadAll(io.LimitReader(f, 16385))
-	if err != nil || len(raw) > 16384 {
+	raw, err := io.ReadAll(io.LimitReader(f, recovery.MaxManifestBytes+1))
+	if err != nil || len(raw) > recovery.MaxManifestBytes {
 		return recovery.Manifest{}, errors.New("could not read backup manifest or it is too large")
 	}
 	return recovery.ReadManifest(bytes.NewReader(raw))

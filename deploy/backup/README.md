@@ -42,9 +42,10 @@ services disabled. Set up separate bucket-scoped R2 credentials for
    timers under `systemd/`. The full backup runs on Sundays at 04:00 UTC.
    The differential runs at the same time on the other six days.
 
-The workstation drill exercises both database configs and the encrypted
-key bundle against a disposable TLS-enabled S3 endpoint. Each bucket uses
-a separate credential. The drill runs independently of GitHub Actions.
+The workstation drill exercises both database configs, the encrypted
+key bundle and the isolated restore script against a disposable TLS-enabled
+S3 endpoint. Each bucket uses a separate credential. The drill runs
+independently of GitHub Actions.
 
 ```sh
 deploy/tests/object-storage-restore.sh
@@ -125,6 +126,8 @@ host, connect to the restored PostgreSQL database and point the verifier at
 the restored SQLite database and decrypted keys before starting Headscale.
 
 ```sh
+headmesh-server backup-manifest fetch -netrc /path/to/manifest.netrc \
+  > candidate-manifest.json
 headmesh-server backup-manifest verify -manifest candidate-manifest.json \
   -sqlite /path/to/restore/db.sqlite \
   -noise-key /path/to/restore/noise_private.key \
@@ -164,3 +167,29 @@ Check that `hm-pg/manifest.json` can be read back and verified in the recovery
 environment, then enable `headmesh-backup-manifest.timer`. The command uses
 conditional object writes to prevent stale replacements. Schedule the full
 restore drill separately to verify the complete backup and WAL chain.
+
+## Isolated restore
+
+Run on a disposable host with enough free space for both databases and the
+PostgreSQL WAL replay. Install `headmesh-server`, Litestream, `age`, `curl`,
+`jq`, `sqlite3`, pgBackRest and PostgreSQL 18. Add the PostgreSQL 18 binaries
+to `PATH`, and run as an unprivileged user with a private working parent.
+
+Set `HEADMESH_R2_ENDPOINT` and Litestream's `AWS_SHARED_CREDENTIALS_FILE`.
+Configure a read-only pgBackRest repository in `PGBACKREST_CONFIG` with the
+`hm-pg` credential and its encryption passphrase. Supply separate scoped
+netrc files for the manifest and keys, and either of the private age
+identities. The SQLite config uses the primary path as its replica name.
+
+```sh
+deploy/backup/restore-isolated.sh /path/to/private-work /path/to/litestream.yml \
+  /path/to/manifest.netrc /path/to/keys.netrc /path/to/recovery.agekey
+```
+
+The script downloads and validates the manifest, stages the keys, restores
+SQLite, and replays PostgreSQL to the end of the archived WAL stream. It
+starts PostgreSQL with a private Unix socket and archive writes disabled.
+After manifest verification it stops the temporary database and cleans the
+restored files. It reports the elapsed time for backup verification and the
+age of the manifest at download. Record service startup, registration, audit
+and API checks separately for the full [restore drill](../../docs/plan.md#135-restore-drills-requirement-2).

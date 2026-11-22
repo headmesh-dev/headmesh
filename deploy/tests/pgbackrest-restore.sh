@@ -22,6 +22,7 @@ if (( $# != 0 )); then
     --mount "type=bind,src=$3/restored/final.sqlite,dst=/run/restored-headscale.sqlite,readonly"
     --mount "type=bind,src=$3/litestream,dst=/usr/local/bin/litestream,readonly"
     --mount "type=bind,src=${ROOT}/deploy/backup/litestream-r2.yml,dst=/run/litestream.yml,readonly"
+    --mount "type=bind,src=${ROOT}/deploy/backup/restore-isolated.sh,dst=/run/restore-isolated.sh,readonly"
     --env HM_DRILL_PG_KEY
     --env HM_DRILL_PG_SECRET
     --env HM_DRILL_SQLITE_KEY
@@ -39,7 +40,7 @@ ENV DEBIAN_FRONTEND=noninteractive
 RUN mkdir -p /etc/postgresql-common \
  && echo 'create_main_cluster = false' > /etc/postgresql-common/createcluster.conf \
  && apt-get update -qq \
- && apt-get install -y --no-install-recommends age ca-certificates curl pgbackrest postgresql-18 sqlite3 \
+ && apt-get install -y --no-install-recommends age ca-certificates curl jq pgbackrest postgresql-18 sqlite3 \
  && rm -rf /var/lib/apt/lists/*
 DOCKERFILE
 } | docker build -t "${IMAGE}" -
@@ -289,4 +290,10 @@ fi
 grep -q 'grant audit boundary differs' "${ROOT}/missing-event.log"
 printf 'Point-in-time recovery passed in %s seconds. The WAL-only row was restored and the later row was excluded.\n' "${SECONDS}"
 pg_ctl -D "${RESTORED}" -m fast -w stop >/dev/null
+if [[ -f "${ROOT}/published.json" ]]; then
+  mkdir "${ROOT}/drill-work"
+  HEADMESH_DATABASE_URL='host=/run/unavailable' /run/restore-isolated.sh "${ROOT}/drill-work" /run/litestream.yml \
+    "${ROOT}/manifest.netrc" "${ROOT}/keys.netrc" "${ROOT}/recovery.agekey"
+  [[ -z "$(find "${ROOT}/drill-work" -mindepth 1 -print -quit)" ]]
+fi
 DRILL

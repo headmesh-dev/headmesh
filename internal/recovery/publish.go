@@ -26,7 +26,7 @@ type PublishOptions struct {
 // Publish replaces manifest.json only after the SQLite replica can be restored
 // and pgBackRest can read the candidate WAL segment from its repository.
 func Publish(ctx context.Context, db *pgx.Conn, opt PublishOptions) error {
-	object, err := newRecoveryObject(opt.Endpoint, opt.Netrc, "/hm-pg/manifest.json")
+	object, err := newRecoveryObject(opt.Endpoint, opt.Netrc, manifestObjectPath)
 	if err != nil {
 		return err
 	}
