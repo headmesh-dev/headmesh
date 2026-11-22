@@ -35,8 +35,8 @@ files outside this repository.
 
 ## Headscale SQLite
 
-1. Verify and install the Litestream v0.5.17 release package. The unit expects
-   `/usr/bin/litestream`. [Release and checksums](https://github.com/benbjohnson/litestream/releases/tag/v0.5.17)
+1. Install the Litestream v0.5.17 binary from the pinned image in
+   [tool-images.sh](tool-images.sh). The unit expects `/usr/bin/litestream`.
 2. Install `litestream-r2.yml` as `/etc/headmesh/backup/litestream.yml`.
    Set `HEADMESH_R2_ENDPOINT=https://<account-id>.r2.cloudflarestorage.com`
    in `/etc/headmesh/backup/litestream.env`. Put the bucket key pair in the
@@ -53,8 +53,10 @@ files outside this repository.
 
 ## PostgreSQL 18
 
-1. Install the Ubuntu `pgbackrest` package. Put the contents of
-   `pgbackrest-r2.conf` in `/etc/pgbackrest/conf.d/headmesh.conf`.
+1. Install the Ubuntu `pgbackrest` package and copy `pgbackrest-r2.conf`
+   to `/etc/pgbackrest/conf.d/pgbackrest-r2.conf`.
+   Use `root:postgres` ownership and mode `0750` for `/etc/pgbackrest`
+   and its `conf.d` directory so the backup process can read its settings.
    Add a root-owned drop-in in the same directory, readable by the
    `postgres` group with mode `0640`. Its `[global]` section supplies
    `repo1-s3-endpoint` (hostname only), `repo1-s3-key`,
