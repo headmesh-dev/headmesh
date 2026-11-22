@@ -26,6 +26,8 @@ if (( $# != 0 )); then
     --env HM_DRILL_PG_SECRET
     --env HM_DRILL_SQLITE_KEY
     --env HM_DRILL_SQLITE_SECRET
+    --env HM_DRILL_KEYS_KEY
+    --env HM_DRILL_KEYS_SECRET
   )
 fi
 
@@ -37,7 +39,7 @@ ENV DEBIAN_FRONTEND=noninteractive
 RUN mkdir -p /etc/postgresql-common \
  && echo 'create_main_cluster = false' > /etc/postgresql-common/createcluster.conf \
  && apt-get update -qq \
- && apt-get install -y --no-install-recommends ca-certificates curl pgbackrest postgresql-18 sqlite3 \
+ && apt-get install -y --no-install-recommends age ca-certificates curl pgbackrest postgresql-18 sqlite3 \
  && rm -rf /var/lib/apt/lists/*
 DOCKERFILE
 } | docker build -t "${IMAGE}" -
@@ -155,8 +157,10 @@ fi
 for kind in noise derp; do
   printf 'privkey:%s\n' "$(od -An -N32 -tx1 /dev/urandom | tr -d ' \n')" >"${ROOT}/${kind}.key"
 done
+noise_key="${ROOT}/noise.key"
+derp_key="${ROOT}/derp.key"
 capture_manifest() {
-  headmesh-server backup-manifest capture -sqlite "${source_sqlite}" -noise-key "${ROOT}/noise.key"
+  headmesh-server backup-manifest capture -sqlite "${source_sqlite}" -noise-key "${noise_key}"
 }
 if [[ -r /run/litestream.yml ]]; then
   export HEADMESH_R2_ENDPOINT=https://headmesh-backup-s3:8443
@@ -198,6 +202,42 @@ if [[ -r /run/litestream.yml ]]; then
   read_published >"${ROOT}/readback.json"
   cmp "${ROOT}/published.json" "${ROOT}/readback.json"
   printf '%s\n' 'Conditional publication passed and a divergent SQLite candidate left the previous manifest intact.'
+
+  for identity in owner recovery; do
+    age-keygen -o "${ROOT}/${identity}.agekey" >/dev/null 2>&1
+  done
+  printf 'machine headmesh-backup-s3\nlogin %s\npassword %s\n' \
+    "${HM_DRILL_KEYS_KEY}" "${HM_DRILL_KEYS_SECRET}" >"${ROOT}/keys.netrc"
+  printf 'server_url: https://hs1.example.test\n' >"${ROOT}/config.yaml"
+  publish_keys() {
+    headmesh-server backup-keys publish -config "${ROOT}/config.yaml" \
+      -noise-key "${noise_key}" -derp-key "${derp_key}" \
+      -recipient "$(age-keygen -y "${ROOT}/owner.agekey")" \
+      -recovery-recipient "$(age-keygen -y "${ROOT}/recovery.agekey")" -netrc "${ROOT}/keys.netrc"
+  }
+  stage_keys() {
+    headmesh-server backup-keys stage -manifest "${ROOT}/published.json" \
+      -identity "${ROOT}/$1.agekey" -output-dir "${ROOT}/keys-$1" -netrc "$2"
+  }
+  publish_keys
+  if stage_keys owner "${ROOT}/manifest.netrc" >"${ROOT}/keys-denied.log" 2>&1; then
+    echo "The PostgreSQL credential unexpectedly fetched the Headscale key bundle." >&2
+    exit 1
+  fi
+  grep -q 'refused key bundle download (HTTP 403)' "${ROOT}/keys-denied.log"
+  stage_keys owner "${ROOT}/keys.netrc"
+  cmp "${ROOT}/config.yaml" "${ROOT}/keys-owner/config.yaml"
+  cmp "${noise_key}" "${ROOT}/keys-owner/noise_private.key"
+  cmp "${derp_key}" "${ROOT}/keys-owner/derp_server_private.key"
+  printf '# configuration revision in this drill\n' >>"${ROOT}/config.yaml"
+  publish_keys
+  stage_keys recovery "${ROOT}/keys.netrc"
+  cmp "${ROOT}/config.yaml" "${ROOT}/keys-recovery/config.yaml"
+  cmp "${noise_key}" "${ROOT}/keys-recovery/noise_private.key"
+  cmp "${derp_key}" "${ROOT}/keys-recovery/derp_server_private.key"
+  noise_key="${ROOT}/keys-recovery/noise_private.key"
+  derp_key="${ROOT}/keys-recovery/derp_server_private.key"
+  printf '%s\n' 'Both age recipients restored the Headscale bundle from its separate bucket.'
 fi
 capture_manifest >"${ROOT}/manifest.json"
 primary_sql -c "SELECT pg_create_restore_point('headmesh_drill')" >/dev/null
@@ -230,7 +270,7 @@ done
 export HEADMESH_DATABASE_URL="host=${RESTORE_SOCKET} port=5433 dbname=postgres user=postgres"
 verify_manifest() {
   headmesh-server backup-manifest verify -sqlite "${restored_sqlite}" \
-    -noise-key "${ROOT}/noise.key" -derp-key "${ROOT}/derp.key" -manifest "$1"
+    -noise-key "${noise_key}" -derp-key "${derp_key}" -manifest "$1"
 }
 verify_manifest "${ROOT}/manifest.json"
 if [[ -f "${ROOT}/published.json" ]]; then

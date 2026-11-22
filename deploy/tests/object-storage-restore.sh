@@ -30,6 +30,8 @@ export HM_DRILL_PG_KEY=headmesh-postgres-drill
 export HM_DRILL_PG_SECRET="$(openssl rand -hex 20)"
 export HM_DRILL_SQLITE_KEY=headmesh-sqlite-drill
 export HM_DRILL_SQLITE_SECRET="$(openssl rand -hex 20)"
+export HM_DRILL_KEYS_KEY=headmesh-keys-drill
+export HM_DRILL_KEYS_SECRET="$(openssl rand -hex 20)"
 export HEADMESH_R2_ENDPOINT="https://${S3_HOST}:8443"
 export SSL_CERT_FILE=/run/drill-ca.crt
 
@@ -43,6 +45,7 @@ identities = []
 for bucket, access, secret in (
     ("hm-pg", "HM_DRILL_PG_KEY", "HM_DRILL_PG_SECRET"),
     ("hm-hs1-litestream", "HM_DRILL_SQLITE_KEY", "HM_DRILL_SQLITE_SECRET"),
+    ("hm-keys", "HM_DRILL_KEYS_KEY", "HM_DRILL_KEYS_SECRET"),
 ):
     identities.append({
         "name": bucket,
@@ -63,7 +66,7 @@ mkdir "${WORK}/primary" "${WORK}/restored"
 docker network create --internal "${NETWORK}" >/dev/null
 docker run -d --name "${S3_CONTAINER}" --network "${NETWORK}" --network-alias "${S3_HOST}" \
   --tmpfs /data:rw,size=384m --mount "type=bind,src=${WORK},dst=/sandbox,readonly" "${S3}" \
-  mini -dir=/data -volume.max=6 -master.volumeSizeLimitMB=128 -bucket=hm-pg,hm-hs1-litestream \
+  mini -dir=/data -volume.max=6 -master.volumeSizeLimitMB=128 -bucket=hm-pg,hm-hs1-litestream,hm-keys \
   -ip.bind=0.0.0.0 -s3.port.https=8443 -s3.cert.file=/sandbox/ca.crt -s3.key.file=/sandbox/server.key \
   -s3.config=/sandbox/iam.json >/dev/null
 

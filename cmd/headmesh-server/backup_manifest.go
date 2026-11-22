@@ -35,16 +35,8 @@ func backupManifest(parent context.Context, args []string, stdout io.Writer) err
 	}
 	var expected recovery.Manifest
 	if args[0] == "verify" {
-		f, err := os.Open(*manifest) // #nosec G304 G703 -- Operator explicitly selects the local manifest file.
-		if err != nil {
-			return fmt.Errorf("open backup manifest: %w", err)
-		}
-		defer func() { _ = f.Close() }()
-		raw, err := io.ReadAll(io.LimitReader(f, 16385))
-		if err != nil || len(raw) > 16384 {
-			return errors.New("could not read backup manifest or it is too large")
-		}
-		expected, err = recovery.ReadManifest(bytes.NewReader(raw))
+		var err error
+		expected, err = readStoredManifest(*manifest)
 		if err != nil {
 			return err
 		}
@@ -91,4 +83,20 @@ func backupManifest(parent context.Context, args []string, stdout io.Writer) err
 		return fmt.Errorf("write backup verification result: %w", err)
 	}
 	return nil
+}
+
+func readStoredManifest(path string) (recovery.Manifest, error) {
+	if path == "" {
+		return recovery.Manifest{}, errors.New("recovery requires -manifest FILE")
+	}
+	f, err := os.Open(path) // #nosec G304 G703 -- Operator explicitly selects the local manifest file.
+	if err != nil {
+		return recovery.Manifest{}, fmt.Errorf("open backup manifest: %w", err)
+	}
+	defer func() { _ = f.Close() }()
+	raw, err := io.ReadAll(io.LimitReader(f, 16385))
+	if err != nil || len(raw) > 16384 {
+		return recovery.Manifest{}, errors.New("could not read backup manifest or it is too large")
+	}
+	return recovery.ReadManifest(bytes.NewReader(raw))
 }

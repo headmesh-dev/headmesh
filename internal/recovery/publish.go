@@ -6,7 +6,6 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
-	"net/url"
 	"os"
 	"os/exec"
 	"path/filepath"
@@ -27,14 +26,9 @@ type PublishOptions struct {
 // Publish replaces manifest.json only after the SQLite replica can be restored
 // and pgBackRest can read the candidate WAL segment from its repository.
 func Publish(ctx context.Context, db *pgx.Conn, opt PublishOptions) error {
-	endpoint, err := url.Parse(opt.Endpoint)
-	if err != nil || endpoint.Scheme != "https" || endpoint.Hostname() == "" || endpoint.User != nil ||
-		(endpoint.Path != "" && endpoint.Path != "/") || endpoint.RawQuery != "" || endpoint.Fragment != "" {
-		return errors.New("backup manifest publication requires an HTTPS object storage endpoint")
-	}
-	credential, err := os.Stat(opt.Netrc)
-	if err != nil || !credential.Mode().IsRegular() || credential.Mode().Perm()&0o077 != 0 {
-		return errors.New("manifest publication requires a private netrc credential file")
+	object, err := newRecoveryObject(opt.Endpoint, opt.Netrc, "/hm-pg/manifest.json")
+	if err != nil {
+		return err
 	}
 	scratch, err := os.MkdirTemp("", "headmesh-manifest-")
 	if err != nil {
@@ -58,8 +52,7 @@ func Publish(ctx context.Context, db *pgx.Conn, opt PublishOptions) error {
 		return err
 	}
 
-	endpoint.Path = "/hm-pg/manifest.json"
-	return putManifest(ctx, endpoint.String(), opt.Netrc, scratch, candidate)
+	return putManifest(ctx, object, scratch, candidate)
 }
 
 var walFilePattern = regexp.MustCompile(`^[0-9A-F]{24}$`)
@@ -177,22 +170,10 @@ func lsnValue(lsn string) uint64 {
 	return h<<32 | l
 }
 
-func putManifest(ctx context.Context, object, netrc, scratch string, candidate Manifest) error {
+func putManifest(ctx context.Context, object recoveryObject, scratch string, candidate Manifest) error {
 	previous := filepath.Join(scratch, "previous.json")
 	headers := filepath.Join(scratch, "headers")
-	curl := func(args ...string) (string, error) {
-		flags := []string{
-			"-q", "--silent", "--show-error", "--proto", "=https", "--max-time", "20",
-			"--netrc-file", netrc, "--aws-sigv4", "aws:amz:auto:s3", "--write-out", "%{http_code}",
-		}
-		// #nosec G204 -- Fixed HTTPS endpoint and no credentials on the command line.
-		out, err := exec.CommandContext(ctx, "curl", append(append(flags, args...), object)...).Output()
-		if err != nil {
-			return "", fmt.Errorf("send recovery manifest request: %w", err)
-		}
-		return string(out), nil
-	}
-	status, err := curl("--max-filesize", "16384", "--dump-header", headers, "--output", previous)
+	status, err := object.request(ctx, "--max-filesize", "16384", "--dump-header", headers, "--output", previous)
 	if err != nil {
 		return err
 	}
@@ -213,20 +194,10 @@ func putManifest(ctx context.Context, object, netrc, scratch string, candidate M
 		if !candidate.CapturedAt.After(existing.CapturedAt) || lsnValue(candidate.PostgresLSN) < lsnValue(existing.PostgresLSN) {
 			return errors.New("candidate recovery evidence is older than the current manifest")
 		}
-		headerData, err := os.ReadFile(headers) // #nosec G304 -- Curl writes only inside the private scratch directory.
+		condition, err = objectMatchHeader(headers)
 		if err != nil {
-			return fmt.Errorf("read current manifest ETag: %w", err)
+			return err
 		}
-		etag := ""
-		for _, line := range strings.Split(string(headerData), "\n") {
-			if name, value, found := strings.Cut(line, ":"); found && strings.EqualFold(name, "etag") {
-				etag = strings.TrimSpace(value)
-			}
-		}
-		if _, err := strconv.Unquote(etag); err != nil || !strings.HasPrefix(etag, "\"") {
-			return errors.New("object store returned no usable manifest ETag")
-		}
-		condition = "If-Match: " + etag
 	case "404":
 	default:
 		return fmt.Errorf("object store refused manifest read (HTTP %s)", status)
@@ -239,7 +210,7 @@ func putManifest(ctx context.Context, object, netrc, scratch string, candidate M
 	if err := os.WriteFile(path, data, 0o600); err != nil {
 		return fmt.Errorf("write candidate manifest: %w", err)
 	}
-	status, err = curl("--upload-file", path, "--header", "Content-Type: application/json",
+	status, err = object.request(ctx, "--upload-file", path, "--header", "Content-Type: application/json",
 		"--header", condition, "--output", os.DevNull)
 	if err != nil {
 		return err

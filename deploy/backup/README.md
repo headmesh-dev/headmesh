@@ -42,9 +42,9 @@ services disabled. Set up separate bucket-scoped R2 credentials for
    timers under `systemd/`. The full backup runs on Sundays at 04:00 UTC.
    The differential runs at the same time on the other six days.
 
-The workstation drill exercises both configs against a disposable,
-TLS-enabled S3 endpoint with a different credential for each bucket.
-It runs independently of GitHub Actions.
+The workstation drill exercises both database configs and the encrypted
+key bundle against a disposable TLS-enabled S3 endpoint. Each bucket uses
+a separate credential. The drill runs independently of GitHub Actions.
 
 ```sh
 deploy/tests/object-storage-restore.sh
@@ -52,6 +52,61 @@ deploy/tests/object-storage-restore.sh
 
 Production acceptance includes a restore from the actual R2 buckets on
 an isolated recovery host and the checks in [plan §13.5](../../docs/plan.md#135-restore-drills-requirement-2).
+
+## Headscale keys and configuration
+
+Install `age` on the publisher and recovery host. Supply two distinct
+public age recipients, one for the owner and one for recovery. Keep the
+private identities separately available during an outage. The command
+reads the active Headscale configuration and the Noise and DERP keys
+from their normal paths. Use `-config`, `-noise-key`, and `-derp-key` for
+a cell with custom paths.
+
+Set `HEADMESH_R2_ENDPOINT` and create a root-owned `0600` netrc file with
+a credential scoped to `hm-keys`. Use the endpoint hostname in the
+`machine` field and the access key and secret in `login` and `password`.
+The publisher needs object read and write access. The recovery host can
+use its own read-only credential for this bucket.
+
+```sh
+headmesh-server backup-keys publish \
+  -recipient "$OWNER_RECIPIENT" -recovery-recipient "$RECOVERY_RECIPIENT" \
+  -netrc /etc/headmesh/backup/keys.netrc
+```
+
+The object is `hm-keys/hs1/<noise-fingerprint>.tar.age`. Publish on first
+setup and after configuration, key or recipient changes. If the Noise key
+stays the same, a publish replaces that fingerprint's bundle using an
+ETag condition. A new Noise key gets a separate object.
+
+To keep an encrypted copy in `deploy/secrets/`, install SOPS and write a
+SOPS YAML envelope. The three source files are archived in memory and the
+command writes ciphertext to stdout. [SOPS documentation](https://getsops.io/docs/)
+
+```sh
+mkdir -p deploy/secrets
+bundle=$(mktemp deploy/secrets/.hs1-keys.XXXXXX)
+headmesh-server backup-keys pack -format sops \
+  -recipient "$OWNER_RECIPIENT" -recovery-recipient "$RECOVERY_RECIPIENT" \
+  > "$bundle" && mv "$bundle" deploy/secrets/hs1-keys.enc.yaml
+```
+
+On the isolated recovery host, fetch the published manifest and stage the
+keys using either private identity. Keep the identity file at mode `0600`
+and choose an output directory that does not exist.
+
+```sh
+headmesh-server backup-keys stage -manifest candidate-manifest.json \
+  -identity /path/to/recovery.agekey -netrc /path/to/keys.netrc \
+  -output-dir /path/to/restore/keys
+```
+
+For the SOPS copy, use `-format sops -bundle /path/to/hs1-keys.enc.yaml`
+in place of `-netrc`. Staging validates the archive and matches the Noise
+fingerprint against the manifest before writing. It creates the directory
+at mode `0700` and all three files at mode `0600`. Use those keys in the
+manifest verification below. Treat the staged configuration and keys as
+private recovery files and remove them when an isolated drill ends.
 
 ## Recovery manifest
 

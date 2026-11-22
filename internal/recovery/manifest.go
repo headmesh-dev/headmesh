@@ -246,6 +246,10 @@ func machinePublicHash(path string) (string, error) {
 	if err != nil || len(raw) > 256 {
 		return "", errors.New("cannot read private key file")
 	}
+	return machinePublicHashBytes(raw)
+}
+
+func machinePublicHashBytes(raw []byte) (string, error) {
 	value, found := bytes.CutPrefix(bytes.TrimSpace(raw), []byte("privkey:"))
 	key, err := hex.DecodeString(string(value))
 	if !found || err != nil || len(key) != 32 || bytes.Equal(key, make([]byte, 32)) {
