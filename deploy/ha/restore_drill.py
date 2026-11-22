@@ -2,9 +2,11 @@
 """Run the Headmesh restore drill on a disposable Hetzner VM."""
 
 import argparse
+import configparser
 import datetime as dt
 import ipaddress
 import json
+import netrc
 import os
 from pathlib import Path
 import re
@@ -182,9 +184,69 @@ def check_inputs(directory, endpoint):
         raise DrillError("HEADMESH_R2_ENDPOINT must be a bare HTTPS endpoint")
     for name in CREDENTIALS:
         path = directory / name
-        info = path.stat()
+        try:
+            info = path.stat()
+        except OSError:
+            raise DrillError(f"Missing credential file {path}") from None
         if not stat.S_ISREG(info.st_mode) or info.st_mode & 0o077 or not path.read_bytes().strip():
             raise DrillError(f"{name} must be a nonempty private regular file")
+    return target.hostname
+
+
+def config_values(path, section, *keys):
+    config = configparser.ConfigParser(interpolation=None)
+    try:
+        config.read_string(path.read_text())
+        values = tuple(config.get(section, key).strip() for key in keys)
+    except (configparser.Error, UnicodeError):
+        raise DrillError(f"Fill {', '.join(keys)} in {path.name}") from None
+    if not all(values):
+        raise DrillError(f"Fill {', '.join(keys)} in {path.name}")
+    return values
+
+
+def netrc_pair(path, hostname):
+    try:
+        login, _, password = netrc.netrc(path).hosts[hostname]
+    except (KeyError, netrc.NetrcParseError):
+        raise DrillError(f"Fill the R2 hostname, login and password in {path.name}") from None
+    if not login or not password:
+        raise DrillError(f"Fill the R2 login and password in {path.name}")
+    return login, password
+
+
+def preflight_r2(directory, endpoint):
+    hostname = check_inputs(directory, endpoint)
+    aws = config_values(directory / "litestream.aws", "default", "aws_access_key_id", "aws_secret_access_key")
+    pg_host, pg_key, pg_secret, _ = config_values(directory / "pgbackrest.conf", "global", "repo1-s3-endpoint",
+                                                  "repo1-s3-key", "repo1-s3-key-secret", "repo1-cipher-pass")
+    if pg_host != hostname:
+        raise DrillError("Set repo1-s3-endpoint in pgbackrest.conf to the R2 hostname without https://")
+    checks = (
+        ("hm-hs1-litestream", "litestream.aws", aws),
+        ("hm-pg", "pgbackrest.conf", (pg_key, pg_secret)),
+        ("hm-pg", "manifest.netrc", netrc_pair(directory / "manifest.netrc", hostname)),
+        ("hm-keys", "keys.netrc", netrc_pair(directory / "keys.netrc", hostname)),
+    )
+    with tempfile.TemporaryDirectory(prefix="headmesh-r2-check-") as scratch:
+        auth = Path(scratch) / "r2.netrc"
+        auth.touch(mode=0o600)
+        seen = set()
+        for bucket, source, keys in checks:
+            entry = (bucket, keys)
+            if entry in seen:
+                continue
+            seen.add(entry)
+            login, password = keys
+            auth.write_text(f"machine {hostname}\nlogin {json.dumps(login)}\npassword {json.dumps(password)}\n")
+            result = subprocess.run(
+                ["curl", "-q", "--silent", "--proto", "=https", "--max-time", "15", "--output", os.devnull,
+                 "--write-out", "%{http_code}", "--netrc-file", auth, "--aws-sigv4", "aws:amz:auto:s3",
+                 f"{endpoint.rstrip('/')}/{bucket}?list-type=2&max-keys=1"], capture_output=True, text=True,
+            )
+            if result.returncode or result.stdout != "200":
+                status = result.stdout if re.fullmatch(r"[1-5][0-9]{2}", result.stdout) else "unavailable"
+                raise DrillError(f"Could not list {bucket} using {source} ({status})")
 
 
 def package_upload(work, directory, endpoint):
@@ -255,7 +317,7 @@ bash "$payload/remote-restore.sh" "$payload"'''
 
 
 def drill(api, directory, endpoint, firewall):
-    check_inputs(directory, endpoint)
+    preflight_r2(directory, endpoint)
     with tempfile.TemporaryDirectory(prefix="headmesh-restore-drill-") as path:
         work = Path(path)
         archive = package_upload(work, directory, endpoint)
@@ -312,8 +374,15 @@ def main():
     run = commands.add_parser("run", help="provision a disposable VM and verify R2 recovery")
     run.add_argument("--credentials", required=True, type=Path)
     run.add_argument("--firewall-id", type=int)
+    preflight = commands.add_parser("preflight", help="verify the R2 credentials before starting a cloud drill")
+    preflight.add_argument("--credentials", required=True, type=Path)
     commands.add_parser("janitor", help="delete expired Headmesh restore drill VMs")
     args = parser.parse_args()
+    endpoint = os.getenv("HEADMESH_R2_ENDPOINT", "")
+    if args.command == "preflight":
+        preflight_r2(args.credentials, endpoint)
+        print("Read-only credential checks passed for all three Headmesh backup buckets")
+        return
     token = os.environ.pop("HCLOUD_TOKEN", "").strip()
     if not token:
         raise DrillError("HCLOUD_TOKEN is required for the dedicated Hetzner recovery project")
@@ -321,7 +390,7 @@ def main():
     if args.command == "janitor":
         janitor(api)
     else:
-        print(json.dumps(drill(api, args.credentials, os.getenv("HEADMESH_R2_ENDPOINT", ""), args.firewall_id)))
+        print(json.dumps(drill(api, args.credentials, endpoint, args.firewall_id)))
 
 
 def terminate(_signum, _frame):

@@ -6,6 +6,31 @@ services disabled. Set up separate bucket-scoped R2 credentials for
 `hm-hs1-litestream` and `hm-pg` before enabling either service.
 [Cloudflare R2 S3 API reference](https://developers.cloudflare.com/r2/api/s3/api/)
 
+**Start here.** The [credential setup guide](credential-setup.md) has the
+dashboard links, exact file fields and the reason the Headmesh plan chose
+R2. Run `deploy/backup/init-credentials.sh` to create the empty private
+files outside this repository.
+
+## Production rollout
+
+1. Deploy a release containing the backup commands and `deployctl` support
+   for manifest publication. Keep the writer credentials on the primary.
+2. Copy `publish/litestream.aws`, `publish/keys.netrc`,
+   `publish/manifest.netrc` and `publish/manifest.env` to
+   `/etc/headmesh/backup/` with mode `0600`, owned by root. Put the
+   `HEADMESH_R2_ENDPOINT` line in `/etc/headmesh/backup/litestream.env`.
+   Use the matching public age recipients when publishing the key bundle.
+3. Install the tools and start Litestream, then verify a fresh SQLite
+   restore. Add `publish/headmesh-r2.conf` as
+   `/etc/pgbackrest/conf.d/headmesh-r2.conf` with mode `0640`, owned by
+   `root:postgres`. Install the base pgBackRest config and enable WAL
+   archiving during the PostgreSQL maintenance window. Verify the first
+   full backup and its WAL before enabling the timers.
+4. Publish the encrypted Headscale bundle and the first recovery manifest.
+   Read back the manifest and verify the isolated cloud drill with the
+   read-only credentials. Enable the scheduled drill after the manual run
+   succeeds.
+
 ## Headscale SQLite
 
 1. Verify and install the Litestream v0.5.17 release package. The unit expects
@@ -154,9 +179,14 @@ files are removed at exit.
 
 Deploy a release with the publisher command before enabling the timer.
 The service uses `deployctl` to locate the active production release.
+Create the publisher's restricted login once with `manifest-role.sql`,
+run as the PostgreSQL administrator in the Headmesh database. In a local
+`psql` session, set its password with `\password headmesh_backup_manifest`.
 Add its PostgreSQL connection settings to
 `/etc/headmesh/backup/manifest.env` and keep that file root-owned with mode
-`0600`. Create `/etc/headmesh/backup/manifest.netrc` with the hostname of
+`0600`. Use a `HEADMESH_DATABASE_URL` for `headmesh_backup_manifest`, for
+example `postgresql://headmesh_backup_manifest:<url-encoded-password>@127.0.0.1:5432/headmesh_prod`.
+Create `/etc/headmesh/backup/manifest.netrc` with the hostname of
 the R2 endpoint and a key scoped to the `hm-pg` bucket. Use the netrc
 `machine`, `login`, and `password` fields and the same permissions.
 The service reads SQLite with the existing Litestream credential.

@@ -53,6 +53,7 @@ DOCKERFILE
 
 docker run --rm -i "${container_args[@]}" \
   --mount "type=bind,src=${ROOT}/deploy/backup/postgresql-archive.conf,dst=/run/postgresql-archive.conf,readonly" \
+  --mount "type=bind,src=${ROOT}/deploy/backup/manifest-role.sql,dst=/run/manifest-role.sql,readonly" \
   --mount "type=bind,src=${BIN_DIR}/headmesh-server,dst=/usr/local/bin/headmesh-server,readonly" \
   --user postgres --entrypoint bash "${IMAGE}" -s <<'DRILL'
 set -euo pipefail
@@ -129,6 +130,13 @@ restored_sql() { psql -XqAt -v ON_ERROR_STOP=1 -h "${RESTORE_SOCKET}" -p 5433 -d
 pg_ctl -D "${PRIMARY}" -l "${ROOT}/primary.log" -w start >/dev/null
 export HEADMESH_DATABASE_URL="host=${SOCKET} port=5432 dbname=postgres user=postgres"
 HEADMESH_MIGRATE_DATABASE_URL="${HEADMESH_DATABASE_URL}" headmesh-server migrate >/dev/null
+primary_sql -f /run/manifest-role.sql
+manifest_database_url="${HEADMESH_DATABASE_URL} options='-c role=headmesh_backup_manifest'"
+if psql -XqAt -v ON_ERROR_STOP=1 "${manifest_database_url}" -c 'SELECT count(*) FROM orgs' >"${ROOT}/role.log" 2>&1; then
+  echo 'The manifest publisher unexpectedly had access to the organization table.' >&2
+  exit 1
+fi
+grep -q 'permission denied for table orgs' "${ROOT}/role.log"
 for org in fixture-provider fixture-consumer; do
   headmesh-server bootstrap -cell fixture-cell -server-url https://restore.example.test -base-domain mesh.test \
     -cell-mode enforce -org "${org}" >"${ROOT}/${org}.json"
@@ -193,7 +201,8 @@ if [[ -r /run/source-noise.key ]]; then
   cat /run/source-noise.key >"${noise_key}"
 fi
 capture_manifest() {
-  headmesh-server backup-manifest capture -sqlite "${source_sqlite}" -noise-key "${noise_key}"
+  HEADMESH_DATABASE_URL="${manifest_database_url}" \
+    headmesh-server backup-manifest capture -sqlite "${source_sqlite}" -noise-key "${noise_key}"
 }
 if [[ -r /run/litestream.yml ]]; then
   export HEADMESH_R2_ENDPOINT=https://headmesh-backup-s3:8443
@@ -209,7 +218,8 @@ if [[ -r /run/litestream.yml ]]; then
   }
   publish_manifest() {
     sed "s|/var/lib/headscale/db.sqlite|$1|" /run/litestream.yml >"${ROOT}/litestream.yml"
-    headmesh-server backup-manifest publish -sqlite "$1" -noise-key "${ROOT}/noise.key" \
+    HEADMESH_DATABASE_URL="${manifest_database_url}" \
+      headmesh-server backup-manifest publish -sqlite "$1" -noise-key "${ROOT}/noise.key" \
       -litestream-config "${ROOT}/litestream.yml" -netrc "${ROOT}/manifest.netrc"
   }
   publish_manifest "${source_sqlite}"

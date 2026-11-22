@@ -10,7 +10,7 @@ import threading
 import unittest
 from unittest.mock import patch
 
-from restore_drill import CREDENTIALS, DRILL_LABELS, RUN_LABEL, DrillError, Hetzner, drill, janitor, run_remote
+from restore_drill import CREDENTIALS, DRILL_LABELS, RUN_LABEL, DrillError, Hetzner, drill, janitor, preflight_r2, run_remote
 
 
 class CloudFixture(BaseHTTPRequestHandler):
@@ -81,10 +81,11 @@ def credentials(path):
 
 
 class RestoreDrillTest(unittest.TestCase):
+    @patch("restore_drill.preflight_r2")
     @patch("restore_drill.time.sleep")
     @patch("restore_drill.package_upload")
     @patch("restore_drill.run_remote")
-    def test_runs_only_with_pinned_host_and_confirms_deletion(self, remote, package, _):
+    def test_runs_only_with_pinned_host_and_confirms_deletion(self, remote, package, _, preflight):
         with provider() as (api, state), tempfile.TemporaryDirectory() as folder:
             directory = Path(folder)
             credentials(directory)
@@ -98,6 +99,7 @@ class RestoreDrillTest(unittest.TestCase):
 
             remote.side_effect = verify_ssh
             report = drill(api, directory, "https://fixture.example.test", 12)
+            preflight.assert_called_once()
             package.assert_called_once()
             self.assertEqual(state["create"]["server_type"], "cx23")
             self.assertEqual(state["create"]["firewalls"], [{"firewall": 12}])
@@ -108,10 +110,11 @@ class RestoreDrillTest(unittest.TestCase):
             self.assertTrue(report["server_deleted"])
             self.assertEqual(report["recovery_point_age_seconds"], 31)
 
+    @patch("restore_drill.preflight_r2")
     @patch("restore_drill.time.sleep")
     @patch("restore_drill.package_upload")
     @patch("restore_drill.run_remote", side_effect=DrillError("unusable SSH"))
-    def test_cleans_after_remote_failure_and_ambiguous_create(self, remote, _package, _):
+    def test_cleans_after_remote_failure_and_ambiguous_create(self, remote, _package, _sleep, _preflight):
         for lose_response in (False, True):
             with self.subTest(lose_response=lose_response), provider() as (api, state), tempfile.TemporaryDirectory() as folder:
                 credentials(Path(folder))
@@ -125,6 +128,33 @@ class RestoreDrillTest(unittest.TestCase):
                 remote.reset_mock()
             else:
                 remote.assert_not_called()
+
+    @patch("restore_drill.subprocess.run")
+    def test_preflight_checks_the_bucket_specific_files(self, command):
+        with tempfile.TemporaryDirectory() as folder:
+            directory = Path(folder)
+            credentials(directory)
+            files = {
+                "litestream.aws": "[default]\naws_access_key_id=id-one\naws_secret_access_key=one-secret\n",
+                "pgbackrest.conf": "[global]\nrepo1-s3-endpoint=fixture.example.test\nrepo1-s3-key=id-two\n"
+                                   "repo1-s3-key-secret=two-secret\nrepo1-cipher-pass=fixture-pass\n",
+                "manifest.netrc": "machine fixture.example.test login id-two password two-secret\n",
+                "keys.netrc": "machine fixture.example.test login id-three password three-secret\n",
+            }
+            for name, data in files.items():
+                (directory / name).write_text(data)
+            command.return_value = subprocess.CompletedProcess([], 0, stdout="200")
+            preflight_r2(directory, "https://fixture.example.test")
+            calls = [call.args[0] for call in command.call_args_list]
+            self.assertEqual([args[-1].split("/")[-1].split("?")[0] for args in calls],
+                             ["hm-hs1-litestream", "hm-pg", "hm-keys"])
+            self.assertTrue(all("--netrc-file" in args for args in calls))
+            self.assertNotIn("two-secret", str(calls))
+            command.reset_mock()
+            (directory / "keys.netrc").write_text('machine ""\n login ""\n password ""\n')
+            with self.assertRaisesRegex(DrillError, "keys.netrc"):
+                preflight_r2(directory, "https://fixture.example.test")
+            command.assert_not_called()
 
     @patch("restore_drill.time.sleep")
     def test_janitor_ignores_recent_and_other_ephemeral_servers(self, _):
