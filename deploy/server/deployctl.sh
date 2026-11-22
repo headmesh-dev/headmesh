@@ -13,6 +13,7 @@
 #   start-recovery-waitlist <release> <snapshot>        install a waitlist snapshot and start the private service
 #   prepare-recovery-ingress <nginx-dir> <site-release> <ipv4> <ipv6>  check standby HTTPS and publish its DERP/STUN
 #   finalize-recovery                                  adopt the recovered releases and persist startup
+#   verify-recovery-cell                               verify the recovered cell using a client receipt on stdin
 #   rollback         <component> <env> [keep-schema]   back to the previous release (marketing) or colour (services);
 #                                                      the backend's schema follows to what that colour ran with
 #   status           [env...]                          releases, colours, units and health
@@ -1059,6 +1060,71 @@ cmd_finalize_recovery() {
   log 'restored standby adopted on Blue and enabled for normal startup'
 }
 
+# Only the latest effective revision from the current recovery boot qualifies.
+# A newer due revision that is pending or failed must prevent a passing check.
+recovery_policy_revision() {
+  PGOPTIONS='-c default_transaction_read_only=on' psql_env prod -v start="$1" -v cell="$2" <<'SQL'
+SELECT r.revision, r.sha256, r.status,
+       COALESCE(r.applied_at >= :'start'::timestamptz, false)
+FROM policy_revisions r JOIN cells c ON c.id = r.cell_id
+WHERE c.name = :'cell' AND c.mode = 'enforce'
+  AND r.compiled_at >= :'start'::timestamptz AND r.effective_at <= clock_timestamp()
+ORDER BY r.revision DESC
+LIMIT 1;
+SQL
+}
+
+cmd_verify_recovery_cell() {
+  [[ $# == 0 ]] || die 'verify-recovery-cell reads the client receipt from stdin'
+  local record="${HM_STATE_ROOT}/recovery" state unit service started cell minimum noise receipt count
+  local revision expected status acknowledged applied before actual digest
+  state="$(state_dir prod)"
+  unit="$(unit_name backend prod blue)"
+  [[ -s "${record}/manifest.json" && -s "${state}/recovery.finalized" && "$(state_get prod backend.active)" == blue ]] ||
+    die 'verify the cell on the finalized recovered standby before an ordinary backend deploy'
+  grep -qx 'HEADMESH_RECOVERY=true' "${HM_ETC_ROOT}/instances/backend-prod-blue.env" || die 'the active Blue backend must be in recovery mode'
+  [[ "$(recovery_http_code "$(health_url prod backend blue)")" == 204 ]] || die 'the recovered backend is unready'
+  for service in "${unit}" headmesh-cellagent.service headscale.service; do
+    systemctl is-active --quiet "${service}" || die "${service} is not running on the recovered standby"
+  done
+
+  receipt="$(head -c 4097)"
+  [[ "${#receipt}" -le 4096 ]] || die 'temporary client receipt exceeds 4096 bytes'
+  jq -se '
+    length == 1 and (.[0] | keys == ["hostname", "ips", "node_key"]
+      and (.hostname | test("^hm-recovery-[0-9a-z]{10}$"))
+      and (.node_key | test("^nodekey:[0-9a-f]{64}$"))
+      and (.ips | type == "array" and length > 0 and length <= 2 and all(.[]; type == "string")))
+  ' <<<"${receipt}" >/dev/null 2>&1 || die 'invalid temporary client receipt'
+  minimum="$(jq -er '.headscale.node_count | numbers | select(. > 0 and floor == .)' "${record}/manifest.json")"
+  noise="$(jq -er '.headscale.noise_public_key_sha256 | select(test("^[0-9a-f]{64}$"))' "${record}/manifest.json")"
+  [[ "$(recovery_noise_hash 'http://127.0.0.1:8080/key?v=130')" == "${noise}" ]] || die 'the local cell serves a different Noise identity'
+
+  count="$(headscale nodes list -o json | jq -er --argjson client "${receipt}" --argjson minimum "${minimum}" '
+    ([.[] | select(.node_key == $client.node_key)]) as $matches
+    | select(($matches | length) == 1 and ($matches[0] |
+        .name == $client.hostname and .online == true and .pre_auth_key.ephemeral == true
+        and (.pre_auth_key.reusable != true) and ((.ip_addresses | sort) == ($client.ips | sort))))
+    | length - 1 | select(. >= $minimum)
+  ')" || die 'the temporary client is missing or mismatched, or the restored node count is below the manifest'
+
+  started="$(LC_ALL=C systemctl show --value -p ExecMainStartTimestamp "${unit}")"
+  [[ -n "${started}" ]] || die 'could not read the active recovery backend start time'
+  started="$(LC_ALL=C date -ud "${started}" '+%Y-%m-%dT%H:%M:%SZ')"
+  cell="$(hm_env prod CELL_NAME)"
+  before="$(recovery_policy_revision "${started}" "${cell}")"
+  IFS='|' read -r revision expected status acknowledged <<<"${before}"
+  [[ "${revision}" =~ ^[1-9][0-9]*$ && "${expected}" =~ ^[0-9a-f]{64}$ && "${status}" == applied && "${acknowledged}" == t ]] ||
+    die 'the current policy lacks a successful acknowledgement from this recovery boot'
+  # Headscale's CLI appends one newline to the exact policy returned by gRPC.
+  applied="$(headscale policy get | head -c -1 | sha256sum)"
+  actual="${applied%% *}"
+  [[ "${actual}" == "${expected}" ]] || die 'the policy served by Headscale differs from the acknowledged policy'
+  digest="$(recovery_policy_revision "${started}" "${cell}")"
+  [[ "${digest}" == "${before}" ]] || die 'the current policy changed during verification. Repeat the check.'
+  log "verified an online ephemeral client, ${count} other nodes, and acknowledged policy revision ${revision} (${actual})"
+}
+
 cmd_rollback() {
   local component="$1" env="$2" keep_schema="${3:-}"
   require_env "${env}"
@@ -1392,6 +1458,7 @@ main() {
     start-recovery-waitlist) cmd_start_recovery_waitlist "$@" ;;
     prepare-recovery-ingress) cmd_prepare_recovery_ingress "$@" ;;
     finalize-recovery) cmd_finalize_recovery "$@" ;;
+    verify-recovery-cell) cmd_verify_recovery_cell "$@" ;;
     rollback) cmd_rollback "$@" ;;
     status) cmd_status "$@" ;;
     prune) cmd_prune "$@" ;;
@@ -1401,7 +1468,7 @@ main() {
     smoke) cmd_smoke "$@" ;;
     cell-agent) cmd_cell_agent "$@" ;;
     tls-renewed) cmd_tls_renewed ;;
-    *) sed -n '2,28p' "${BASH_SOURCE[0]}" | sed 's/^# \{0,1\}//' >&2; exit 2 ;;
+    *) sed -n '2,29p' "${BASH_SOURCE[0]}" | sed 's/^# \{0,1\}//' >&2; exit 2 ;;
   esac
 }
 

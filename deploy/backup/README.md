@@ -534,9 +534,35 @@ command reads both providers again before reporting success.
 [Cloudflare proxy behavior](https://developers.cloudflare.com/dns/proxy-status/) · [Cloudflare cache responses](https://developers.cloudflare.com/cache/concepts/cache-responses/)
 
 If DNS still returns a fenced address or omits the standby's IPv6 address,
-let the resolver cache expire and retry the verification. Complete the
-Tailscale registration, node count, and applied policy checks before
-declaring the service recovered.
+let the resolver cache expire and retry the verification.
+
+### Verify Tailscale registration and the applied policy
+
+With the cutover verified and the restored Blue backend active, use the
+approved Headscale CI user to issue a single-use ephemeral pre-auth key.
+On the standby, use `headscale preauthkeys create --user "$ci_user_id"
+--expiration 5m --ephemeral -o json`. Transfer its `key` field to a private
+`0600` file on the recovery runner and remove the file after use.
+[Headscale registration](https://headscale.net/stable/ref/registration/)
+
+On the independent runner, with `tailscale` and `tailscaled` installed, run
+the check against the public Headscale hostname. Use the standby's verified
+SSH host key and an operator account allowed to run the verifier as root.
+
+```bash
+deploy/ha/check-recovered-client.sh "$ephemeral_key_file" -- \
+  ssh -o BatchMode=yes -o StrictHostKeyChecking=yes -o ConnectTimeout=8 \
+  "$standby_ssh" sudo -n /usr/local/lib/headmesh/deployctl.sh verify-recovery-cell
+```
+
+The isolated userspace client sends its hostname, public node key, and
+assigned addresses to the standby while it is online. The verifier confirms
+the ephemeral registration and requires at least the manifest's node count
+after excluding that client. It checks the original Noise identity and hashes
+the policy served by Headscale. The hash must equal the newest effective
+revision acknowledged during this recovery boot. The runner logs out and
+stops its temporary daemon when verification finishes.
+[Tailscale userspace daemon and in-memory state](https://tailscale.com/docs/reference/tailscaled)
 
 ### Headscale startup and registration
 

@@ -258,6 +258,9 @@ check "boot preserved the recovered signup" test \
   "$(on sqlite3 -readonly /var/lib/headmesh/prod/waitlist/waitlist.db "SELECT count(*) FROM waitlist WHERE email = 'e2e@example.com' AND confirmed_at IS NOT NULL")" = 1
 check "boot restored the dual-stack UDP relay socket" grep -q ':3478' <<<"$(on ss -6 -Hlun 'sport = :3478')"
 
+say "Register and verify a separate Tailscale client after the standby boots"
+bash "${ROOT}/deploy/tests/recovery-client.sh" "${NAME}" "${IMAGE}"
+
 say "Prepare a fresh standby with the runtime held offline"
 bash "${ROOT}/deploy/tests/recovery-prepare.sh" "${IMAGE}"
 
