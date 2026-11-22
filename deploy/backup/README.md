@@ -362,17 +362,21 @@ deploy/deploy.sh --render-recovery-nginx "$rendered_nginx"
 ```
 
 Transfer that directory to the standby. With nginx still masked, run this
-as root on the standby, using the directory you transferred.
+as root with the directory you transferred and the assigned standby addresses
+from `start-standby`.
 
 ```sh
-/usr/local/lib/headmesh/deployctl.sh prepare-recovery-ingress "$rendered_nginx" "$site_release"
+/usr/local/lib/headmesh/deployctl.sh prepare-recovery-ingress \
+  "$rendered_nginx" "$site_release" "$standby_ipv4" "$standby_ipv6"
 ```
 
-The command checks live backend readiness and verifies that the certificate
-is trusted for the production hostnames. It validates the config, starts
-nginx, then checks the site, API readiness, and Headscale's Noise key over
-local HTTPS. On failure it restores the previous files and masks nginx.
-On success nginx stays running for verification during this boot.
+The command checks live backend readiness, that both addresses are assigned
+to the standby and that the certificate is trusted for the production names.
+After validating the nginx config it switches Headscale's advertised DERP
+addresses to the standby and starts native STUN on UDP 3478. It waits for the
+cell agent to reconnect, starts nginx and checks local HTTPS. If a check fails,
+it masks nginx and restores Headscale's loopback STUN listener.
+[Headscale embedded DERP and STUN](https://headscale.net/stable/ref/derp/#enable-embedded-derp)
 
 Run the external proof from an independent runner with IPv4 and IPv6
 connectivity. Pass the addresses assigned by Hetzner and the manifest
@@ -383,14 +387,15 @@ go run ./cmd/headmesh-recover prove-ingress \
   -ipv4 "$standby_ipv4" -ipv6 "$standby_ipv6" -manifest "$verified_manifest"
 ```
 
-The command connects directly to each supplied IP on port 443 while
-verifying TLS for each live hostname. It checks Headscale health and its
-served Noise key, API readiness, and the site at `headmesh.dev`. A failed
-certificate check, redirect, unexpected key, or unready service stops the
-proof. [Direct HTTPS resolution and SNI](https://everything.curl.dev/usingcurl/connections/name.html)
+The command connects directly to both addresses. It verifies TLS, Headscale
+health and Noise identity, the HTTPS DERP probe, API readiness and the site.
+It also requires a STUN Binding Success response with a usable client address
+and port from each address on UDP 3478. Use a standby firewall that admits
+the runner over TCP 443 and UDP 3478 on both address families.
+[Direct HTTPS resolution and SNI](https://everything.curl.dev/usingcurl/connections/name.html)
 
 Keep DNS pointed at the existing records during verification. Promotion also
-needs the waitlist service and public DERP STUN listener restored and checked.
+needs the waitlist service restored and checked.
 
 ### Headscale startup and registration
 

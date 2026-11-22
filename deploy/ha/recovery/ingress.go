@@ -24,11 +24,19 @@ type StandbyIngress struct {
 	NoiseKeySHA256 string
 }
 
-// ProveIngress verifies HTTPS directly on both standby addresses using the
-// public hostnames for certificate verification, SNI and HTTP routing.
+// ProveIngress verifies HTTPS and native STUN on both standby addresses. The
+// public hostnames are used for certificate verification, SNI and HTTP routing.
 func ProveIngress(ctx context.Context, standby StandbyIngress) error {
 	dialer := net.Dialer{Timeout: 5 * time.Second}
-	return proveIngress(ctx, standby, nil, dialer.DialContext)
+	if err := proveIngress(ctx, standby, nil, dialer.DialContext); err != nil {
+		return err
+	}
+	for _, addr := range []netip.Addr{standby.IPv4, standby.IPv6} {
+		if err := probeSTUN(ctx, netip.AddrPortFrom(addr, 3478)); err != nil {
+			return fmt.Errorf("verify STUN on standby address %s: %w", addr, err)
+		}
+	}
+	return nil
 }
 
 func proveIngress(ctx context.Context, standby StandbyIngress, roots *x509.CertPool, dial func(context.Context, string, string) (net.Conn, error)) error {
@@ -47,6 +55,7 @@ func proveIngress(ctx context.Context, standby StandbyIngress, roots *x509.CertP
 	}{
 		{"https://hs1.headmesh.dev/health", http.StatusOK, nil},
 		{"https://hs1.headmesh.dev/key?v=130", http.StatusOK, func(body []byte) error { return checkNoiseKey(body, hash) }},
+		{"https://hs1.headmesh.dev/derp/probe", http.StatusOK, nil},
 		{"https://api.headmesh.dev/readyz", http.StatusNoContent, nil},
 		{"https://headmesh.dev/", http.StatusOK, checkHeadmeshSite},
 	}

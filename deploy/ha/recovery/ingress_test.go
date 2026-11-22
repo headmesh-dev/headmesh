@@ -36,6 +36,7 @@ func TestProveStandbyIngress(t *testing.T) {
 		wrongNoise  bool
 		redirect    bool
 		apiNotReady bool
+		derpAbsent  bool
 	}{
 		{name: "both standby addresses serve the restored services"},
 		{name: "wrong certificate host", certNames: []string{api, site}, want: "certificate is valid for"},
@@ -44,6 +45,7 @@ func TestProveStandbyIngress(t *testing.T) {
 		{name: "refuse an off-host redirect", redirect: true, want: "HTTP 302"},
 		{name: "backend still recovering", apiNotReady: true, want: "HTTP 503"},
 		{name: "IPv6 ingress absent", breakIPv6: true, want: "2001:db8::22"},
+		{name: "DERP HTTP probe absent", derpAbsent: true, want: "derp/probe"},
 	} {
 		t.Run(test.name, func(t *testing.T) {
 			names := []string{hs, api, site}
@@ -69,6 +71,10 @@ func TestProveStandbyIngress(t *testing.T) {
 						served = "mkey:" + strings.Repeat("ba", 32)
 					}
 					_, _ = fmt.Fprintf(w, `{"publicKey":%q}`, served)
+				case hs + "/derp/probe":
+					if test.derpAbsent {
+						w.WriteHeader(http.StatusNotFound)
+					}
 				case api + "/readyz":
 					if test.apiNotReady {
 						w.WriteHeader(http.StatusServiceUnavailable)

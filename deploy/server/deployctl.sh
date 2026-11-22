@@ -10,7 +10,7 @@
 #   activate-static  <env> <release>                   atomically switch the marketing site to a release
 #   activate-service <service> <env> <release> [drain] blue-green switch of waitlist or backend
 #   start-recovery   <release>                        start a restored prod backend and cell behind closed ingress
-#   prepare-recovery-ingress <nginx-dir> <site-release>  start and check nginx on the ready standby
+#   prepare-recovery-ingress <nginx-dir> <site-release> <ipv4> <ipv6>  check standby HTTPS and publish its DERP/STUN
 #   rollback         <component> <env> [keep-schema]   back to the previous release (marketing) or colour (services);
 #                                                      the backend's schema follows to what that colour ran with
 #   status           [env...]                          releases, colours, units and health
@@ -714,23 +714,43 @@ SQL
 }
 
 rollback_recovery_ingress() {
-  local status="$1"
+  local status="$1" relay_conf="$2" cell="$3"
+  local relay_changed=0
   trap - EXIT INT TERM ERR
   set +e
   systemctl stop nginx.service || log 'check that nginx stopped'
   systemctl mask --quiet nginx.service || log 'could not restore the nginx mask'
   systemctl reset-failed nginx.service 2>/dev/null || true
+  [[ -f "${relay_conf}" ]] && relay_changed=1
   nginx_txn_restore || log "check the previous nginx files in ${NGINX_TXN_DIR}"
+  if (( relay_changed )); then
+    if [[ -e "${relay_conf}" ]] || ! restart_recovery_cell "${cell}"; then
+      systemctl stop headmesh-cellagent.service headscale.service || log 'check that the failed standby cell stopped'
+      log 'could not recover the private cell after rolling back public ingress'
+    fi
+  fi
   exit "${status}"
 }
 
+restart_recovery_cell() {
+  local cell="$1" since
+  systemctl stop headmesh-cellagent.service || return 1
+  systemctl daemon-reload || return 1
+  systemctl restart headscale.service || return 1
+  wait_healthy http://127.0.0.1:8080/health || return 1
+  since="$(psql_env prod <<<"SELECT now();")" || return 1
+  systemctl start headmesh-cellagent.service || return 1
+  wait_cell_seen prod "${cell}" "${since}"
+}
+
 cmd_prepare_recovery_ingress() {
-  [[ $# == 2 ]] || die 'prepare-recovery-ingress requires a rendered prod nginx directory and a marketing release'
+  [[ $# == 4 ]] || die 'prepare-recovery-ingress requires an nginx directory, a marketing release and the standby IPv4 and IPv6'
   umask 077
-  local staging="$1" site_release="$2" env=prod record="${HM_STATE_ROOT}/recovery"
+  local staging="$1" site_release="$2" ipv4="$3" ipv6="$4" env=prod record="${HM_STATE_ROOT}/recovery"
   local root="${HM_SRV_ROOT}/prod/marketing" tls="${HM_ETC_ROOT}/tls/fullchain.pem"
   local ca=/etc/ssl/certs/ca-certificates.crt enabled=/etc/nginx/sites-enabled
-  local backend api cell site expected_noise actual_noise host pair service waitlist
+  local relay_conf=/etc/systemd/system/headscale.service.d/standby-relay.conf
+  local backend api cell cell_name site expected_noise actual_noise host pair service waitlist stun_pid
   require_release "${site_release}"
   install -d -m 0700 /run/headmesh-recovery-state
   exec 9>/run/headmesh-recovery-state/lock
@@ -739,6 +759,11 @@ cmd_prepare_recovery_ingress() {
     die 'start the restored backend first'
   [[ ! -e "${record}/ingress-ready" && "$(readlink /etc/systemd/system/nginx.service || true)" == /dev/null &&
     "$(systemctl show -p ActiveState --value nginx.service)" == inactive ]] || die 'nginx must be masked and inactive on the standby'
+  [[ ! -e "${relay_conf}" && ! -L "${relay_conf}" ]] || die 'a public relay configuration already exists on the standby'
+  ip -4 -j address show scope global | jq -e --arg ip "${ipv4}" 'any(.[].addr_info[]; .local == $ip)' >/dev/null ||
+    die 'the standby IPv4 must be assigned to this server'
+  ip -6 -j address show scope global | jq -e --arg ip "${ipv6}" 'any(.[].addr_info[]; .local == $ip and .tentative != true and .dadfailed != true)' >/dev/null ||
+    die 'the standby IPv6 must be assigned to this server'
   backend="$(<"${record}/backend-ready")"
   require_release "${backend}"
   [[ "$(readlink "$(slot_path backend "${env}" blue)" || true)" == "${HM_SRV_ROOT}/prod/backend/releases/${backend}" &&
@@ -747,6 +772,7 @@ cmd_prepare_recovery_ingress() {
     die 'install the matching marketing release first'
   api="$(hm_env "${env}" API_HOST)"
   cell="$(hm_env "${env}" CELL_HOST)"
+  cell_name="$(hm_env "${env}" CELL_NAME)"
   site="$(hm_env "${env}" SITE_HOST)"
   expected_noise="$(jq -er '.headscale.noise_public_key_sha256 | select(test("^[0-9a-f]{64}$"))' "${record}/manifest.json")"
   [[ -s "${tls}" && -s "${HM_ETC_ROOT}/tls/privkey.pem" ]] || die 'install the DNS-01 certificate and private key first'
@@ -762,7 +788,7 @@ cmd_prepare_recovery_ingress() {
   done
   waitlist="$(state_get "${env}" waitlist.active)"
   nginx_txn_begin
-  trap 'rollback_recovery_ingress "$?"' EXIT
+  trap 'rollback_recovery_ingress "$?" "${relay_conf}" "${cell_name}"' EXIT
   trap 'exit 130' INT
   trap 'exit 143' TERM
   render_upstream "${env}" backend blue "${NGINX_TXN_DIR}"
@@ -780,6 +806,16 @@ cmd_prepare_recovery_ingress() {
   nginx_txn_link "/etc/nginx/sites-available/headmesh-${env}.conf" "${enabled}/headmesh-${env}.conf"
   nginx_txn_link "releases/${site_release}" "${root}/current"
   nginx_check || die 'the standby nginx configuration failed validation'
+  cat >"${NGINX_TXN_DIR}/recovery-relay.conf" <<EOF
+[Service]
+Environment=HEADSCALE_DERP_SERVER_IPV4=${ipv4}
+Environment=HEADSCALE_DERP_SERVER_IPV6=${ipv6}
+Environment=HEADSCALE_DERP_SERVER_STUN_LISTEN_ADDR=[::]:3478
+EOF
+  nginx_txn_put "${NGINX_TXN_DIR}/recovery-relay.conf" "${relay_conf}"
+  restart_recovery_cell "${cell_name}" || die 'the standby cell did not reconnect after enabling its relay'
+  stun_pid="$(systemctl show -p MainPID --value headscale.service)"
+  ss -6 -Hlunp 'sport = :3478' | grep -F "pid=${stun_pid}," >/dev/null || die 'Headscale did not start its public STUN listener'
   systemctl unmask --quiet nginx.service
   systemctl disable --quiet nginx.service
   systemctl start nginx.service
@@ -787,6 +823,8 @@ cmd_prepare_recovery_ingress() {
     die 'the standby API is unready through nginx'
   [[ "$(recovery_http_code --cacert "${ca}" --resolve "${cell}:443:127.0.0.1" "https://${cell}/health")" == 200 ]] ||
     die 'the standby Headscale is unready through nginx'
+  [[ "$(recovery_http_code --cacert "${ca}" --resolve "${cell}:443:127.0.0.1" "https://${cell}/derp/probe")" == 200 ]] ||
+    die 'the standby DERP probe is unready through nginx'
   actual_noise="$(recovery_noise_hash --cacert "${ca}" --resolve "${cell}:443:127.0.0.1" "https://${cell}/key?v=130")"
   [[ "${actual_noise}" == "${expected_noise}" ]] || die 'nginx served a different Headscale Noise identity'
   [[ "$(recovery_http_code --cacert "${ca}" --resolve "${site}:443:127.0.0.1" "https://${site}/")" == 200 ]] ||
@@ -794,7 +832,7 @@ cmd_prepare_recovery_ingress() {
   printf '%s\n%s\n' "${backend}" "${site_release}" >"${record}/ingress-ready.tmp"
   mv -f "${record}/ingress-ready.tmp" "${record}/ingress-ready"
   trap - EXIT INT TERM
-  log 'standby HTTPS passed on loopback; run headmesh-recover prove-ingress from the recovery runner'
+  log 'standby HTTPS passed on loopback and Headscale STUN is listening; run headmesh-recover prove-ingress from the recovery runner'
 }
 
 cmd_rollback() {

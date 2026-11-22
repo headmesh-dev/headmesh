@@ -127,6 +127,11 @@ cp /etc/nginx/sites-available/headmesh-prod.conf "${rendered}/sites/"
 cp /etc/nginx/headmesh/prod/stream.conf "${rendered}/stream/prod.conf"
 site_root=/srv/headmesh/prod/marketing
 site="${site_root}/releases/${release}"
+standby_ipv4=192.0.2.77
+standby_ipv6=2001:db8:77::1
+ip -4 address add "${standby_ipv4}/32" dev lo
+ip -6 address add "${standby_ipv6}/128" dev lo nodad
+prepare_ingress() { "${ctl}" prepare-recovery-ingress "$1" "${release}" "${standby_ipv4}" "${standby_ipv6}"; }
 install -d -m 0755 "${site_root}" "${site_root}/releases" "${site}" "${site}/site" "${site}/nginx"
 echo '<title>Headmesh</title>' >"${site}/site/index.html"
 echo '# Fixture security headers' >"${site}/nginx/security-headers.conf"
@@ -138,11 +143,18 @@ ingress_closed() {
   [[ "$(systemctl show -p ActiveState --value nginx.service)" == inactive &&
     "$(readlink /etc/systemd/system/nginx.service)" == /dev/null &&
     -L /etc/nginx/sites-enabled/default && ! -L "${site_root}/current" && ! -e "${record}/ingress-ready" &&
+    ! -e /etc/systemd/system/headscale.service.d/standby-relay.conf &&
+    "$(ss -Hlun 'sport = :3478' | awk '{print $4}')" == 127.0.0.1:3478 &&
     "$(sha256sum /etc/nginx/headmesh/prod/backend-upstream.conf)" == "${before_upstream}" &&
     "$(sha256sum /etc/nginx/sites-available/headmesh-prod.conf)" == "${before_vhost}" ]]
 }
 
-if "${ctl}" prepare-recovery-ingress "${rendered}" "${release}" >"${tmp}/untrusted.log" 2>&1; then exit 1; fi
+if "${ctl}" prepare-recovery-ingress "${rendered}" "${release}" 192.0.2.177 "${standby_ipv6}" >"${tmp}/wrong-address.log" 2>&1; then
+  exit 1
+fi
+grep -q 'IPv4 must be assigned to this server' "${tmp}/wrong-address.log"
+ingress_closed
+if prepare_ingress "${rendered}" >"${tmp}/untrusted.log" 2>&1; then exit 1; fi
 grep -q 'certificate is untrusted or invalid' "${tmp}/untrusted.log"
 ingress_closed
 install -m 0644 /etc/headmesh/tls/fullchain.pem /usr/local/share/ca-certificates/recovery-fixture.crt
@@ -152,7 +164,7 @@ update-ca-certificates >/dev/null
 # and mask must be restored, and the staged backend must remain available.
 cp -a "${rendered}" "${tmp}/misrouted"
 sed -i 's#proxy_pass http://headmesh_prod_backend;#return 418;#' "${tmp}/misrouted/sites/headmesh-prod.conf"
-if "${ctl}" prepare-recovery-ingress "${tmp}/misrouted" "${release}" >"${tmp}/misrouted.log" 2>&1; then exit 1; fi
+if prepare_ingress "${tmp}/misrouted" >"${tmp}/misrouted.log" 2>&1; then exit 1; fi
 if ! grep -q 'API is unready through nginx' "${tmp}/misrouted.log"; then
   cat "${tmp}/misrouted.log" >&2
   exit 1
@@ -160,7 +172,7 @@ fi
 ingress_closed
 [[ "$(probe http://127.0.0.1:8101/readyz)" == 204 ]]
 
-"${ctl}" prepare-recovery-ingress "${rendered}" "${release}"
+prepare_ingress "${rendered}"
 systemctl is-active --quiet nginx.service
 [[ "$(systemctl show -p UnitFileState --value nginx.service)" == disabled ]]
 [[ "$(cat "${record}/ingress-ready")" == "$(printf '%s\n%s' "${release}" "${release}")" ]]
@@ -168,6 +180,9 @@ systemctl is-active --quiet nginx.service
 for address in 127.0.0.1 '[::1]'; do
   [[ "$(probe --resolve "api.headmesh.dev:443:${address}" https://api.headmesh.dev/readyz)" == 204 ]]
   [[ "$(probe --resolve "hs1.headmesh.dev:443:${address}" https://hs1.headmesh.dev/health)" == 200 ]]
+  [[ "$(probe --resolve "hs1.headmesh.dev:443:${address}" https://hs1.headmesh.dev/derp/probe)" == 200 ]]
   [[ "$(probe --resolve "headmesh.dev:443:${address}" https://headmesh.dev/)" == 200 ]]
 done
+derp_log="$(journalctl -u headscale.service -n 80 --no-pager -o cat)"
+grep -F "IPv4:${standby_ipv4} IPv6:${standby_ipv6} STUNPort:3478" <<<"${derp_log}" >/dev/null
 echo 'Standby rejected untrusted TLS, rolled back a misroute, and served verified HTTPS on IPv4 and IPv6 after retry.'
