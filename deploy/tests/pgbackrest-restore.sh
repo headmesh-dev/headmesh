@@ -16,13 +16,18 @@ if (( $# != 0 )); then
   [[ $# == 3 ]] || { echo "usage: $0 [test-network test-ca-file sqlite-fixtures]" >&2; exit 2; }
   container_args=(
     --network "$1"
+    --security-opt seccomp=unconfined
     --mount "type=bind,src=$2,dst=/run/s3-ca.crt,readonly"
     --mount "type=bind,src=${ROOT}/deploy/backup/pgbackrest-r2.conf,dst=/run/pgbackrest-r2.conf,readonly"
     --mount "type=bind,src=$3/offline-primary/db.sqlite,dst=/run/source-headscale.sqlite,readonly"
     --mount "type=bind,src=$3/restored/final.sqlite,dst=/run/restored-headscale.sqlite,readonly"
     --mount "type=bind,src=$3/litestream,dst=/usr/local/bin/litestream,readonly"
     --mount "type=bind,src=${ROOT}/deploy/backup/litestream-r2.yml,dst=/run/litestream.yml,readonly"
-    --mount "type=bind,src=${ROOT}/deploy/backup/restore-isolated.sh,dst=/run/restore-isolated.sh,readonly"
+    --mount "type=bind,src=${ROOT}/deploy/backup,dst=/run/backup,readonly"
+    --mount "type=bind,src=$3/noise.key,dst=/run/source-noise.key,readonly"
+    --mount "type=bind,src=$3/headscale,dst=/usr/local/bin/headscale,readonly"
+    --mount "type=bind,src=$3/tailscale,dst=/usr/local/bin/tailscale,readonly"
+    --mount "type=bind,src=$3/tailscaled,dst=/usr/local/bin/tailscaled,readonly"
     --env HM_DRILL_PG_KEY
     --env HM_DRILL_PG_SECRET
     --env HM_DRILL_SQLITE_KEY
@@ -40,7 +45,7 @@ ENV DEBIAN_FRONTEND=noninteractive
 RUN mkdir -p /etc/postgresql-common \
  && echo 'create_main_cluster = false' > /etc/postgresql-common/createcluster.conf \
  && apt-get update -qq \
- && apt-get install -y --no-install-recommends age ca-certificates curl jq pgbackrest postgresql-18 sqlite3 \
+ && apt-get install -y --no-install-recommends age ca-certificates curl iproute2 jq openssl pgbackrest postgresql-18 sqlite3 \
  && rm -rf /var/lib/apt/lists/*
 DOCKERFILE
 } | docker build -t "${IMAGE}" -
@@ -160,6 +165,9 @@ for kind in noise derp; do
 done
 noise_key="${ROOT}/noise.key"
 derp_key="${ROOT}/derp.key"
+if [[ -r /run/source-noise.key ]]; then
+  cat /run/source-noise.key >"${noise_key}"
+fi
 capture_manifest() {
   headmesh-server backup-manifest capture -sqlite "${source_sqlite}" -noise-key "${noise_key}"
 }
@@ -292,7 +300,7 @@ printf 'Point-in-time recovery passed in %s seconds. The WAL-only row was restor
 pg_ctl -D "${RESTORED}" -m fast -w stop >/dev/null
 if [[ -f "${ROOT}/published.json" ]]; then
   mkdir "${ROOT}/drill-work"
-  HEADMESH_DATABASE_URL='host=/run/unavailable' /run/restore-isolated.sh "${ROOT}/drill-work" /run/litestream.yml \
+  HEADMESH_DATABASE_URL='host=/run/unavailable' /run/backup/restore-isolated.sh --check-cell "${ROOT}/drill-work" /run/litestream.yml \
     "${ROOT}/manifest.netrc" "${ROOT}/keys.netrc" "${ROOT}/recovery.agekey"
   [[ -z "$(find "${ROOT}/drill-work" -mindepth 1 -print -quit)" ]]
 fi

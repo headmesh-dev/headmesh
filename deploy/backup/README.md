@@ -37,12 +37,12 @@ services disabled. Set up separate bucket-scoped R2 credentials for
    `conf.d` directory during a maintenance window. Enabling `archive_mode`
    requires a PostgreSQL restart.
 3. Run `sudo -u postgres pgbackrest --stanza=headmesh stanza-create`,
-   then `check` and `--type=full backup` with the same stanza. Verify the
-   new backup in `pgbackrest --stanza=headmesh info` before enabling the
+   then `check` and `--type=full backup` with anza=headmesh info` before enabling the
    timers under `systemd/`. The full backup runs on Sundays at 04:00 UTC.
    The differential runs at the same time on the other six days.
 
-The workstation drill exercises both database configs, the encrypted
+The workstation drill exercises both database configs, the same stanza. Verify the
+   new backup in `pgbackrest --stthe encrypted
 key bundle and the isolated restore script against a disposable TLS-enabled
 S3 endpoint. Each bucket uses a separate credential. The drill runs
 independently of GitHub Actions.
@@ -191,5 +191,28 @@ SQLite, and replays PostgreSQL to the end of the archived WAL stream. It
 starts PostgreSQL with a private Unix socket and archive writes disabled.
 After manifest verification it stops the temporary database and cleans the
 restored files. It reports the elapsed time for backup verification and the
-age of the manifest at download. Record service startup, registration, audit
-and API checks separately for the full [restore drill](../../docs/plan.md#135-restore-drills-requirement-2).
+age of the manifest at download.
+
+### Headscale startup and registration
+
+Add `--check-cell` before the working directory to check the restored cell.
+Install the deployed versions of `headscale`, `tailscale`, and `tailscaled`,
+plus `ip` and `openssl`. The host needs `unshare` and support for unprivileged
+user and network namespaces.
+
+```sh
+deploy/backup/restore-isolated.sh --check-cell /path/to/private-work /path/to/litestream.yml \
+  /path/to/manifest.netrc /path/to/keys.netrc /path/to/recovery.agekey
+```
+
+This check starts Headscale on loopback with the restored SQLite database,
+Noise key and DERP key. It creates a drill CA, verifies that Headscale
+serves the manifest's Noise identity, checks the exact node count, and
+validates the recovered policy with `headscale policy check`. A userspace
+Tailscale client registers over TLS with an ephemeral key and in-memory
+state. The network namespace has no path to other networks. All processes
+and temporary credentials are removed afterward.
+[Tailscale userspace networking](https://tailscale.com/docs/concepts/userspace-networking)
+
+Record the Headmesh recovery sweep, audit and API checks separately for the
+full [restore drill](../../docs/plan.md#135-restore-drills-requirement-2).

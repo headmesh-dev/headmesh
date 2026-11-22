@@ -6,10 +6,14 @@ umask 077
 ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/../.." && pwd)"
 S3=chrislusf/seaweedfs:4.54@sha256:4b42c212543a0acd4c0e675215ecdcaf62a186ef98def76c7e12701871222d15
 LITESTREAM=litestream/litestream:0.5.17@sha256:4b02b9859a6b6b4087d8b8944e15f7e984bd7957cba322bbeee38b0e27b9656a
+HEADSCALE=headscale/headscale:v0.29.7@sha256:11f81665e842809db9fe3006a38c56a66e968baa5abd4bac498e86445572b970
+TAILSCALE=tailscale/tailscale:v1.104.7@sha256:72c1e19e0aedca96b8533bbb0b4368564410ff20b17e53b804eb6c1f04a31be4
 WORK="$(mktemp -d)"
 NETWORK="hm-drill-${WORK##*.}"
 S3_CONTAINER="${NETWORK}-s3"
 REPLICATOR="${NETWORK}-litestream"
+HEADSCALE_CONTAINER="${NETWORK}-headscale"
+TAILSCALE_CONTAINER="${NETWORK}-tailscale"
 S3_HOST=headmesh-backup-s3
 DB=/var/lib/headscale/db.sqlite
 
@@ -20,7 +24,7 @@ cleanup() {
     docker logs --tail 25 "${S3_CONTAINER}" >&2 || true
   fi
   docker stop -t 3 "${REPLICATOR}" "${S3_CONTAINER}" >/dev/null 2>&1 || true
-  docker rm -v "${REPLICATOR}" "${S3_CONTAINER}" >/dev/null 2>&1 || true
+  docker rm -v "${REPLICATOR}" "${S3_CONTAINER}" "${HEADSCALE_CONTAINER}" "${TAILSCALE_CONTAINER}" >/dev/null 2>&1 || true
   docker network rm "${NETWORK}" >/dev/null 2>&1 || true
   rm -r -- "${WORK}"
 }
@@ -63,6 +67,21 @@ openssl req -x509 -newkey rsa:2048 -nodes -days 1 -subj "/CN=${S3_HOST}" \
   -addext "subjectAltName=DNS:${S3_HOST}" -keyout "${WORK}/server.key" -out "${WORK}/ca.crt" >/dev/null 2>&1
 chmod 0644 "${WORK}/ca.crt"
 mkdir "${WORK}/primary" "${WORK}/restored"
+docker create --name "${HEADSCALE_CONTAINER}" --network none "${HEADSCALE}" >/dev/null
+docker cp "${HEADSCALE_CONTAINER}:/ko-app/headscale" "${WORK}/headscale"
+docker create --name "${TAILSCALE_CONTAINER}" --network none "${TAILSCALE}" /bin/true >/dev/null
+docker cp "${TAILSCALE_CONTAINER}:/usr/local/bin/tailscale" "${WORK}/tailscale"
+docker cp "${TAILSCALE_CONTAINER}:/usr/local/bin/tailscaled" "${WORK}/tailscaled"
+chmod 0755 "${WORK}/headscale" "${WORK}/tailscale" "${WORK}/tailscaled"
+jq -n --arg dir "${WORK}" '{
+  server_url: "http://127.0.0.1:8080", listen_addr: "127.0.0.1:8080", unix_socket: ($dir + "/unused.sock"),
+  noise: {private_key_path: ($dir + "/noise.key")}, prefixes: {v4: "100.64.0.0/10", v6: "fd7a:115c:a1e0::/48"},
+  database: {type: "sqlite", sqlite: {path: ($dir + "/primary/db.sqlite"), write_ahead_log: true}},
+  policy: {mode: "database"}, dns: {magic_dns: false, override_local_dns: false}, disable_check_updates: true,
+  derp: {urls: [], paths: [], auto_update_enabled: false}
+}' >"${WORK}/source.json"
+unshare --user --map-root-user --net env -i PATH="${PATH}" "${WORK}/headscale" -c "${WORK}/source.json" configtest >/dev/null
+chmod 0644 "${WORK}/noise.key"
 docker network create --internal "${NETWORK}" >/dev/null
 docker run -d --name "${S3_CONTAINER}" --network "${NETWORK}" --network-alias "${S3_HOST}" \
   --tmpfs /data:rw,size=384m --mount "type=bind,src=${WORK},dst=/sandbox,readonly" "${S3}" \
@@ -74,19 +93,25 @@ sqlite_fixture() {
   python3 - "${WORK}/primary/db.sqlite" "$1" <<'PY'
 import sqlite3
 import sys
+import secrets
 
 with sqlite3.connect(sys.argv[1]) as database:
     assert database.execute("PRAGMA journal_mode=WAL").fetchone() == ("wal",)
     if sys.argv[2] == "initial":
         database.executescript("""
-            CREATE TABLE nodes (id INTEGER PRIMARY KEY, deleted_at TEXT);
-            CREATE TABLE users (id INTEGER PRIMARY KEY, deleted_at TEXT);
-            CREATE TABLE policies (id INTEGER PRIMARY KEY, deleted_at TEXT, data TEXT);
-            CREATE TABLE recovery_probe (entry TEXT PRIMARY KEY);
-            INSERT INTO policies VALUES (1,NULL,'{"grants":[]}');
+            INSERT INTO users (id, name, created_at) VALUES (1,'fixture',CURRENT_TIMESTAMP);
+            INSERT INTO policies (data, created_at, updated_at) VALUES ('{"grants":[]}',CURRENT_TIMESTAMP,CURRENT_TIMESTAMP);
         """)
-    database.execute("INSERT INTO nodes DEFAULT VALUES")
-    database.execute("INSERT INTO recovery_probe VALUES (?)", (sys.argv[2],))
+    name = "fixture-" + sys.argv[2]
+    database.execute("""
+        INSERT INTO nodes (machine_key, node_key, disco_key, hostname, given_name, ipv4, ipv6,
+                           endpoints, tags, approved_routes, user_id, created_at, updated_at)
+        VALUES (?, ?, ?, ?, ?, ?, ?, '[]', '[]', '[]', 1, CURRENT_TIMESTAMP, CURRENT_TIMESTAMP)
+    """, (
+        "mkey:" + secrets.token_hex(32), "nodekey:" + secrets.token_hex(32), "discokey:" + secrets.token_hex(32),
+        name, name, "100.64.0.1" if sys.argv[2] == "initial" else "100.64.0.2",
+        "fd7a:115c:a1e0::1" if sys.argv[2] == "initial" else "fd7a:115c:a1e0::2",
+    ))
 PY
 }
 
@@ -97,7 +122,8 @@ import sys
 
 with sqlite3.connect(f"file:{sys.argv[1]}?mode=ro", uri=True) as database:
     assert database.execute("PRAGMA integrity_check").fetchone() == ("ok",)
-    print(",".join(row[0] for row in database.execute("SELECT entry FROM recovery_probe ORDER BY entry")))
+    nodes = database.execute("SELECT hostname FROM nodes WHERE deleted_at IS NULL ORDER BY hostname")
+    print(",".join(row[0].removeprefix("fixture-") for row in nodes))
 PY
 }
 
