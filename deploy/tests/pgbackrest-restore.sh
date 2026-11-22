@@ -54,8 +54,41 @@ DOCKERFILE
 docker run --rm -i "${container_args[@]}" \
   --mount "type=bind,src=${ROOT}/deploy/backup/postgresql-archive.conf,dst=/run/postgresql-archive.conf,readonly" \
   --mount "type=bind,src=${ROOT}/deploy/backup/manifest-role.sql,dst=/run/manifest-role.sql,readonly" \
+  --mount "type=bind,src=${ROOT}/deploy,dst=/run/headmesh-deploy,readonly" \
   --mount "type=bind,src=${BIN_DIR}/headmesh-server,dst=/usr/local/bin/headmesh-server,readonly" \
-  --user postgres --entrypoint bash "${IMAGE}" -s <<'DRILL'
+  --entrypoint bash "${IMAGE}" -c '
+  set -euo pipefail
+  install -d -m 0700 -o postgres -g postgres /run/headmesh-drill
+  runuser -u postgres -- bash -s
+  if [[ -s /run/headmesh-drill/stage-path ]]; then
+    stage="$(</run/headmesh-drill/stage-path)"
+    useradd --system --no-create-home headscale
+    install -d /etc/systemd/system
+    ln -s /dev/null /etc/systemd/system/headscale.service
+    bash /run/headmesh-deploy/server/bootstrap.sh restore "${stage}"
+    [[ "$(pg_lsclusters -h | awk "{print \$4}")" == down ]]
+    if pg_ctlcluster --skip-systemctl-redirect 18 main start; then
+      echo "The imported database could start before explicit activation." >&2
+      exit 1
+    fi
+    [[ "$(runuser -u headscale -- sqlite3 -readonly /var/lib/headscale/db.sqlite "PRAGMA integrity_check")" == ok ]]
+    cmp "${stage}/keys/noise_private.key" /var/lib/headscale/noise_private.key
+    cmp "${stage}/keys/derp_server_private.key" /var/lib/headscale/derp_server_private.key
+    cmp "${stage}/manifest.json" /var/lib/headmesh/recovery/manifest.json
+    [[ "$(stat -c "%U:%a" /var/lib/headscale/noise_private.key)" == headscale:600 ]]
+    [[ ! -s /var/lib/postgresql/18/main/postgresql.auto.conf ]]
+    printf "%s\n" manual >/etc/postgresql/18/main/start.conf
+    pg_ctlcluster --skip-systemctl-redirect 18 main start
+    trap "pg_ctlcluster --skip-systemctl-redirect 18 main stop" EXIT
+    [[ "$(runuser -u postgres -- psql -XAt -c "SELECT count(*) FROM recovery_probe WHERE step = \$\$wal-only\$\$")" == 1 ]]
+    [[ "$(runuser -u postgres -- psql -XAt -c "SHOW archive_mode")" == off ]]
+    if bash /run/headmesh-deploy/server/bootstrap.sh restore "${stage}"; then
+      echo "A retry unexpectedly replaced an installed PostgreSQL cluster." >&2
+      exit 1
+    fi
+    printf "%s\n" "The standby imported both restored databases and keys. PostgreSQL opened the restored WAL-backed data only after explicit activation."
+  fi
+  ' <<'DRILL'
 set -euo pipefail
 umask 077
 export PATH="/usr/lib/postgresql/18/bin:${PATH}"
@@ -64,7 +97,8 @@ PRIMARY="${ROOT}/primary"
 RESTORED="${ROOT}/restored"
 SOCKET="${ROOT}/socket"
 RESTORE_SOCKET="${ROOT}/restore-socket"
-mkdir "${SOCKET}" "${RESTORE_SOCKET}" "${RESTORED}" "${ROOT}/repo" "${ROOT}/lock"
+mkdir "${SOCKET}" "${RESTORE_SOCKET}" "${RESTORED}" "${ROOT}/repo" "${ROOT}/lock" \
+  "${ROOT}/primary-tablespace" "${ROOT}/restored-tablespaces"
 
 diagnostics() {
   local status=$?
@@ -123,7 +157,10 @@ CONF
 cat /run/postgresql-archive.conf >>"${PRIMARY}/postgresql.conf"
 
 backup() { pgbackrest --stanza=headmesh "$@"; }
-restore() { backup --pg1-path="${RESTORED}" --type=name --target=headmesh_drill --target-action=promote restore; }
+restore() {
+  backup --pg1-path="${RESTORED}" --tablespace-map-all="${ROOT}/restored-tablespaces" \
+    --type=name --target=headmesh_drill --target-action=promote restore
+}
 primary_sql() { psql -XqAt -v ON_ERROR_STOP=1 -h "${SOCKET}" -d postgres "$@"; }
 restored_sql() { psql -XqAt -v ON_ERROR_STOP=1 -h "${RESTORE_SOCKET}" -p 5433 -d postgres "$@"; }
 
@@ -143,7 +180,8 @@ for org in fixture-provider fixture-consumer; do
 done
 backup stanza-create
 backup check
-primary_sql -c "CREATE TABLE recovery_probe (step text PRIMARY KEY); INSERT INTO recovery_probe VALUES ('full')"
+primary_sql -c "CREATE TABLESPACE drill_tablespace LOCATION '${ROOT}/primary-tablespace'"
+primary_sql -c "CREATE TABLE recovery_probe (step text PRIMARY KEY) TABLESPACE drill_tablespace; INSERT INTO recovery_probe VALUES ('full')"
 backup --type=full backup
 primary_sql -c "INSERT INTO recovery_probe VALUES ('differential')"
 backup --type=diff backup
@@ -362,6 +400,6 @@ if [[ -f "${ROOT}/published.json" ]]; then
   [[ -s "${stage}/keys/noise_private.key" && -s "${stage}/keys/derp_server_private.key" ]]
   [[ ! -e "${stage}/postgres/postmaster.pid" ]]
   [[ "$(sqlite3 "${stage}/headscale.sqlite" 'PRAGMA integrity_check')" == ok ]]
-  rm -r -- "${stage}"
+  printf '%s\n' "${stage}" >/run/headmesh-drill/stage-path
 fi
 DRILL

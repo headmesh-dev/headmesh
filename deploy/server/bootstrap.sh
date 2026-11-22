@@ -367,4 +367,9 @@ main() {
   log "bootstrap complete for: $*"
 }
 
+if [[ "${1:-}" == restore ]]; then
+  shift
+  exec "${HERE}/install-recovery-state.sh" "$@"
+fi
+
 main "$@"

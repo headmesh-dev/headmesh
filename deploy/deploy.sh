@@ -163,7 +163,7 @@ push() {
 install_toolkit() {
   local tk
   tk="$(mktemp -d)"
-  install -m 0755 "${ROOT}/deploy/server/deployctl.sh" "${ROOT}/deploy/server/bootstrap.sh" "${tk}/"
+  install -m 0755 "${ROOT}/deploy/server/"{deployctl.sh,bootstrap.sh,install-recovery-state.sh} "${tk}/"
   install -m 0644 "${ROOT}/deploy/lib/environments.sh" "${ROOT}/deploy/server/certbot-requirements.txt" "${tk}/"
   install -d "${tk}/systemd" "${tk}/headscale" "${tk}/cellagent"
   install -m 0644 "${ROOT}"/deploy/systemd/* "${tk}/systemd/"
@@ -175,7 +175,7 @@ install_toolkit() {
     d="$1"; tmp="$(mktemp -d)"
     tar -xf - -C "${tmp}" --no-same-owner
     install -d -m 0755 "${d}" "${d}/systemd" "${d}/headscale" "${d}/cellagent"
-    install -m 0755 "${tmp}/deployctl.sh" "${tmp}/bootstrap.sh" "${d}/"
+    install -m 0755 "${tmp}/"{deployctl.sh,bootstrap.sh,install-recovery-state.sh} "${d}/"
     install -m 0644 "${tmp}/environments.sh" "${tmp}/certbot-requirements.txt" "${d}/"
     install -m 0644 "${tmp}"/systemd/* "${d}/systemd/"
     install -m 0644 "${tmp}"/headscale/* "${d}/headscale/"

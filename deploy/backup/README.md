@@ -230,6 +230,28 @@ contains the manifest, both databases and the decrypted Headscale keys.
 PostgreSQL is stopped before the path is returned. Remove the private
 directory after consuming the files.
 
+### Install the staged files on a standby
+
+Prepare a fresh Ubuntu standby with PostgreSQL 18, Headscale and SQLite.
+Set `create_main_cluster = false` in
+`/etc/postgresql-common/createcluster.conf` before installing PostgreSQL,
+and persistently mask `headscale.service` before installing Headscale.
+Run staging as `postgres`. As root, run the installer with the reported
+directory. Plan for the space needed by both the stage and the installed copy.
+[Ubuntu cluster startup control](https://manpages.ubuntu.com/manpages/resolute/man1/pg_createcluster.1.html)
+
+```sh
+/usr/local/lib/headmesh/bootstrap.sh restore "$staged_directory"
+```
+
+The installer refuses an existing cluster or existing Headscale state. It
+installs PostgreSQL under `/var/lib/postgresql/18/main`, remaps any staged
+tablespaces and replaces the old PostgreSQL configuration. It puts the
+SQLite database and both keys in `/var/lib/headscale`, and retains the verified
+manifest and original Headscale configuration in `/var/lib/headmesh/recovery`.
+The PostgreSQL cluster is disabled and Headscale stays masked until the standby's
+configuration and recovery startup are ready.
+
 ### Headscale startup and registration
 
 Add `--check-cell` before the working directory to check the restored cell.

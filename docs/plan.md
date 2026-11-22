@@ -1105,7 +1105,7 @@ volumes: { hm-cache-mise: {}, hm-cache-uv: {}, hm-cache-npm: {}, hm-cache-pnpm: 
 
 ### 13.4 Failure detection, fencing and recovery (requirements 1, 4, 7)
 
-**Status 2026-11-22:** `headmesh-server serve -recovery` keeps readiness and writes closed until the overdue grant sweep and enforce-mode policy acknowledgements succeed. The detection Worker, independent confirmation command, Hetzner fencing and standby allocation passed local tests. The live Worker, standby bootstrap and promotion, and `recover.yml` workflow remain open. [Detector runbook](../deploy/ha/detector/README.md) · [Hetzner recovery code](../deploy/ha/recovery)
+**Status 2026-11-22:** `headmesh-server serve -recovery` keeps readiness and writes closed until the overdue grant sweep and enforce-mode policy acknowledgements succeed. The detection Worker, independent confirmation command, Hetzner fencing, standby allocation and offline state installation have local coverage. The live Worker, standby service startup and promotion, and `recover.yml` workflow remain open. [Detector runbook](../deploy/ha/detector/README.md) · [Hetzner recovery code](../deploy/ha/recovery)
 - **External detection** (the recovery logic never runs on the failed VM):
   - A **Cloudflare Worker with a 1-minute cron trigger** (free) probes `https://hs1.headmesh.dev/health` and `https://api.headmesh.dev/readyz` from the edge.
   - After **3 consecutive failures** of a service it sends a `repository_dispatch` (`control-plane-down`) to `headmesh-dev/headmesh`. GitHub requires a fine-grained credential with Contents write scoped to this repository.
@@ -1120,18 +1120,19 @@ volumes: { hm-cache-mise: {}, hm-cache-uv: {}, hm-cache-npm: {}, hm-cache-pnpm: 
      - If the limit is reached, page with instructions (delete the fenced VM or raise the limit).
   3. **Create** the VM with cloud-init in **restore mode**, the approved firewall and SSH keys. Keep it off until the provider confirms the firewall and both public addresses. A standby found for the same primary needs reconciliation before another allocation. This covers a create request whose response was lost. [Standby allocation](../deploy/ha/recovery/standby.go)
   4. **Restore and verify**, refusing on any failure (ported from Xcelsior's rules):
-     - `restore-isolated.sh --stage-for-recovery` retains the verified files in a private directory and stops its temporary PostgreSQL process before making that directory available to the standby bootstrap. [Restore runbook](../deploy/backup/README.md#isolated-restore)
+     - `restore-isolated.sh --stage-for-recovery` retains the verified files and stops its temporary PostgreSQL process. `bootstrap.sh restore` installs the verified files on the fresh standby and keeps Headscale and PostgreSQL offline for configuration. [Restore runbook](../deploy/backup/README.md#install-the-staged-files-on-a-standby)
      - `litestream restore` then `sqlite3 'PRAGMA integrity_check'`;
      - node count ≥ the manifest's (**never promote an empty replica**);
      - age-decrypt the keys; the **Noise public-key fingerprint equals the manifest's** (otherwise it's a different tailnet: refuse);
      - DERP key present;
      - `pgBackRest restore` to the latest point.
   5. **Recovery mode (requirement 4):**
+     - Start the restored Headscale on loopback with its existing `server_url` and keys so the local cell agent can apply policy. Connect the local agent directly to the recovering backend's mTLS listener while public ingress is held closed.
      - headmesh-server starts with `--recovery`: `/readyz` reports 503 and every mutating endpoint returns 503 with `Retry-After`.
      - It **first** sweeps overdue grants (`expires_at < now` → expired/revoked, audited as `grant.expired_late` with how late they were).
      - It compiles and applies the policy to **all** cells and waits for cell-agent acknowledgements of the new hash.
      - Only then does it accept other requests.
-  6. **Start Headscale** with the same `server_url`, Noise key and DERP key. Caddy obtains the certificate and the workflow **proves the new VM serves `hs1.headmesh.dev` on 443 via `--resolve`** before moving DNS (as in `test_promotion_refuses_when_the_standby_cannot_serve_the_name`).
+  6. **Prove ingress.** Obtain the DNS-01 certificate for nginx and verify that the new VM serves `hs1.headmesh.dev` on port 443 with `--resolve` before moving DNS (as in `test_promotion_refuses_when_the_standby_cannot_serve_the_name`). [nginx and systemd deployment decision](adr/0013-nginx-and-systemd-on-hm-prod-1.md)
   7. **Flip DNS:** Cloudflare A/AAAA records (grey-cloud, TTL 60) for `hs1`, `api` and `app`.
   8. **Post-checks:** an ephemeral `tailscale` client in the GitHub runner registers with a CI key; `headscale nodes list` count; a policy hash match.
   9. **Notify** by Telegram and email with an RTO report. The fenced VM is kept powered off for forensics, and a reminder fires at 24 h to delete it (it still bills).
