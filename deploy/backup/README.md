@@ -249,6 +249,9 @@ directory after consuming the files.
 ### Install the staged files on a standby
 
 Prepare a fresh Ubuntu standby with PostgreSQL 18, Headscale and SQLite.
+Generate `en_US.UTF-8` with `locale-gen` so PostgreSQL can open the restored
+production databases. The Hetzner drill installs and generates this locale
+through cloud-init.
 Set `create_main_cluster = false` in
 `/etc/postgresql-common/createcluster.conf` before installing PostgreSQL,
 and persistently mask `headscale.service` before installing Headscale.

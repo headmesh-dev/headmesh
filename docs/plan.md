@@ -1086,6 +1086,9 @@ volumes: { hm-cache-mise: {}, hm-cache-uv: {}, hm-cache-npm: {}, hm-cache-pnpm: 
   4. Automatic rollback to the previous image digests if health fails.
 
 ### 13.3 Replication, backups and R2 budget (requirement 5)
+
+**Status 2026-11-22:** Production SQLite replication, encrypted key publication, PostgreSQL WAL archiving and the full and differential backup timers are active. A read-only R2 restore verified the SQLite replica, both age recipients decrypted the key bundle, and an isolated PostgreSQL restore verified WAL replay through the first full backup's ending position and the audit chains. The combined manifest is pending a registered `hs1` node and the restricted publisher database login. [Backup runbook](../deploy/backup/README.md)
+
 - **Headscale sqlite → Litestream → R2 `hm-hs1-litestream`:**
   - `sync-interval: 10s` caps level-0 uploads at about 259k PUTs/month, and only when there are writes.
   - Compaction levels at 5 minutes and 1 hour add about 9.5k.

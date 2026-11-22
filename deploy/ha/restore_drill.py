@@ -169,10 +169,11 @@ def cloud_config(host_key, host_public_key, login_public_key):
         "users": [{"name": VM_USER, "shell": "/bin/bash", "lock_passwd": True,
                    "ssh_authorized_keys": [f"restrict {login_public_key}"]}],
         "package_update": True,
-        "packages": ["age", "ca-certificates", "curl", "iproute2", "jq", "openssl", "pgbackrest",
+        "packages": ["age", "ca-certificates", "curl", "iproute2", "jq", "locales", "openssl", "pgbackrest",
                      "postgresql-18", "sqlite3"],
         "write_files": [{"path": "/etc/postgresql-common/createcluster.conf", "permissions": "0644",
                          "content": "create_main_cluster = false\n"}],
+        "runcmd": [["locale-gen", "en_US.UTF-8"]],
     }
     return "#cloud-config\n" + json.dumps(config)
 

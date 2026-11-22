@@ -46,7 +46,8 @@ ENV DEBIAN_FRONTEND=noninteractive
 RUN mkdir -p /etc/postgresql-common \
  && echo 'create_main_cluster = false' > /etc/postgresql-common/createcluster.conf \
  && apt-get update -qq \
- && apt-get install -y --no-install-recommends age ca-certificates curl iproute2 jq openssl pgbackrest postgresql-18 sqlite3 \
+ && apt-get install -y --no-install-recommends age ca-certificates curl iproute2 jq locales openssl pgbackrest postgresql-18 sqlite3 \
+ && locale-gen en_US.UTF-8 \
  && rm -rf /var/lib/apt/lists/*
 DOCKERFILE
 } | docker build -t "${IMAGE}" -
@@ -112,7 +113,7 @@ trap diagnostics EXIT
 
 pgbackrest --version
 postgres --version
-initdb -D "${PRIMARY}" --no-locale --auth-local=trust --auth-host=reject >/dev/null
+initdb -D "${PRIMARY}" --locale=en_US.UTF-8 --auth-local=trust --auth-host=reject >/dev/null
 if [[ -r /run/pgbackrest-r2.conf ]]; then
   cp /run/pgbackrest-r2.conf "${ROOT}/pgbackrest.conf"
   export PGBACKREST_REPO1_S3_ENDPOINT=headmesh-backup-s3
