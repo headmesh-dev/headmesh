@@ -18,7 +18,7 @@ func backupWaitlist(parent context.Context, args []string, stdout io.Writer) err
 	}
 	fs := flag.NewFlagSet(args[0], flag.ContinueOnError)
 	netrc := fs.String("netrc", "", "private R2 credential file for hm-keys")
-	var db, owner, standby, identity, output string
+	var db, owner, standby, identity, output, bundle string
 	if args[0] == "publish" {
 		fs.StringVar(&db, "sqlite", "/var/lib/headmesh/prod/waitlist/waitlist.db", "live production waitlist SQLite database")
 		fs.StringVar(&owner, "recipient", os.Getenv("OWNER_RECIPIENT"), "owner's public age recipient")
@@ -26,12 +26,13 @@ func backupWaitlist(parent context.Context, args []string, stdout io.Writer) err
 	} else {
 		fs.StringVar(&identity, "identity", "", "private age identity file")
 		fs.StringVar(&output, "output", "", "new private snapshot path")
+		fs.StringVar(&bundle, "bundle", "", "previously downloaded encrypted waitlist snapshot")
 	}
 	if err := fs.Parse(args[1:]); err != nil {
 		return fmt.Errorf("parse waitlist backup flags: %w", err)
 	}
-	if fs.NArg() != 0 || *netrc == "" {
-		return errors.New("backup-waitlist requires a private -netrc file and accepts flags only")
+	if fs.NArg() != 0 || (*netrc == "") == (bundle == "") {
+		return errors.New("backup-waitlist requires a private -netrc file, or -bundle FILE for local staging")
 	}
 	ctx, cancel := context.WithTimeout(parent, 2*time.Minute)
 	defer cancel()
@@ -42,7 +43,13 @@ func backupWaitlist(parent context.Context, args []string, stdout io.Writer) err
 			return err
 		}
 	} else {
-		if err := recovery.StageWaitlist(ctx, output, identity, endpoint, *netrc); err != nil {
+		var err error
+		if bundle == "" {
+			err = recovery.StageWaitlist(ctx, output, identity, endpoint, *netrc)
+		} else {
+			err = recovery.StageWaitlistBundle(ctx, output, identity, bundle)
+		}
+		if err != nil {
 			return err
 		}
 		message = "Staged the verified waitlist snapshot"

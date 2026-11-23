@@ -393,11 +393,17 @@ if [[ -f "${ROOT}/published.json" ]]; then
   tail -n 1 "${ROOT}/verification.log" | jq -e '.verification_seconds > 0 and .manifest_age_seconds >= 0' >/dev/null
   [[ -z "$(find "${ROOT}/drill-work" -mindepth 1 -print -quit)" ]]
 
-  /run/backup/restore-isolated.sh --stage-for-recovery "${ROOT}/drill-work" /run/litestream.yml \
-    "${ROOT}/manifest.netrc" "${ROOT}/keys.netrc" "${ROOT}/recovery.agekey" | tee "${ROOT}/staging.log"
+  mkdir -m 0700 "${ROOT}/prepared"
+  install -m 0600 "${ROOT}/published.json" "${ROOT}/prepared/manifest.json"
+  fingerprint="$(jq -er .headscale.noise_public_key_sha256 "${ROOT}/published.json")"
+  curl -q --silent --show-error --fail --netrc-file "${ROOT}/keys.netrc" --aws-sigv4 aws:amz:auto:s3 \
+    --output "${ROOT}/prepared/headscale.age" "${HEADMESH_R2_ENDPOINT}/hm-keys/hs1/${fingerprint}.tar.age"
+  /run/backup/restore-isolated.sh --stage-for-recovery --prepared-inputs "${ROOT}/prepared" \
+    "${ROOT}/drill-work" /run/litestream.yml "${ROOT}/recovery.agekey" | tee "${ROOT}/staging.log"
   stage="$(tail -n 1 "${ROOT}/staging.log" | jq -er '.staged_directory')"
   [[ "$(dirname -- "${stage}")" == "${ROOT}/drill-work" && "$(stat -c %a -- "${stage}")" == 700 ]]
   [[ -s "${stage}/manifest.json" && -s "${stage}/headscale.sqlite" && -f "${stage}/postgres/PG_VERSION" ]]
+  cmp "${ROOT}/prepared/manifest.json" "${stage}/manifest.json"
   [[ -s "${stage}/keys/noise_private.key" && -s "${stage}/keys/derp_server_private.key" ]]
   [[ ! -e "${stage}/postgres/postmaster.pid" ]]
   [[ "$(sqlite3 "${stage}/headscale.sqlite" 'PRAGMA integrity_check')" == ok ]]

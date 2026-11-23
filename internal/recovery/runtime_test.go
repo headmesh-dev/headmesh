@@ -102,18 +102,7 @@ func TestRuntimeConditionalPublicationAndStaging(t *testing.T) {
 		t.Fatal(err)
 	}
 	key := pem.EncodeToMemory(&pem.Block{Type: "PRIVATE KEY", Bytes: keyBytes})
-	files := make(map[string][]byte)
-	for _, name := range runtimeRequired {
-		files[name] = []byte("fixture\n")
-	}
-	seed := bytes.Repeat([]byte{0xcd}, ed25519.SeedSize)
-	public := ed25519.NewKeyFromSeed(seed)[ed25519.SeedSize:]
-	files["headmesh/prod/backend/op-signing.key"] = []byte(base64.StdEncoding.EncodeToString(seed))
-	files["headmesh-cellagent/cellagent.json"] = []byte(`{"client_cert":"/etc/headmesh-cellagent/client.crt","client_key":"/etc/headmesh-cellagent/client.key","server_keys":["` + base64.StdEncoding.EncodeToString(public) + `"]}`)
-	files["headmesh/prod/backend.env"] = []byte("HEADMESH_GITHUB_CLIENT_SECRET_FILE='/etc/headmesh/oauth/fixture-client-secret'\n")
-	files["headmesh/oauth/fixture-client-secret"] = []byte("fixture-client-credential\n")
-	files["headmesh/tls/fullchain.pem"], files["headmesh-cellagent/client.crt"] = certificate, certificate
-	files["headmesh/tls/privkey.pem"], files["headmesh-cellagent/client.key"] = key, key
+	files := runtimeFixtureFiles(certificate, key)
 	for name, data := range files {
 		writeRuntimeFixture(t, filepath.Join(src.EtcDir, name), data)
 	}
@@ -178,6 +167,22 @@ func TestRuntimeConditionalPublicationAndStaging(t *testing.T) {
 	if err := PackRuntime(t.Context(), src, recipients[:2], io.Discard); err == nil || !strings.Contains(err.Error(), "fixture-client-secret") {
 		t.Fatalf("pack accepted a missing configured credential: %v", err)
 	}
+}
+
+func runtimeFixtureFiles(certificate, key []byte) map[string][]byte {
+	files := make(map[string][]byte)
+	for _, name := range runtimeRequired {
+		files[name] = []byte("fixture\n")
+	}
+	seed := bytes.Repeat([]byte{0xcd}, ed25519.SeedSize)
+	public := ed25519.NewKeyFromSeed(seed)[ed25519.SeedSize:]
+	files["headmesh/prod/backend/op-signing.key"] = []byte(base64.StdEncoding.EncodeToString(seed))
+	files["headmesh-cellagent/cellagent.json"] = []byte(`{"client_cert":"/etc/headmesh-cellagent/client.crt","client_key":"/etc/headmesh-cellagent/client.key","server_keys":["` + base64.StdEncoding.EncodeToString(public) + `"]}`)
+	files["headmesh/prod/backend.env"] = []byte("HEADMESH_GITHUB_CLIENT_SECRET_FILE='/etc/headmesh/oauth/fixture-client-secret'\n")
+	files["headmesh/oauth/fixture-client-secret"] = []byte("fixture-client-credential\n")
+	files["headmesh/tls/fullchain.pem"], files["headmesh-cellagent/client.crt"] = certificate, certificate
+	files["headmesh/tls/privkey.pem"], files["headmesh-cellagent/client.key"] = key, key
+	return files
 }
 
 func writeRuntimeFixture(t *testing.T, name string, data []byte) {

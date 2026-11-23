@@ -7,6 +7,7 @@ check_cell=0
 check_control=0
 stage=0
 retain=0
+prepared=""
 if [[ "${1:-}" == --check-control-plane ]]; then
   check_cell=1
   check_control=1
@@ -18,8 +19,13 @@ elif [[ "${1:-}" == --stage-for-recovery ]]; then
   stage=1
   shift
 fi
-if [[ $# != 5 || ${EUID} == 0 ]]; then
+if [[ "${1:-}" == --prepared-inputs && -n "${2:-}" ]]; then
+  prepared="$(realpath -e -- "$2")"
+  shift 2
+fi
+if [[ ${EUID} == 0 || ( -z "${prepared}" && $# != 5 ) || ( -n "${prepared}" && $# != 3 ) ]]; then
   echo "Run as a non-root user: $0 [--check-cell|--check-control-plane|--stage-for-recovery] WORK_PARENT LITESTREAM_CONFIG PG_NETRC KEYS_NETRC AGE_IDENTITY" >&2
+  echo "For pinned inputs: $0 [mode option] --prepared-inputs DIRECTORY WORK_PARENT LITESTREAM_CONFIG AGE_IDENTITY" >&2
   exit 2
 fi
 work_parent="$(realpath -e -- "$1")"
@@ -28,9 +34,24 @@ if (( stage )) && [[ ! -d "${work_parent}" || "$(stat -c '%u:%a' -- "${work_pare
   exit 2
 fi
 litestream_config="$2"
-pg_netrc="$3"
-keys_netrc="$4"
-identity="$5"
+if [[ -n "${prepared}" ]]; then
+  if [[ ! -d "${prepared}" || "$(stat -c '%u:%a' -- "${prepared}")" != "${EUID}:700" ]]; then
+    echo 'The prepared inputs directory must be owned by the caller with mode 0700.' >&2
+    exit 2
+  fi
+  for file in manifest.json headscale.age; do
+    if [[ ! -f "${prepared}/${file}" || -L "${prepared}/${file}" ||
+      "$(stat -c '%u:%a' -- "${prepared}/${file}")" != "${EUID}:600" ]]; then
+      echo "Prepared input ${file} must be a private regular file owned by the caller." >&2
+      exit 2
+    fi
+  done
+  identity="$3"
+else
+  pg_netrc="$3"
+  keys_netrc="$4"
+  identity="$5"
+fi
 startup_timeout="${PGCTLTIMEOUT:-900}"
 if [[ ! "${startup_timeout}" =~ ^[1-9][0-9]*$ ]]; then
   echo 'PGCTLTIMEOUT must be a positive number of seconds.' >&2
@@ -65,15 +86,21 @@ socket="$(mktemp -d /tmp/headmesh-drill.XXXXXXXX)"
 SECONDS=0
 
 manifest="${work}/manifest.json"
-headmesh-server backup-manifest fetch -netrc "${pg_netrc}" >"${manifest}"
-fetched="$(date +%s)"
+if [[ -n "${prepared}" ]]; then
+  install -m 0600 "${prepared}/manifest.json" "${manifest}"
+  key_source=(-bundle "${prepared}/headscale.age")
+else
+  headmesh-server backup-manifest fetch -netrc "${pg_netrc}" >"${manifest}"
+  key_source=(-netrc "${keys_netrc}")
+fi
+restore_started="$(date +%s)"
 captured="$(date -d "$(jq -er .captured_at "${manifest}")" +%s)"
-if (( captured > fetched )); then
+if (( captured > restore_started )); then
   echo 'The recovery manifest timestamp is in the future. Check clock sync and run again.' >&2
   exit 1
 fi
 headmesh-server backup-keys stage -manifest "${manifest}" -identity "${identity}" \
-  -netrc "${keys_netrc}" -output-dir "${work}/keys"
+  "${key_source[@]}" -output-dir "${work}/keys"
 litestream restore -config "${litestream_config}" -o "${work}/headscale.sqlite" /var/lib/headscale/db.sqlite
 
 mkdir "${work}/postgres" "${work}/tablespaces" "${work}/lock"
@@ -108,19 +135,19 @@ database_url="postgresql://postgres@/${database}?host=${socket}&port=5432&sslmod
 HEADMESH_DATABASE_URL="${database_url}" \
   headmesh-server backup-manifest verify -manifest "${manifest}" -sqlite "${work}/headscale.sqlite" \
   -noise-key "${work}/keys/noise_private.key" -derp-key "${work}/keys/derp_server_private.key"
-printf 'Backup verification completed in %d seconds; manifest age at download was %d seconds.\n' \
-  "${SECONDS}" "$((fetched - captured))"
+printf 'Backup verification completed in %d seconds. Manifest age at restore start was %d seconds.\n' \
+  "${SECONDS}" "$((restore_started - captured))"
 if (( check_cell )); then
   script_dir="$(dirname -- "$(realpath -e -- "$0")")"
   args=("${work}")
   if (( check_control )); then args+=("${database_url}"); fi
   unshare --user --map-root-user --net bash "${script_dir}/check-restored-cell.sh" "${args[@]}"
-  jq -cn --argjson verification "${SECONDS}" --argjson age "$((fetched - captured))" \
+  jq -cn --argjson verification "${SECONDS}" --argjson age "$((restore_started - captured))" \
     '{verification_seconds: $verification, manifest_age_seconds: $age}'
 elif (( stage )); then
   pg_ctl -D "${work}/postgres" -m fast -w stop >/dev/null
   pg_start_attempted=0
-  jq -cn --arg path "${work}" --argjson verification "${SECONDS}" --argjson age "$((fetched - captured))" \
+  jq -cn --arg path "${work}" --argjson verification "${SECONDS}" --argjson age "$((restore_started - captured))" \
     '{staged_directory: $path, verification_seconds: $verification, manifest_age_seconds: $age}'
   retain=1
 fi

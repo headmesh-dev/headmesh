@@ -75,6 +75,35 @@ func PublishWaitlist(ctx context.Context, db string, recipients []string, endpoi
 // StageWaitlist decrypts the latest off-host snapshot, validates it and
 // publishes a mode-0600 database file at a previously absent local path.
 func StageWaitlist(ctx context.Context, output, identity, endpoint, netrc string) error {
+	object, err := newRecoveryObject(endpoint, netrc, waitlistObjectPath)
+	if err != nil {
+		return err
+	}
+	return stageWaitlist(ctx, output, identity, func(work string) (string, error) {
+		ciphertext := filepath.Join(work, "waitlist.db.age")
+		status, err := object.request(ctx, "--output", ciphertext)
+		if err != nil {
+			return "", err
+		}
+		if status != "200" {
+			return "", fmt.Errorf("object store refused waitlist download (HTTP %s)", status)
+		}
+		return ciphertext, nil
+	})
+}
+
+// StageWaitlistBundle stages a previously downloaded encrypted snapshot.
+func StageWaitlistBundle(ctx context.Context, output, identity, ciphertext string) error {
+	return stageWaitlist(ctx, output, identity, func(string) (string, error) {
+		info, err := os.Stat(ciphertext)
+		if err != nil || !info.Mode().IsRegular() || info.Size() == 0 {
+			return "", errors.New("provide a nonempty regular encrypted waitlist file")
+		}
+		return ciphertext, nil
+	})
+}
+
+func stageWaitlist(ctx context.Context, output, identity string, load func(string) (string, error)) error {
 	info, err := os.Stat(identity)
 	if err != nil || !info.Mode().IsRegular() || info.Mode().Perm()&0o077 != 0 {
 		return errors.New("waitlist staging requires a private age identity file")
@@ -85,26 +114,18 @@ func StageWaitlist(ctx context.Context, output, identity, endpoint, netrc string
 	if _, err := os.Lstat(output); !errors.Is(err, os.ErrNotExist) {
 		return errors.New("the waitlist staging file must not already exist")
 	}
-	object, err := newRecoveryObject(endpoint, netrc, waitlistObjectPath)
-	if err != nil {
-		return err
-	}
 	work, err := os.MkdirTemp(filepath.Dir(output), ".headmesh-waitlist-")
 	if err != nil {
 		return fmt.Errorf("create private waitlist staging workspace: %w", err)
 	}
 	defer func() { _ = os.RemoveAll(work) }()
-	ciphertext := filepath.Join(work, "waitlist.db.age")
-	status, err := object.request(ctx, "--output", ciphertext)
+	ciphertext, err := load(work)
 	if err != nil {
 		return err
 	}
-	if status != "200" {
-		return fmt.Errorf("object store refused waitlist download (HTTP %s)", status)
-	}
 	snapshot := filepath.Join(work, "waitlist.db")
-	// #nosec G204 -- The operator supplies a private identity file; both data files are inside the private workspace.
-	if err := exec.CommandContext(ctx, "age", "-d", "-i", identity, "-o", snapshot, ciphertext).Run(); err != nil {
+	// #nosec G204 -- The operator selects the local input and identity. The output is in the private workspace.
+	if err := exec.CommandContext(ctx, "age", "-d", "-i", identity, "-o", snapshot, "--", ciphertext).Run(); err != nil {
 		return fmt.Errorf("decrypt waitlist snapshot: %w", err)
 	}
 	if err := verifyWaitlistSQLite(ctx, snapshot); err != nil {

@@ -1,0 +1,94 @@
+name: recover
+
+on:
+  repository_dispatch:
+    types: [control-plane-down]
+  workflow_dispatch:
+
+permissions: {}
+
+concurrency:
+  group: headmesh-production-recovery
+  cancel-in-progress: false
+
+jobs:
+  confirm:
+    if: github.repository == 'headmesh-dev/headmesh' && github.ref == 'refs/heads/main' && github.event_name == 'repository_dispatch'
+    runs-on: ubuntu-26.04
+    timeout-minutes: 5
+    permissions:
+      contents: read
+    outputs:
+      confirmed: ${{ steps.confirm.outputs.confirmed }}
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7.1.0
+        with:
+          node-version: '24.16.0'
+          package-manager-cache: false
+      - name: Independently confirm the outage
+        id: confirm
+        shell: bash
+        run: |
+          umask 077
+          result=$(mktemp)
+          trap 'rm -f -- "$result"' EXIT
+          if ! node deploy/ha/confirm-outage.mjs >"$result"; then
+            jq -e '.confirmed == false and .failed_services == []' "$result" >/dev/null
+          fi
+          jq -er '.confirmed | select(type == "boolean") | "confirmed=\(.)"' "$result" >>"$GITHUB_OUTPUT"
+
+  prepare:
+    name: Verify the off-host standby inputs
+    needs: confirm
+    if: >-
+      ${{ !cancelled() && github.repository == 'headmesh-dev/headmesh' && github.ref == 'refs/heads/main' &&
+      (github.event_name == 'workflow_dispatch' || needs.confirm.outputs.confirmed == 'true') }}
+    runs-on: ubuntu-26.04
+    timeout-minutes: 30
+    environment: recovery
+    permissions:
+      contents: read
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - uses: actions/setup-go@b7ad1dad31e06c5925ef5d2fc7ad053ef454303e # v7.0.0
+        with:
+          go-version-file: go.mod
+          cache: false
+      - name: Build the recovery runner
+        shell: bash
+        run: |
+          if ! command -v age >/dev/null || ! command -v sqlite3 >/dev/null; then
+            sudo apt-get update -qq
+            sudo apt-get install -y --no-install-recommends age sqlite3
+          fi
+          go build -trimpath -o "$RUNNER_TEMP/headmesh-recover" ./cmd/headmesh-recover
+      - name: Check R2 and open every required recovery artifact
+        env:
+          HEADMESH_R2_ENDPOINT: ${{ vars.HEADMESH_R2_ENDPOINT }}
+          LITESTREAM_AWS: ${{ secrets.DRILL_LITESTREAM_AWS }}
+          MANIFEST_NETRC: ${{ secrets.DRILL_MANIFEST_NETRC }}
+          KEYS_NETRC: ${{ secrets.DRILL_KEYS_NETRC }}
+          AGE_IDENTITY: ${{ secrets.DRILL_AGE_IDENTITY }}
+          PGBACKREST_CONFIG_TEXT: ${{ secrets.DRILL_PGBACKREST_CONFIG }}
+        shell: bash
+        run: |
+          umask 077
+          work=$(mktemp -d)
+          trap 'rm -r -- "$work"' EXIT
+          mkdir "$work/credentials"
+          printf '%s\n' "$LITESTREAM_AWS" >"$work/credentials/litestream.aws"
+          printf '%s\n' "$MANIFEST_NETRC" >"$work/credentials/manifest.netrc"
+          printf '%s\n' "$KEYS_NETRC" >"$work/credentials/keys.netrc"
+          printf '%s\n' "$AGE_IDENTITY" >"$work/credentials/recovery.agekey"
+          printf '%s\n' "$PGBACKREST_CONFIG_TEXT" >"$work/credentials/pgbackrest.conf"
+          unset LITESTREAM_AWS MANIFEST_NETRC KEYS_NETRC AGE_IDENTITY PGBACKREST_CONFIG_TEXT
+          python3 deploy/ha/restore_drill.py preflight --credentials "$work/credentials"
+          "$RUNNER_TEMP/headmesh-recover" prepare-inputs --credentials "$work/credentials" \
+            --output-dir "$work/prepared" >"$work/report.json"
+          jq -er '"- Manifest captured at: \(.manifest_captured_at)\n- Manifest age: \(.manifest_age_seconds) seconds\n- Headscale keys, runtime configuration, and waitlist verified"' \
+            "$work/report.json" >>"$GITHUB_STEP_SUMMARY"

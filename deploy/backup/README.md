@@ -299,7 +299,7 @@ SQLite, and replays PostgreSQL to the end of the archived WAL stream. It
 starts PostgreSQL with a private Unix socket and archive writes disabled.
 After manifest verification it stops the temporary database and cleans the
 restored files. It reports the elapsed time for backup verification and the
-age of the manifest at download.
+age of the manifest when the restore starts.
 
 Use `--stage-for-recovery` before the working directory to keep a verified
 restore for the standby bootstrap. The working parent must be owned by the
@@ -307,6 +307,36 @@ caller with mode `0700`. The final JSON line gives `staged_directory`, which
 contains the manifest, both databases and the decrypted Headscale keys.
 PostgreSQL is stopped before the path is returned. Remove the private
 directory after consuming the files.
+
+### Prepare pinned standby inputs
+
+Before fencing the primary, check the R2 credentials and verify the exact
+files the standby will use. Run this on the independent recovery runner
+with `age`, `sqlite3`, `curl`, and the repository's Go toolchain. Set
+`HEADMESH_R2_ENDPOINT` and use the existing private `drill/` credentials.
+
+```sh
+umask 077
+recovery_work="$(mktemp -d)"
+python3 deploy/ha/restore_drill.py preflight --credentials "$drill_credentials"
+go run ./cmd/headmesh-recover prepare-inputs -credentials "$drill_credentials" \
+  -output-dir "$recovery_work/prepared"
+```
+
+This fetches `manifest.json` once, opens the Headscale and runtime bundles
+for its Noise identity, and decrypts and checks the waitlist database. The
+prepared directory contains the original manifest plus `headscale.age`,
+`runtime.age`, and `waitlist.db.age`. The verification workspace is cleaned
+up before the command returns. Transfer the prepared directory over pinned
+SSH and give the restore user ownership, with mode `0700` on the directory
+and `0600` on the files. PostgreSQL WAL replay and the SQLite replica are
+verified during the restore on the standby.
+
+The `recover` workflow runs this preflight. Detector dispatches first need
+independent outage confirmation, and a manual dispatch can verify the
+inputs while the service is healthy. The job reports the manifest age and
+cleans up its private workspace when finished.
+[GitHub Actions dispatch events](https://docs.github.com/en/actions/reference/workflows-and-actions/events-that-trigger-workflows#repository_dispatch)
 
 ### Allocate and boot a standby on Hetzner
 
@@ -371,9 +401,15 @@ using an existing empty directory and the standby's `amd64` or `arm64`
 architecture.
 [PostgreSQL cluster startup control](https://manpages.debian.org/unstable/postgresql-common/pg_createcluster.1.en.html)
 
-Run the isolated restore with `--stage-for-recovery` as `postgres`. Allow
-room for the stage and the installed copy. Run the installer as root with
-the reported directory.
+Run the isolated restore with `--stage-for-recovery` as `postgres`. Use the
+prepared input directory so the restore uses the exact manifest and Headscale
+bundle already checked by the runner. Allow room for the stage and the installed
+copy. Run the installer as root with the reported directory.
+
+```sh
+deploy/backup/restore-isolated.sh --stage-for-recovery --prepared-inputs "$prepared_inputs" \
+  "$private_work" "$litestream_config" "$recovery_identity"
+```
 
 ```sh
 /usr/local/lib/headmesh/bootstrap.sh restore "$staged_directory"
@@ -400,8 +436,8 @@ read-only `hm-keys` netrc from private files on the standby. Set
   "$release" "$recovery_identity" -netrc "$keys_netrc"
 ```
 
-Use `-bundle "$runtime_bundle"` in place of `-netrc "$keys_netrc"` for a local
-encrypted copy. The installer checks the restored Noise identity, certificate
+Use `-bundle "$prepared_inputs/runtime.age"` in place of `-netrc "$keys_netrc"`
+to use the pinned runtime snapshot. The installer checks the restored Noise identity, certificate
 pairs and cell signing trust. It installs files with service-specific groups
 and modes. If a destination differs, it stops before copying any files.
 Retry with the same snapshot after an interruption. Remove the temporary
@@ -433,6 +469,9 @@ prod` can also be supplied to the standby installer.
 headmesh-server backup-waitlist stage \
   -identity "$recovery_identity" -netrc "$keys_netrc" -output "$waitlist_snapshot"
 ```
+
+Use `-bundle "$prepared_inputs/waitlist.db.age"` in place of `-netrc "$keys_netrc"`
+to use the pinned waitlist snapshot.
 
 Install the matching waitlist release under
 `/srv/headmesh/prod/waitlist/releases/` and restore the original
