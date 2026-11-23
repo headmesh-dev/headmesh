@@ -5,6 +5,7 @@
 #   deploy/deploy.sh --env prod|test|all --target frontend|backend|all [options]
 #   deploy/deploy.sh --render-recovery-nginx <output-dir>
 #   deploy/deploy.sh --package-recovery-toolkit <output-dir>
+#   deploy/deploy.sh --package-recovery-release <output-dir> <production-build.env>
 #
 # Targets
 #   frontend   headmesh.dev from web/marketing: the static site and docs (switched atomically by symlink) and the
@@ -68,6 +69,8 @@ fi
 log() { printf '\033[1m[deploy]\033[0m %s\n' "$*" >&2; }
 die() { printf '\033[1;31m[deploy] ERROR:\033[0m %s\n' "$*" >&2; exit 1; }
 trap 'die "failed at line ${LINENO}: ${BASH_COMMAND}"' ERR
+# shellcheck source=lib/release.sh
+source "${ROOT}/deploy/lib/release.sh"
 
 # The header comment above, up to the first line of code.
 usage() { awk 'NR > 1 && /^#/ { sub(/^# ?/, ""); print; next } NR > 1 { exit }' "${BASH_SOURCE[0]}"; }
@@ -93,6 +96,11 @@ if [[ "${1:-}" == --package-recovery-toolkit ]]; then
   [[ $# == 2 && -n "$2" ]] || die '--package-recovery-toolkit requires an output directory'
   [[ ! -e "$2" || ( -d "$2" && -z "$(find "$2" -mindepth 1 -print -quit)" ) ]] || die 'use an empty toolkit output directory'
   stage_toolkit "$2"
+  exit 0
+fi
+if [[ "${1:-}" == --package-recovery-release ]]; then
+  [[ $# == 3 && -n "$2" && -s "$3" ]] || die 'use --package-recovery-release OUTPUT_DIR PRODUCTION_BUILD_ENV'
+  package_recovery_release "$2" "$3"
   exit 0
 fi
 
@@ -267,13 +275,6 @@ WORK=""
 cleanup() { [[ -n "${WORK}" && -d "${WORK}" ]] && rm -rf "${WORK}"; return 0; }
 trap cleanup EXIT
 
-release_id() {
-  local sha dirty=""
-  sha="$(git -C "${ROOT}" rev-parse --short=12 HEAD)"
-  [[ -n "$(git -C "${ROOT}" status --porcelain)" ]] && dirty="-dirty"
-  echo "$(date -u +%Y%m%dT%H%M%SZ)-${sha}${dirty}"
-}
-
 run_checks() {
   [[ ${SKIP_CHECKS} == 1 ]] && { log "skipping lint and tests (--skip-checks)"; return 0; }
   if has_target frontend; then
@@ -285,45 +286,6 @@ run_checks() {
     log "checks: go vet and unit tests"
     (cd "${ROOT}" && go vet ./... && go test -count=1 ./... >/dev/null)
   fi
-}
-
-build_backend() {
-  local out="${WORK}/backend"
-  install -d "${out}"
-  log "build: headmesh-server ${RELEASE} (linux/amd64, static)"
-  (cd "${ROOT}" && CGO_ENABLED=0 GOOS=linux GOARCH=amd64 go build -trimpath -buildvcs=true \
-    -ldflags "-s -w -X main.version=${RELEASE}" -o "${out}/headmesh-server" ./cmd/headmesh-server)
-  # Shipped with the server so the cell this server hosts runs the matching agent (deployctl cell-agent).
-  (cd "${ROOT}" && CGO_ENABLED=0 GOOS=linux GOARCH=amd64 go build -trimpath -buildvcs=true \
-    -ldflags "-s -w -X main.version=${RELEASE}" -o "${out}/headmesh-cellagent" ./cmd/headmesh-cellagent)
-}
-
-# The waitlist service: the marketing package's server half with only its production dependencies.
-build_waitlist() {
-  local out="${WORK}/waitlist"
-  log "build: waitlist service ${RELEASE}"
-  # package.json "files" limits the copy to server/, shared/ and migrations/, plus production dependencies.
-  pnpm --dir "${ROOT}" --filter @headmesh/marketing deploy --prod "${out}" >/dev/null
-  [[ -f "${out}/server/main.ts" && -d "${out}/node_modules/zod" && -d "${out}/node_modules/resend" && ! -d "${out}/src" ]] || die "waitlist bundle is incomplete"
-}
-
-# build_site <env>: the static site with that environment's build settings.
-build_site() {
-  local env="$1"
-  local out="${WORK}/site-${env}" pkg="${ROOT}/web/marketing"
-  log "build: headmesh.dev site for ${env}"
-  (
-    set -a
-    # shellcheck source=/dev/null
-    source "$(env_dir "${env}")/build.env"
-    set +a
-    [[ "$(hm_env "${env}" PRODUCTION)" == 1 ]] && export HEADMESH_PRODUCTION=1
-    cd "${pkg}" && pnpm run build >/dev/null
-  )
-  install -d "${out}/site" "${out}/nginx"
-  cp -a "${pkg}/dist/." "${out}/site/"
-  install -m 0644 "${pkg}/build/nginx/security-headers.conf" "${out}/nginx/"
-  [[ -f "${out}/site/index.html" ]] || die "site build for ${env} has no index.html"
 }
 
 # The Cloudflare token certbot's DNS-01 challenge uses: CLOUDFLARE_DNS_API_TOKEN from the environment, else from the
@@ -480,11 +442,11 @@ main() {
   WORK="$(mktemp -d "${TMPDIR:-/tmp}/headmesh-deploy.XXXXXX")"
   log "release ${RELEASE}: ${TARGETS[*]} → ${ENVS[*]}"
   run_checks
-  if has_target backend; then build_backend; fi
-  if has_target frontend; then build_waitlist; fi
+  if has_target backend; then build_backend "${WORK}/backend" "${RELEASE}" amd64; fi
+  if has_target frontend; then build_waitlist "${WORK}/waitlist" "${RELEASE}"; fi
   local env
   for env in "${ENVS[@]}"; do
-    if has_target frontend; then build_site "${env}"; fi
+    if has_target frontend; then build_site "${env}" "${WORK}/site-${env}" "$(env_dir "${env}")/build.env"; fi
     render_nginx "${env}" "${WORK}/nginx-${env}"
   done
   for env in "${ENVS[@]}"; do deploy_env "${env}"; done
