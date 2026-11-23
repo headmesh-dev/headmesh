@@ -377,6 +377,25 @@ The package contains both backend architectures, the portable waitlist,
 production site, nginx config, and server toolkit. `release.json` records
 the release ID and source commit. Carry the same package through recovery.
 
+After the R2 check, the `recover` workflow runs these two steps on a
+confirmed detector dispatch and on a manual dispatch with `standby_preflight`
+selected. Set `HCLOUD_TOKEN` in the GitHub `recovery` environment secrets.
+Set the following values under that environment's variables.
+
+| Variable | Value |
+| --- | --- |
+| `HEADMESH_PRIMARY_ID`, `HEADMESH_PRIMARY_NAME` | Original Hetzner server ID and name |
+| `HEADMESH_PRIMARY_IPV4_ID`, `HEADMESH_PRIMARY_IPV6_ID` | Original Hetzner Primary IP resource IDs, with `0` for an absent IPv6 |
+| `HEADMESH_STANDBY_FIREWALL_ID`, `HEADMESH_STANDBY_SSH_KEY_IDS` | Approved standby firewall ID and comma-separated SSH key IDs |
+| `HEADMESH_STANDBY_SSH_SOURCE_IP` | Source IP the configured firewall should admit on TCP 22 |
+| `HCLOUD_SERVER_LIMIT` | Maximum servers allowed for this project |
+| `PUBLIC_TURNSTILE_SITE_KEY`, `PUBLIC_CF_ANALYTICS_TOKEN` | Production public build settings. The analytics token is optional. |
+
+The hosted preflight checks the configured firewall against the supplied
+source IP. Actual standby SSH and ingress verification require a recovery
+runner with an admitted source and working IPv4 and IPv6. This job reports
+the catalog and build results, then removes its local files.
+
 ### Allocate and boot a standby on Hetzner
 
 Hold the recovery lock across independent outage confirmation, fencing,

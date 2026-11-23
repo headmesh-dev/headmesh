@@ -4,6 +4,11 @@ on:
   repository_dispatch:
     types: [control-plane-down]
   workflow_dispatch:
+    inputs:
+      standby_preflight:
+        description: Check Hetzner and build the standby release after verifying R2
+        type: boolean
+        default: false
 
 permissions: {}
 
@@ -41,7 +46,7 @@ jobs:
           jq -er '.confirmed | select(type == "boolean") | "confirmed=\(.)"' "$result" >>"$GITHUB_OUTPUT"
 
   prepare:
-    name: Verify the off-host standby inputs
+    name: Prepare for standby recovery
     needs: confirm
     if: >-
       ${{ !cancelled() && github.repository == 'headmesh-dev/headmesh' && github.ref == 'refs/heads/main' &&
@@ -92,3 +97,54 @@ jobs:
             --output-dir "$work/prepared" >"$work/report.json"
           jq -er '"- Manifest captured at: \(.manifest_captured_at)\n- Manifest age: \(.manifest_age_seconds) seconds\n- Headscale keys, runtime configuration, and waitlist verified"' \
             "$work/report.json" >>"$GITHUB_STEP_SUMMARY"
+      - name: Check the configured Hetzner standby resources
+        if: github.event_name == 'repository_dispatch' || inputs.standby_preflight
+        env:
+          HCLOUD_TOKEN: ${{ secrets.HCLOUD_TOKEN }}
+          PRIMARY_ID: ${{ vars.HEADMESH_PRIMARY_ID }}
+          PRIMARY_NAME: ${{ vars.HEADMESH_PRIMARY_NAME }}
+          PRIMARY_IPV4_ID: ${{ vars.HEADMESH_PRIMARY_IPV4_ID }}
+          PRIMARY_IPV6_ID: ${{ vars.HEADMESH_PRIMARY_IPV6_ID }}
+          STANDBY_FIREWALL_ID: ${{ vars.HEADMESH_STANDBY_FIREWALL_ID }}
+          STANDBY_SSH_KEY_IDS: ${{ vars.HEADMESH_STANDBY_SSH_KEY_IDS }}
+          STANDBY_SSH_SOURCE_IP: ${{ vars.HEADMESH_STANDBY_SSH_SOURCE_IP }}
+          SERVER_LIMIT: ${{ vars.HCLOUD_SERVER_LIMIT }}
+        shell: bash
+        run: |
+          umask 077
+          report=$(mktemp)
+          trap 'rm -f -- "$report"' EXIT
+          "$RUNNER_TEMP/headmesh-recover" check-standby \
+            -primary-id "$PRIMARY_ID" -primary-name "$PRIMARY_NAME" \
+            -primary-ipv4-id "$PRIMARY_IPV4_ID" -primary-ipv6-id "$PRIMARY_IPV6_ID" \
+            -run-id "$GITHUB_RUN_ID" -firewall-id "$STANDBY_FIREWALL_ID" \
+            -ssh-key-ids "$STANDBY_SSH_KEY_IDS" -runner-ip "$STANDBY_SSH_SOURCE_IP" \
+            -server-limit "$SERVER_LIMIT" >"$report"
+          jq -er '"- Hetzner project uses \(.project_servers) of \(.server_limit) server slots\n- Standby candidates: \(.candidates | length)"' \
+            "$report" >>"$GITHUB_STEP_SUMMARY"
+      - uses: pnpm/action-setup@ea17c68df8912ef543352723c149a84f56e3d413 # v6.1.0
+        if: github.event_name == 'repository_dispatch' || inputs.standby_preflight
+        with:
+          version: '10.34.9'
+      - uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7.1.0
+        if: github.event_name == 'repository_dispatch' || inputs.standby_preflight
+        with:
+          node-version: '24.16.0'
+          package-manager-cache: false
+      - name: Build the matching standby release
+        if: github.event_name == 'repository_dispatch' || inputs.standby_preflight
+        env:
+          TURNSTILE_SITE_KEY: ${{ vars.PUBLIC_TURNSTILE_SITE_KEY }}
+          CF_ANALYTICS_TOKEN: ${{ vars.PUBLIC_CF_ANALYTICS_TOKEN }}
+        shell: bash
+        run: |
+          : "${TURNSTILE_SITE_KEY:?Set PUBLIC_TURNSTILE_SITE_KEY in the recovery environment}"
+          umask 077
+          work=$(mktemp -d)
+          trap 'rm -r -- "$work"' EXIT
+          printf 'PUBLIC_TURNSTILE_SITE_KEY=%q\nPUBLIC_CF_ANALYTICS_TOKEN=%q\n' \
+            "$TURNSTILE_SITE_KEY" "$CF_ANALYTICS_TOKEN" >"$work/build.env"
+          pnpm install --frozen-lockfile
+          deploy/deploy.sh --package-recovery-release "$work/release" "$work/build.env"
+          jq -er '"- Standby release \(.release) built for \(.architectures | join(", "))"' \
+            "$work/release/release.json" >>"$GITHUB_STEP_SUMMARY"
