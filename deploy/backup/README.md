@@ -28,10 +28,10 @@ files outside this repository.
    `root:postgres`. Install the base pgBackRest config and enable WAL
    archiving during the PostgreSQL maintenance window. Verify the first
    full backup and its WAL before enabling the timers.
-4. Publish the encrypted Headscale bundle and the first recovery manifest.
-   Read back the manifest and verify the isolated cloud drill with the
-   read-only credentials. Enable the scheduled drill after the manual run
-   succeeds.
+4. Publish the encrypted Headscale bundle, runtime snapshot and waitlist
+   snapshot. Publish and read back the first recovery manifest, then verify
+   the isolated cloud drill with the read-only credentials. Enable the
+   scheduled drill after the manual run succeeds.
 
 ## Headscale SQLite
 
@@ -140,6 +140,38 @@ fingerprint against the manifest before writing. It creates the directory
 at mode `0700` and all three files at mode `0600`. Use those keys in the
 manifest verification below. Treat the staged configuration and keys as
 private recovery files and remove them when an isolated drill ends.
+
+## Encrypted standby runtime configuration
+
+Publish the production runtime snapshot from a verified build after installing
+or changing its configuration, keys or certificates. Use the existing public
+age recipients, `HEADMESH_R2_ENDPOINT`, and the private `hm-keys` writer netrc.
+
+```sh
+headmesh-server backup-runtime publish \
+  -recipient "$OWNER_RECIPIENT" -recovery-recipient "$RECOVERY_RECIPIENT" \
+  -netrc /etc/headmesh/backup/keys.netrc
+```
+
+The snapshot includes the backend and waitlist environment files, both
+PostgreSQL login files, configured OAuth files under `/etc/headmesh/oauth/`,
+the operation-signing key, cell CA certificate, the local cell agent's trust
+and mTLS files, and the HTTPS certificate and private key. It is encrypted
+to both recipients and stored as `hm-keys/runtime/<noise-fingerprint>.age`.
+The publisher replaces the object using an ETag condition. Publish again
+after a certificate renewal or any runtime credential update.
+[Cloudflare conditional uploads](https://developers.cloudflare.com/r2/api/s3/conditional-operations/)
+
+For a local encrypted copy, use `backup-runtime pack` with the same recipients
+and redirect stdout to a private file. `backup-runtime stage` can verify a
+downloaded copy with either age identity and the recovery manifest. Use a
+new private output directory and remove the staged files after verification.
+
+```sh
+headmesh-server backup-runtime stage -manifest "$verified_manifest" \
+  -identity "$recovery_identity" -bundle "$runtime_bundle" \
+  -output-dir "$private_runtime_stage"
+```
 
 ## Production waitlist snapshot
 
@@ -358,13 +390,24 @@ configuration and recovery startup are ready.
 ### Start the restored backend and cell agent
 
 Install the matching `headmesh-server` and `headmesh-cellagent` release under
-`/srv/headmesh/prod/backend/releases/`. Restore the original private backend configuration
-under `/etc/headmesh/prod/`, including `backend.env`, `db.env`, `secrets.env`,
-the operation-signing key, the cell CA certificate and any OAuth secrets that
-configuration references. Install the backend's TLS certificate and key under
-`/etc/headmesh/tls/`. Restore the local agent's configuration, mTLS client
-certificate and key under `/etc/headmesh-cellagent/` with the original trust
-and guardrails. Keep nginx masked on the standby.
+`/srv/headmesh/prod/backend/releases/`. With nginx and Headscale still masked,
+install the encrypted runtime snapshot as root. Pass an age identity and the
+read-only `hm-keys` netrc from private files on the standby. Set
+`HEADMESH_R2_ENDPOINT` in the command's environment.
+
+```sh
+/usr/local/lib/headmesh/deployctl.sh install-recovery-runtime \
+  "$release" "$recovery_identity" -netrc "$keys_netrc"
+```
+
+Use `-bundle "$runtime_bundle"` in place of `-netrc "$keys_netrc"` for a local
+encrypted copy. The installer checks the restored Noise identity, certificate
+pairs and cell signing trust. It installs files with service-specific groups
+and modes. If a destination differs, it stops before copying any files.
+Retry with the same snapshot after an interruption. Remove the temporary
+identity and netrc from the standby after restoring all required artifacts.
+
+Start the recovered control plane after installing the runtime files.
 
 ```sh
 /usr/local/lib/headmesh/deployctl.sh start-recovery "$release"

@@ -10,6 +10,7 @@
 #   activate-static  <env> <release>                   atomically switch the marketing site to a release
 #   activate-service <service> <env> <release> [drain] blue-green switch of waitlist or backend
 #   start-recovery   <release>                        start a restored prod backend and cell behind closed ingress
+#   install-recovery-runtime <release> <identity> <-bundle|-netrc> <file>  install encrypted standby configuration
 #   start-recovery-waitlist <release> <snapshot>        install a waitlist snapshot and start the private service
 #   prepare-recovery-ingress <nginx-dir> <site-release> <ipv4> <ipv6>  check standby HTTPS and publish its DERP/STUN
 #   finalize-recovery                                  adopt the recovered releases and persist startup
@@ -629,6 +630,80 @@ stop_recovery_candidate() {
   printf '%s\n' disabled >/etc/postgresql/18/main/start.conf || log 'could not disable the restored PostgreSQL cluster'
   systemctl daemon-reload
   exit "${status}"
+}
+
+cmd_install_recovery_runtime() {
+  [[ $# == 4 && ( "$3" == -bundle || "$3" == -netrc ) ]] ||
+    die 'usage: install-recovery-runtime <release> <identity> <-bundle|-netrc> <file>'
+  umask 077
+  local release="$1" record="${HM_STATE_ROOT}/recovery" binary unit work listing name dest owner group mode parent_group temp i
+  local -a names modes=() owners=() groups=() parent_groups=() existing=()
+  require_release "${release}"
+  binary="${HM_SRV_ROOT}/prod/backend/releases/${release}/headmesh-server"
+  [[ -x "${binary}" ]] || die 'install the matching recovery backend release first'
+  install -d -m 0700 /run/headmesh-recovery-state
+  exec 9>/run/headmesh-recovery-state/lock
+  flock -n 9 || die 'another recovery operation is in progress'
+  [[ -s "${record}/manifest.json" && -s "${record}/config.yaml" && ! -e "${record}/backend-ready" &&
+    -z "$(state_get prod backend.active)" ]] || die 'install runtime configuration on the restored standby before starting it'
+  for unit in nginx headscale; do
+    [[ "$(readlink "/etc/systemd/system/${unit}.service" || true)" == /dev/null ]] || die "${unit}.service must be masked"
+  done
+  for unit in nginx headscale postgresql@18-main headmesh-cellagent headmesh-backend@prod-{blue,green} headmesh-waitlist@prod-{blue,green}; do
+    [[ "$(systemctl show -p ActiveState --value "${unit}.service")" == inactive ]] || die "${unit}.service must be inactive"
+  done
+
+  work="$(mktemp -d /run/headmesh-recovery-state/runtime.XXXXXX)"
+  trap 'rm -rf -- "${work}"; if [[ -n "${temp:-}" ]]; then rm -f -- "${temp}"; fi' EXIT
+  trap 'exit 130' INT
+  trap 'exit 143' TERM
+  "${binary}" backup-runtime stage -manifest "${record}/manifest.json" -identity "$2" "$3" "$4" -output-dir "${work}/stage"
+  listing="$(find "${work}/stage" -type f -printf '%P\n' | sort)"
+  [[ -n "${listing}" ]] || die 'the private runtime stage is empty'
+  mapfile -t names <<<"${listing}"
+  for i in "${!names[@]}"; do
+    name="${names[i]}"
+    owner=root
+    group="${HM_SERVICE_USER}"
+    parent_group="${HM_SERVICE_USER}"
+    mode=0640
+    case "${name}" in
+      headmesh/prod/db-owner.env) group=root; mode=0600 ;;
+      headmesh/tls/fullchain.pem) group=root; mode=0644 ;;
+      headmesh/tls/privkey.pem) group=root; mode=0600 ;;
+      headmesh-cellagent/*) group=headmesh-cellagent; parent_group=headmesh-cellagent ;;
+      headmesh/oauth/*) owner="${HM_SERVICE_USER}"; mode=0600 ;;
+      headmesh/prod/*) ;;
+      *) die "unexpected staged runtime file ${name}" ;;
+    esac
+    dest="/etc/${name}"
+    [[ "$(realpath -m -- "${dest}")" == "${dest}" ]] || die "runtime path crosses a symlink: ${dest}"
+    if [[ -e "${dest}" ]]; then
+      if ! { [[ -f "${dest}" && "$(stat -c '%a:%U:%G' -- "${dest}")" == "${mode#0}:${owner}:${group}" ]] &&
+        cmp -s -- "${work}/stage/${name}" "${dest}"; }; then
+        die "runtime destination differs: ${dest}"
+      fi
+      existing[i]=1
+    fi
+    modes+=("${mode}")
+    owners+=("${owner}")
+    groups+=("${group}")
+    parent_groups+=("${parent_group}")
+  done
+  for i in "${!names[@]}"; do
+    name="${names[i]}"
+    dest="/etc/${name}"
+    [[ -z "${existing[i]:-}" ]] || continue
+    install -d -m 0750 -o root -g "${parent_groups[i]}" "${dest%/*}"
+    temp="$(mktemp "${dest%/*}/.recovery-runtime.XXXXXX")"
+    install -m "${modes[i]}" -o "${owners[i]}" -g "${groups[i]}" "${work}/stage/${name}" "${temp}"
+    ln -T -- "${temp}" "${dest}"
+    rm -- "${temp}"
+    temp=
+  done
+  rm -rf -- "${work}"
+  trap - EXIT INT TERM
+  log 'installed the runtime configuration for the restored standby'
 }
 
 cmd_start_recovery() {
@@ -1454,6 +1529,7 @@ main() {
     nginx-diff) cmd_nginx_diff "$@" ;;
     activate-static) cmd_activate_static "$@" ;;
     activate-service) cmd_activate_service "$@" ;;
+    install-recovery-runtime) cmd_install_recovery_runtime "$@" ;;
     start-recovery) cmd_start_recovery "$@" ;;
     start-recovery-waitlist) cmd_start_recovery_waitlist "$@" ;;
     prepare-recovery-ingress) cmd_prepare_recovery_ingress "$@" ;;
@@ -1468,7 +1544,7 @@ main() {
     smoke) cmd_smoke "$@" ;;
     cell-agent) cmd_cell_agent "$@" ;;
     tls-renewed) cmd_tls_renewed ;;
-    *) sed -n '2,29p' "${BASH_SOURCE[0]}" | sed 's/^# \{0,1\}//' >&2; exit 2 ;;
+    *) sed -n '2,30p' "${BASH_SOURCE[0]}" | sed 's/^# \{0,1\}//' >&2; exit 2 ;;
   esac
 }
 

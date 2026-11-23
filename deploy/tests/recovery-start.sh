@@ -12,6 +12,7 @@ release_path="$(readlink -f /srv/headmesh/slots/backend-prod-green)"
 release="$(basename "${release_path}")"
 sql() { runuser -u postgres -- psql -XAq -v ON_ERROR_STOP=1 -d headmesh_prod "$@"; }
 probe() { curl -qsS --noproxy '*' --max-time 2 -o /dev/null -w '%{http_code}' "$@"; }
+if ! command -v age-keygen >/dev/null; then apt-get install -y --no-install-recommends age >/dev/null; fi
 
 systemctl stop headmesh-cellagent.service headmesh-cellcert@prod.timer headmesh-backend@prod-green.service \
   headmesh-backend@test-blue.service headmesh-waitlist@test-blue.service certbot-renew.timer nginx.service headscale.service
@@ -56,6 +57,23 @@ runuser -u postgres -- env HEADMESH_DATABASE_URL='host=/var/run/postgresql dbnam
   "${release_path}/headmesh-server" backup-manifest capture -sqlite "${stage}/headscale.sqlite" \
     -noise-key "${stage}/keys/noise_private.key" >"${stage}/manifest.json"
 chown postgres:postgres "${stage}/manifest.json"
+
+# Preserve a referenced provider credential together with the ordinary runtime files.
+sed 's@https://test.headmesh.dev@https://headmesh.dev@g' /etc/headmesh/test/waitlist.env >"${tmp}/waitlist.env"
+install -m 0640 -o root -g headmesh "${tmp}/waitlist.env" /etc/headmesh/prod/waitlist.env
+install -d -m 0750 -o root -g headmesh /etc/headmesh/oauth
+printf '%s\n' fixture-client-credential >/etc/headmesh/oauth/fixture-client-secret
+printf '%s\n' 'HEADMESH_GITHUB_CLIENT_ID=fixture-runtime-client' \
+  "HEADMESH_GITHUB_CLIENT_SECRET_FILE='/etc/headmesh/oauth/fixture-client-secret'" >>/etc/headmesh/prod/backend.env
+age-keygen -o "${tmp}/owner.agekey" 2>/dev/null
+age-keygen -o "${tmp}/runtime.agekey" 2>/dev/null
+"${release_path}/headmesh-server" backup-runtime pack -recipient "$(age-keygen -y "${tmp}/owner.agekey")" \
+  -recovery-recipient "$(age-keygen -y "${tmp}/runtime.agekey")" >"${tmp}/runtime.age"
+tls_key_hash="$(sha256sum /etc/headmesh/tls/privkey.pem | cut -d ' ' -f 1)"
+mv /etc/headmesh/prod "${tmp}/old-prod-config"
+mv /etc/headmesh/tls "${tmp}/old-tls"
+mv /etc/headmesh/oauth "${tmp}/old-oauth"
+mv /etc/headmesh-cellagent "${tmp}/old-agent-config"
 systemctl stop postgresql@18-main.service
 cp -a /var/lib/postgresql/18/main "${stage}/postgres"
 mv /var/lib/postgresql/18/main "${tmp}/old-postgres"
@@ -64,6 +82,26 @@ mv /var/lib/headscale "${tmp}/old-headscale"
 mv /var/lib/headmesh/prod/state "${tmp}/old-deploy-state"
 mv /var/lib/headmesh-cellagent "${tmp}/old-agent-state"
 /usr/local/lib/headmesh/bootstrap.sh restore "${stage}"
+
+install_runtime() { "${ctl}" install-recovery-runtime "${release}" "${tmp}/runtime.agekey" -bundle "${tmp}/runtime.age"; }
+install -d -m 0750 -o root -g headmesh /etc/headmesh/prod
+printf '%s\n' fixture-conflict >/etc/headmesh/prod/backend.env
+if install_runtime >"${tmp}/runtime-conflict.log" 2>&1; then exit 1; fi
+grep -q 'runtime destination differs' "${tmp}/runtime-conflict.log"
+[[ "$(</etc/headmesh/prod/backend.env)" == fixture-conflict && ! -e "${app}" && ! -e /etc/headmesh/tls/privkey.pem ]]
+rm /etc/headmesh/prod/backend.env
+install_runtime
+install_runtime
+for name in backend.env db.env db-owner.env waitlist.env secrets.env backend/op-signing.key; do
+  cmp "${tmp}/old-prod-config/${name}" "/etc/headmesh/prod/${name}"
+done
+[[ "$(sha256sum /etc/headmesh/tls/privkey.pem | cut -d ' ' -f 1)" == "${tls_key_hash}" ]]
+cmp "${tmp}/old-agent-config/client.key" /etc/headmesh-cellagent/client.key
+cmp "${tmp}/old-oauth/fixture-client-secret" /etc/headmesh/oauth/fixture-client-secret
+[[ "$(stat -c '%a:%U:%G' /etc/headmesh/prod/db-owner.env)" == 600:root:root &&
+  "$(stat -c '%a:%U:%G' /etc/headmesh/oauth/fixture-client-secret)" == 600:headmesh:headmesh &&
+  "$(stat -c '%a:%U:%G' /etc/headmesh-cellagent/client.key)" == 640:root:headmesh-cellagent ]]
+echo 'Installed the encrypted runtime on an empty standby, preserved a conflicting file, and verified retry and file permissions.'
 
 # A missing agent key keeps readiness and writes closed and rolls back the
 # candidate services. Retry with the real fixture credentials.
@@ -161,8 +199,6 @@ install -d -m 0755 /srv/headmesh/prod/waitlist "$(dirname "${waitlist_target}")"
 cp -a "$(readlink -f /srv/headmesh/slots/waitlist-test-blue)" "${waitlist_target}"
 sqlite3 -readonly /var/lib/headmesh/test/waitlist/waitlist.db ".backup '${waitlist_snapshot}'"
 waitlist_source_hash="$(sha256sum "${waitlist_snapshot}")"
-sed 's@https://test.headmesh.dev@https://headmesh.dev@g' /etc/headmesh/test/waitlist.env >"${tmp}/waitlist.env"
-install -m 0640 -o root -g headmesh "${tmp}/waitlist.env" /etc/headmesh/prod/waitlist.env
 echo 'invalid SQLite fixture' >"${tmp}/bad-waitlist.db"
 if "${ctl}" start-recovery-waitlist "${release}" "${tmp}/bad-waitlist.db" >"${tmp}/bad-waitlist.log" 2>&1; then exit 1; fi
 grep -q 'failed SQLite integrity or schema validation' "${tmp}/bad-waitlist.log"
