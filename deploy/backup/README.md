@@ -276,6 +276,16 @@ environment, then enable `headmesh-backup-manifest.timer`. The command uses
 conditional object writes to prevent stale replacements. Schedule the full
 restore drill separately to verify the complete backup and WAL chain.
 
+Where `hs1` has no durable node, the approved backup canary can supply one.
+Install `systemd/headmesh-hs1-backup-canary.service` on its host and use the
+dedicated Headscale user `headmesh-recovery-canary`. Enroll once using a
+short-lived, single-use pre-auth key in a private file. Point the client at
+`https://hs1.headmesh.dev` using the canary socket and hostname
+`headmesh-hs1-backup-canary`. Set `--shields-up --accept-routes=false
+--accept-dns=false --ssh=false`. Restart the unit and confirm Headscale shows
+the same node online before enabling the unit at boot. The unit stores
+client state separately from the host's management Tailscale client.
+
 ## Isolated restore
 
 Run on a disposable host with enough free space for both databases and the

@@ -1,0 +1,18 @@
+[Unit]
+Description=Headmesh hs1 backup canary
+Wants=network-online.target
+After=network-online.target
+
+[Service]
+Type=simple
+DynamicUser=yes
+StateDirectory=headmesh-hs1-backup-canary
+StateDirectoryMode=0700
+RuntimeDirectory=headmesh-hs1-backup-canary
+RuntimeDirectoryMode=0700
+ExecStart=/usr/sbin/tailscaled --tun=userspace-networking --port=0 --socket=/run/headmesh-hs1-backup-canary/tailscaled.sock --state=/var/lib/headmesh-hs1-backup-canary/tailscaled.state --no-logs-no-support
+Restart=on-failure
+RestartSec=5s
+
+[Install]
+WantedBy=multi-user.target
