@@ -743,8 +743,9 @@ and deletion and production backup freshness in the full
 
 ## Hetzner restore drill
 
-The cloud runner creates a disposable `cx23` in `fsn1` and runs the full
-isolated verification. It uses Ubuntu 26.04, labels the VM as a drill, and
+The cloud runner tries a disposable `cx23` in `fsn1` first and falls back to
+another x86 candidate if Hetzner reports unavailable capacity. It runs the
+full isolated verification on Ubuntu 26.04, labels the VM as a drill, and
 authenticates SSH against a host key generated for that run. It verifies
 cloud-init and the required network namespace before uploading the backup
 credentials. The runner starts the recovered services inside the namespace

@@ -31,6 +31,7 @@ DRILL_LABELS = {"drill": "true", "ephemeral": "true"}
 SELECTOR = "drill=true,ephemeral=true"
 CREDENTIALS = ("litestream.aws", "manifest.netrc", "keys.netrc", "recovery.agekey", "pgbackrest.conf")
 VM_USER = "headmesh-drill"
+DRILL_CANDIDATES = (("cx23", "fsn1"), ("cx23", "hel1"), ("cx33", "fsn1"), ("cx33", "hel1"), ("cpx21", "fsn1"))
 
 
 class DrillError(Exception):
@@ -329,6 +330,17 @@ bash "$payload/remote-restore.sh" "$payload"'''
     return report
 
 
+def create_drill(api, run, options):
+    for server_type, location in DRILL_CANDIDATES:
+        print(f"Creating Hetzner restore drill {run} on {server_type}@{location}", file=sys.stderr)
+        try:
+            return api.request("POST", "/servers", {**options, "server_type": server_type, "location": location})
+        except ProviderError as exc:
+            if exc.status != 412 or exc.code != "resource_unavailable":
+                raise
+    raise DrillError("Hetzner reported no available capacity for any restore drill candidate")
+
+
 def drill(api, directory, endpoint, firewall):
     preflight_r2(directory, endpoint, require_manifest=True)
     with tempfile.TemporaryDirectory(prefix="headmesh-restore-drill-") as path:
@@ -340,7 +352,7 @@ def drill(api, directory, endpoint, firewall):
         host_public_key = (work / "host.pub").read_text().strip()
         run = secrets.token_hex(10)
         options = {
-            "name": f"hm-restore-{run}", "server_type": "cx23", "location": "fsn1", "image": "ubuntu-26.04",
+            "name": f"hm-restore-{run}", "image": "ubuntu-26.04",
             "labels": {**DRILL_LABELS, RUN_LABEL: run},
             "public_net": {"enable_ipv4": True, "enable_ipv6": False},
             "user_data": cloud_config((work / "host").read_text(), host_public_key,
@@ -351,8 +363,7 @@ def drill(api, directory, endpoint, firewall):
         server_id = None
         start = time.monotonic()
         try:
-            print(f"Creating Hetzner restore drill {run}", file=sys.stderr)
-            created = api.request("POST", "/servers", options)
+            created = create_drill(api, run, options)
             server = created["server"]
             server_id = server["id"]
             if managed_run(server) != run:

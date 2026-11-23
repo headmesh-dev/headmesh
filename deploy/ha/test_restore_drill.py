@@ -10,7 +10,7 @@ import threading
 import unittest
 from unittest.mock import patch
 
-from restore_drill import CREDENTIALS, DRILL_LABELS, RUN_LABEL, DrillError, Hetzner, drill, janitor, preflight_r2, run_remote
+from restore_drill import CREDENTIALS, DRILL_LABELS, RUN_LABEL, DrillError, Hetzner, create_drill, drill, janitor, preflight_r2, run_remote
 
 
 class CloudFixture(BaseHTTPRequestHandler):
@@ -28,6 +28,11 @@ class CloudFixture(BaseHTTPRequestHandler):
     def do_POST(self):
         options = json.loads(self.rfile.read(int(self.headers["Content-Length"])))
         state = self.server.fixture
+        candidate = options["server_type"], options["location"]
+        state["attempts"].append(candidate)
+        if candidate in state.get("unavailable", ()):
+            self.reply(412, {"error": {"code": "resource_unavailable"}})
+            return
         state["create"] = options
         record = {"id": 1, "labels": options["labels"], "name": options["name"],
                   "public_net": {"ipv4": {"ip": "192.0.2.10"}}}
@@ -63,7 +68,7 @@ class CloudFixture(BaseHTTPRequestHandler):
 @contextlib.contextmanager
 def provider():
     with ThreadingHTTPServer(("127.0.0.1", 0), CloudFixture) as server:
-        server.fixture = {"servers": {}, "deleted": [], "actions": []}
+        server.fixture = {"servers": {}, "deleted": [], "actions": [], "attempts": []}
         thread = threading.Thread(target=server.serve_forever, daemon=True)
         thread.start()
         try:
@@ -81,6 +86,21 @@ def credentials(path):
 
 
 class RestoreDrillTest(unittest.TestCase):
+    def test_only_explicit_capacity_errors_trigger_fallback(self):
+        with provider() as (api, state):
+            primary = ("cx23", "fsn1")
+            fallback = ("cx23", "hel1")
+            state["unavailable"] = [primary]
+            options = {"name": "fixture", "labels": {}, "firewalls": [{"firewall": 12}]}
+            create_drill(api, "fixture", options)
+            self.assertEqual(state["attempts"], [primary, fallback])
+            self.assertEqual(state["create"]["firewalls"], options["firewalls"])
+            state["attempts"].clear()
+            state["lose_create_response"] = True
+            with self.assertRaisesRegex(DrillError, "HTTP 502"):
+                create_drill(api, "fixture", options)
+            self.assertEqual(state["attempts"], [primary, fallback])
+
     @patch("restore_drill.preflight_r2")
     @patch("restore_drill.time.sleep")
     @patch("restore_drill.package_upload")
