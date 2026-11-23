@@ -338,16 +338,13 @@ inputs while the service is healthy. The job reports the manifest age and
 cleans up its private workspace when finished.
 [GitHub Actions dispatch events](https://docs.github.com/en/actions/reference/workflows-and-actions/events-that-trigger-workflows#repository_dispatch)
 
-### Allocate and boot a standby on Hetzner
+### Check Hetzner and package the standby release
 
-Run from the recovery runner after independent outage confirmation and
-fencing. Hold the recovery workflow's exclusive lock across these steps.
-Use `HCLOUD_TOKEN` for the Hetzner project. Get the pinned primary server
-and Primary IP IDs, the approved standby firewall and SSH key IDs, and the
-project server limit from Hetzner. Keep the same `run_id` throughout recovery.
-Set `primary_ipv6_id` to `0` if the original server had no Primary IPv6.
-Supply restore-mode cloud-init with admin access and no secrets. Hetzner
-retains the cloud-init data. [Hetzner Cloud Console](https://console.hetzner.cloud/)
+Before fencing, set `HCLOUD_TOKEN` for the recovery project. Supply the
+pinned primary and Primary IP IDs, the approved standby firewall and SSH
+key IDs, the project server limit and the runner's SSH source address.
+Keep the same `run_id` throughout recovery. Set `primary_ipv6_id` to `0`
+when the original server had no Primary IPv6. [Hetzner Cloud Console](https://console.hetzner.cloud/)
 
 ```bash
 umask 077
@@ -356,6 +353,38 @@ primary=(
   -primary-ipv4-id "$primary_ipv4_id" -primary-ipv6-id "$primary_ipv6_id"
   -run-id "$run_id" -firewall-id "$standby_firewall_id"
 )
+go run ./cmd/headmesh-recover check-standby "${primary[@]}" \
+  -server-limit "$server_limit" -ssh-key-ids "$ssh_key_ids" -runner-ip "$runner_ip"
+```
+
+The read-only check verifies the primary and project server count, the
+configured SSH keys, and that the firewall admits the runner on TCP 22.
+It also checks public TCP 443 and UDP 3478 on both address families for
+Headscale and its relay. The result lists the compatible type and location
+combinations reported by the catalog. Allocation still depends on provider
+capacity. [Hetzner Cloud API](https://docs.hetzner.cloud/reference/cloud)
+
+Build the replacement release from a clean approved checkout with the
+workspace dependencies installed. Supply the production public build
+settings and a new output directory.
+
+```bash
+deploy/deploy.sh --package-recovery-release "$release_package" "$production_build_env"
+release="$(jq -er '.release' "$release_package/release.json")"
+```
+
+The package contains both backend architectures, the portable waitlist,
+production site, nginx config, and server toolkit. `release.json` records
+the release ID and source commit. Carry the same package through recovery.
+
+### Allocate and boot a standby on Hetzner
+
+Hold the recovery lock across independent outage confirmation, fencing,
+and allocation. Supply restore-mode cloud-init with the approved admin
+access. Hetzner retains the cloud-init data, so use it for public keys and
+startup settings.
+
+```bash
 go run ./cmd/headmesh-recover create-standby "${primary[@]}" \
   -server-limit "$server_limit" -ssh-key-ids "$ssh_key_ids" \
   -cloud-init "$cloud_init" >"$allocation"
@@ -378,18 +407,22 @@ accepts an already running standby only after the provider checks pass.
 
 ### Install the staged files on a standby
 
-From the matching checkout, package the deployment toolkit and transfer it
-over verified SSH to a fresh Ubuntu 26.04 standby. Use the standby's admin
-SSH destination in `standby_ssh`.
+Transfer the deployment toolkit from the same release to a fresh Ubuntu
+26.04 standby. Use the verified admin SSH destination in `standby_ssh`.
 
 ```sh
-toolkit="$(mktemp -d)"
-deploy/deploy.sh --package-recovery-toolkit "$toolkit"
+toolkit="$release_package/toolkit"
 tar -C "$toolkit" -cf - . | ssh "$standby_ssh" '
   sudo -n install -d -m 0755 /usr/local/lib/headmesh &&
   sudo -n tar -xf - --no-same-owner -C /usr/local/lib/headmesh &&
   sudo -n /usr/local/lib/headmesh/bootstrap.sh prepare-recovery'
 ```
+
+Select `backend/$architecture` from the release package using the provider
+record. Transfer its contents, `waitlist`, and `marketing` over pinned SSH
+to their respective `/srv/headmesh/prod/<component>/releases/$release`
+directories. Transfer the package's `nginx` directory and set
+`rendered_nginx` to that path on the standby.
 
 Preparation installs PostgreSQL 18, pgBackRest, Headscale, nginx, Node,
 certbot and the service units and users. It generates `en_US.UTF-8` for the
@@ -481,7 +514,7 @@ so outstanding confirmation and unsubscribe links still work. The
 recovery, start the restored waitlist with nginx still masked.
 
 ```sh
-/usr/local/lib/headmesh/deployctl.sh start-recovery-waitlist "$waitlist_release" "$waitlist_snapshot"
+/usr/local/lib/headmesh/deployctl.sh start-recovery-waitlist "$release" "$waitlist_snapshot"
 ```
 
 The command validates the database and starts it on loopback. It refuses to
@@ -489,22 +522,16 @@ replace an existing database. Once it returns successfully, remove the
 private staged copy.
 
 Install the DNS-01 certificate and key under `/etc/headmesh/tls/` before
-starting nginx. Install the production marketing release under
-`/srv/headmesh/prod/marketing/releases/`, including `site/` and `nginx/`.
-Render the production nginx configuration from the matching checkout.
+starting nginx. Use the marketing release and nginx config from the
+standby release package.
 [Let's Encrypt DNS-01](https://letsencrypt.org/docs/challenge-types/#dns-01-challenge)
 
-```sh
-deploy/deploy.sh --render-recovery-nginx "$rendered_nginx"
-```
-
-Transfer that directory to the standby. With nginx still masked, run this
-as root with the directory you transferred and the assigned standby addresses
-from `start-standby`.
+With nginx still masked, run this as root with the directory you
+transferred and the assigned standby addresses from `start-standby`.
 
 ```sh
 /usr/local/lib/headmesh/deployctl.sh prepare-recovery-ingress \
-  "$rendered_nginx" "$site_release" "$standby_ipv4" "$standby_ipv6"
+  "$rendered_nginx" "$release" "$standby_ipv4" "$standby_ipv6"
 ```
 
 The command checks live backend and waitlist readiness, that both addresses are assigned

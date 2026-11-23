@@ -47,14 +47,19 @@ func runStandby(ctx context.Context, command string, args []string, out io.Write
 	var primary recovery.Primary
 	var config recovery.StandbyConfig
 	var standbyID int64
-	var keyIDs, cloudInitPath string
+	var keyIDs, cloudInitPath, runnerIP string
 	bindProviderPins(flags, &primary, &config.RunID, &config.FirewallID)
-	if command == "create-standby" {
+	if command != "start-standby" {
 		flags.IntVar(&config.ServerLimit, "server-limit", 0, "maximum servers allowed in the project")
 		flags.StringVar(&config.Image, "image", "ubuntu-26.04", "Hetzner system image name")
 		flags.StringVar(&keyIDs, "ssh-key-ids", "", "comma-separated Hetzner SSH key IDs")
+	}
+	switch command {
+	case "check-standby":
+		flags.StringVar(&runnerIP, "runner-ip", "", "SSH source address as seen by the standby firewall")
+	case "create-standby":
 		flags.StringVar(&cloudInitPath, "cloud-init", "", "restore-mode cloud-init file with no secrets")
-	} else {
+	case "start-standby":
 		flags.Int64Var(&standbyID, "standby-id", 0, "allocated Hetzner standby server ID")
 	}
 	if err := flags.Parse(args); err != nil {
@@ -63,16 +68,29 @@ func runStandby(ctx context.Context, command string, args []string, out io.Write
 	if flags.NArg() != 0 || !validProviderPins(primary, config.RunID, config.FirewallID) {
 		return fmt.Errorf("%s requires primary pins, a run ID, and the standby firewall ID", command)
 	}
-	if command == "create-standby" {
-		if config.ServerLimit <= 0 || config.Image == "" || cloudInitPath == "" {
-			return fmt.Errorf("create-standby requires a server limit, image and cloud-init file")
+	if command != "start-standby" {
+		if config.ServerLimit <= 0 || config.Image == "" {
+			return fmt.Errorf("%s requires a server limit and image", command)
 		}
 		for value := range strings.SplitSeq(keyIDs, ",") {
 			id, err := strconv.ParseInt(strings.TrimSpace(value), 10, 64)
 			if err != nil || id <= 0 {
-				return fmt.Errorf("create-standby requires positive comma-separated SSH key IDs")
+				return fmt.Errorf("%s requires positive comma-separated SSH key IDs", command)
 			}
 			config.SSHKeyIDs = append(config.SSHKeyIDs, id)
+		}
+	}
+	var runner netip.Addr
+	if command == "check-standby" {
+		var err error
+		runner, err = netip.ParseAddr(runnerIP)
+		if err != nil {
+			return fmt.Errorf("check-standby requires a runner SSH source IP")
+		}
+	}
+	if command == "create-standby" {
+		if cloudInitPath == "" {
+			return fmt.Errorf("create-standby requires a cloud-init file")
 		}
 		cloudInit, err := os.ReadFile(cloudInitPath) // #nosec G304 -- The operator explicitly selects the local cloud-init file.
 		if err != nil {
@@ -82,13 +100,23 @@ func runStandby(ctx context.Context, command string, args []string, out io.Write
 		if !strings.HasPrefix(config.CloudConfig, "#cloud-config\n") {
 			return fmt.Errorf("standby cloud-init must start with #cloud-config")
 		}
-	} else if standbyID <= 0 || standbyID == primary.ServerID {
+	} else if command == "start-standby" && (standbyID <= 0 || standbyID == primary.ServerID) {
 		return fmt.Errorf("start-standby requires a distinct standby server ID")
 	}
 
 	client, err := newClient()
 	if err != nil {
 		return err
+	}
+	if command == "check-standby" {
+		report, err := recovery.CheckStandbyPrerequisites(ctx, client, primary, config, runner)
+		if err != nil {
+			return err
+		}
+		if err := json.NewEncoder(out).Encode(report); err != nil {
+			return fmt.Errorf("write standby preflight report: %w", err)
+		}
+		return nil
 	}
 	var server *hcloud.Server
 	if command == "create-standby" {

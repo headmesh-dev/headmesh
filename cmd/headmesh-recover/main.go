@@ -27,7 +27,7 @@ func run(ctx context.Context, args []string) error {
 		switch args[0] {
 		case "prepare-inputs":
 			return runPrepareInputs(ctx, args[1:], os.Stdout)
-		case "create-standby", "start-standby":
+		case "check-standby", "create-standby", "start-standby":
 			return runStandby(ctx, args[0], args[1:], os.Stdout, hetznerClient)
 		case "plan-dns", "promote-dns", "verify-cutover":
 			return runDNS(ctx, args[0], args[1:])
@@ -35,7 +35,7 @@ func run(ctx context.Context, args []string) error {
 			return runProveIngress(ctx, args[1:])
 		}
 	}
-	return fmt.Errorf("usage: headmesh-recover {prepare-inputs | create-standby | start-standby | prove-ingress | plan-dns | promote-dns | verify-cutover} [flags]")
+	return fmt.Errorf("usage: headmesh-recover {prepare-inputs | check-standby | create-standby | start-standby | prove-ingress | plan-dns | promote-dns | verify-cutover} [flags]")
 }
 
 func runProveIngress(ctx context.Context, args []string) error {

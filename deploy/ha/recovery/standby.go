@@ -25,6 +25,10 @@ type StandbyConfig struct {
 
 const standbyLabel = "headmesh-recovery-for"
 
+var standbyCandidates = [...]struct{ serverType, location string }{
+	{"cx23", "fsn1"}, {"cx23", "hel1"}, {"cx33", "fsn1"}, {"cx33", "hel1"}, {"cpx21", "fsn1"}, {"cax11", "fsn1"},
+}
+
 // StandbyTarget pins the server created for a recovery run and its firewall.
 type StandbyTarget struct {
 	RunID      string
@@ -60,22 +64,11 @@ func CreateStandby(ctx context.Context, client *hcloud.Client, primary Primary, 
 
 	primaryID := strconv.FormatInt(primary.ServerID, 10)
 	name := standbyName(primary.ServerID, config.RunID)
-	servers, err := client.Server.All(ctx)
-	if err != nil {
-		return nil, fmt.Errorf("list servers for standby capacity: %w", err)
-	}
-	for _, server := range servers {
-		if server.Name == name || server.Labels[standbyLabel] == primaryID {
-			return nil, fmt.Errorf("server %d (%s) already exists for this recovery; inspect it before provisioning again", server.ID, server.Name)
-		}
-	}
-	if len(servers) >= config.ServerLimit {
-		return nil, fmt.Errorf("project has %d servers and the configured limit is %d; review capacity in Hetzner Console", len(servers), config.ServerLimit)
+	if _, err := checkStandbyCapacity(ctx, client, primary.ServerID, config.RunID, config.ServerLimit); err != nil {
+		return nil, err
 	}
 
-	for _, candidate := range []struct{ serverType, location string }{
-		{"cx23", "fsn1"}, {"cx23", "hel1"}, {"cx33", "fsn1"}, {"cx33", "hel1"}, {"cpx21", "fsn1"}, {"cax11", "fsn1"},
-	} {
+	for _, candidate := range standbyCandidates {
 		if err := VerifyFence(ctx, client, primary); err != nil {
 			return nil, fmt.Errorf("check primary fence before creating %s@%s: %w", candidate.serverType, candidate.location, err)
 		}
@@ -117,6 +110,23 @@ func CreateStandby(ctx context.Context, client *hcloud.Client, primary Primary, 
 		return server, nil
 	}
 	return nil, fmt.Errorf("provider reported resource capacity or limit errors for every standby candidate")
+}
+
+func checkStandbyCapacity(ctx context.Context, client *hcloud.Client, primaryID int64, runID string, limit int) (int, error) {
+	servers, err := client.Server.All(ctx)
+	if err != nil {
+		return 0, fmt.Errorf("list servers for standby capacity: %w", err)
+	}
+	name, label := standbyName(primaryID, runID), strconv.FormatInt(primaryID, 10)
+	for _, server := range servers {
+		if server.Name == name || server.Labels[standbyLabel] == label {
+			return 0, fmt.Errorf("server %d (%s) already exists for this recovery; inspect it before provisioning again", server.ID, server.Name)
+		}
+	}
+	if len(servers) >= limit {
+		return 0, fmt.Errorf("project has %d servers and the configured limit is %d; review capacity in Hetzner Console", len(servers), limit)
+	}
+	return len(servers), nil
 }
 
 // StartStandby boots the pinned replacement after rechecking the provider
