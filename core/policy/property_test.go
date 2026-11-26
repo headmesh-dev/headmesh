@@ -251,39 +251,80 @@ func TestCompiledPolicyMatchesModel(t *testing.T) {
 	})
 }
 
-// TestVerifyCatchesInjectedCrossTenantEdges checks that any unjustified cross-org edge added to a valid policy
-// is rejected.
-func TestVerifyCatchesInjectedCrossTenantEdges(t *testing.T) {
-	rapid.Check(t, func(t *rapid.T) {
-		s := genSnapshot(t)
-		c, err := Compile(s, t0, Options{})
-		if err != nil {
-			t.Fatalf("Compile: %v", err)
+// forbiddenPrincipals are never Headmesh principals, so no document containing one may verify.
+var forbiddenPrincipals = []string{
+	"*", "autogroup:member", "autogroup:internet", "autogroup:danger-all", "autogroup:tagged", "autogroup:self",
+	"group:admins", "10.0.0.0/8", "100.64.0.1", "fd7a:115c:a1e0::1", "webserver",
+}
+
+// propVerifyRejectsWidening takes a valid compiled policy, widens it in one of five ways, and requires Verify to
+// reject the result: an unjustified cross-org grant edge, a forbidden principal on either side of a rule, a tag
+// owner the snapshot doesn't define, a cross-org SSH rule, or a test naming an unknown principal.
+func propVerifyRejectsWidening(t *rapid.T) {
+	s := genSnapshot(t)
+	c, err := Compile(s, t0, Options{})
+	if err != nil {
+		t.Fatalf("Compile: %v", err)
+	}
+	var live []Device
+	for _, d := range s.Devices {
+		if d.State == DeviceActive && d.User == "" {
+			live = append(live, d)
 		}
-		var live []Device
-		for _, d := range s.Devices {
-			if d.State == DeviceActive && d.User == "" {
-				live = append(live, d)
-			}
-		}
+	}
+	doc := c.Document
+	var what string
+	switch rapid.IntRange(0, 4).Draw(t, "tamper") {
+	case 0, 3: // a cross-org edge, as a grant or as an SSH rule
 		if len(live) < 2 {
 			return
 		}
 		a := rapid.SampledFrom(live).Draw(t, "a")
 		b := rapid.SampledFrom(live).Draw(t, "b")
-		port := rapid.SampledFrom([]string{"tcp:3389", "udp:4000"}).Draw(t, "port")
 		if a.Org == b.Org {
 			return
 		}
-		doc := c.Document
 		doc.TagOwners[DeviceTag(a.Short)] = []string{}
 		doc.TagOwners[DeviceTag(b.Short)] = []string{}
-		doc.Grants = append(doc.Grants, GrantRule{Src: []string{DeviceTag(a.Short)}, Dst: []string{DeviceTag(b.Short)}, IP: []string{port}})
-		if err := Verify(s, t0, doc); !errors.Is(err, ErrViolation) {
-			t.Fatalf("injected edge %s -> %s %s was not rejected: %v", a.Short, b.Short, port, err)
+		src, dst := []string{DeviceTag(a.Short)}, []string{DeviceTag(b.Short)}
+		if rapid.Bool().Draw(t, "ssh") {
+			doc.SSH = append(doc.SSH, SSHRule{Action: "accept", Src: src, Dst: dst, Users: []string{"root"}})
+			what = "cross-org SSH " + a.Short + " -> " + b.Short
+		} else {
+			port := rapid.SampledFrom([]string{"tcp:3389", "udp:4000"}).Draw(t, "port")
+			doc.Grants = append(doc.Grants, GrantRule{Src: src, Dst: dst, IP: []string{port}})
+			what = "cross-org edge " + a.Short + " -> " + b.Short + " " + port
 		}
-	})
+	case 1:
+		bad := rapid.SampledFrom(forbiddenPrincipals).Draw(t, "bad")
+		other := OrgTag(s.Orgs[0].Short)
+		if len(live) > 0 {
+			other = DeviceTag(rapid.SampledFrom(live).Draw(t, "other").Short)
+		}
+		doc.TagOwners[other] = []string{}
+		rule := GrantRule{Src: []string{bad}, Dst: []string{other}, IP: []string{rapid.SampledFrom([]string{"tcp:22", "*"}).Draw(t, "port")}}
+		if rapid.Bool().Draw(t, "asDst") {
+			rule.Src, rule.Dst = rule.Dst, rule.Src
+		}
+		doc.Grants = append(doc.Grants, rule)
+		what = "forbidden principal " + bad
+	case 2:
+		tag := rapid.SampledFrom([]string{"tag:admin", "tag:xcelsior", "tag:hm-d-unknown", "tag:hm-o-unknown"}).Draw(t, "tag")
+		doc.TagOwners[tag] = []string{}
+		what = "undefined tag owner " + tag
+	case 4:
+		doc.Tests = append(doc.Tests, PolicyTest{Src: "tag:hm-d-unknown", Accept: []string{"tag:hm-d-unknown:22"}})
+		what = "test naming an unknown principal"
+	}
+	if err := Verify(s, t0, doc); !errors.Is(err, ErrViolation) {
+		t.Fatalf("%s was not rejected: %v", what, err)
+	}
 }
+
+func TestVerifyRejectsWidening(t *testing.T) { rapid.Check(t, propVerifyRejectsWidening) }
+
+// FuzzVerify runs the widening property from fuzzer-chosen bytes: random tampering never passes.
+func FuzzVerify(f *testing.F) { f.Fuzz(rapid.MakeFuzz(propVerifyRejectsWidening)) }
 
 func TestTimelineRevisionsMatchPointInTimeCompiles(t *testing.T) {
 	rapid.Check(t, func(t *rapid.T) {

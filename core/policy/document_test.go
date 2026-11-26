@@ -2,26 +2,87 @@ package policy
 
 import (
 	"encoding/json"
+	"maps"
+	"reflect"
+	"slices"
 	"testing"
 
 	"pgregory.net/rapid"
 )
 
-// TestAppendDocumentMatchesEncodingJSON holds the reflection-free renderer to json.MarshalIndent byte for byte:
-// nil versus empty lists and maps, the omitempty fields, sorted map keys and every escaping rule (quotes,
-// backslashes, HTML characters, control characters, U+2028 and U+2029, invalid UTF-8).
-func TestAppendDocumentMatchesEncodingJSON(t *testing.T) {
-	rapid.Check(t, func(rt *rapid.T) {
-		d := genDocument(rt)
-		want, err := json.MarshalIndent(d, "", "  ")
-		if err != nil {
-			rt.Fatal(err)
-		}
-		if got := appendDocument(nil, d); string(got) != string(want) {
-			rt.Fatalf("appendDocument differs from encoding/json\n got: %q\nwant: %q", got, want)
-		}
-	})
+// propRenderMatchesEncodingJSON holds the reflection-free renderer to json.MarshalIndent byte for byte: nil
+// versus empty lists and maps, the omitempty fields, sorted map keys and every escaping rule (quotes, backslashes,
+// HTML characters, control characters, U+2028 and U+2029, invalid UTF-8). Its output must also decode back to a
+// document that renders to the same bytes, so a cell reading the policy sees exactly what was compiled.
+func propRenderMatchesEncodingJSON(rt *rapid.T) {
+	d := genDocument(rt)
+	want, err := json.MarshalIndent(d, "", "  ")
+	if err != nil {
+		rt.Fatal(err)
+	}
+	got := appendDocument(nil, d)
+	if string(got) != string(want) {
+		rt.Fatalf("appendDocument differs from encoding/json\n got: %q\nwant: %q", got, want)
+	}
+	var back Document
+	if err := json.Unmarshal(got, &back); err != nil {
+		rt.Fatalf("rendered document does not decode: %v\n%q", err, got)
+	}
+	if want := decodedForm(d); !reflect.DeepEqual(back, want) {
+		rt.Fatalf("rendered document decodes to a different value\n got: %#v\nwant: %#v", back, want)
+	}
 }
+
+// decodedForm is what d becomes after rendering and decoding: encoding/json replaces each invalid UTF-8 byte with
+// U+FFFD (as converting to []rune does), and an empty omitempty list is left out, so it decodes as nil.
+func decodedForm(d Document) Document {
+	fix := func(s string) string { return string([]rune(s)) }
+	fixAll := func(l []string) []string {
+		if l == nil {
+			return nil
+		}
+		out := make([]string, len(l))
+		for i, s := range l {
+			out[i] = fix(s)
+		}
+		return out
+	}
+	var out Document
+	if d.TagOwners != nil {
+		// Keys render in sorted order. Two keys differing only in invalid bytes both become U+FFFD and render as a
+		// duplicate key, which the decoder resolves to the last one (real tag names are generated, valid UTF-8).
+		out.TagOwners = make(map[string][]string, len(d.TagOwners))
+		for _, k := range slices.Sorted(maps.Keys(d.TagOwners)) {
+			out.TagOwners[fix(k)] = fixAll(d.TagOwners[k])
+		}
+	}
+	if d.Grants != nil {
+		out.Grants = []GrantRule{}
+		for _, g := range d.Grants {
+			out.Grants = append(out.Grants, GrantRule{Src: fixAll(g.Src), Dst: fixAll(g.Dst), IP: fixAll(g.IP)})
+		}
+	}
+	for _, r := range d.SSH {
+		out.SSH = append(out.SSH, SSHRule{Action: fix(r.Action), Src: fixAll(r.Src), Dst: fixAll(r.Dst), Users: fixAll(r.Users)})
+	}
+	omitEmpty := func(l []string) []string {
+		if len(l) == 0 {
+			return nil
+		}
+		return fixAll(l)
+	}
+	for _, pt := range d.Tests {
+		out.Tests = append(out.Tests, PolicyTest{Src: fix(pt.Src), Accept: omitEmpty(pt.Accept), Deny: omitEmpty(pt.Deny)})
+	}
+	return out
+}
+
+func TestAppendDocumentMatchesEncodingJSON(t *testing.T) {
+	rapid.Check(t, propRenderMatchesEncodingJSON)
+}
+
+// FuzzRender runs the same property from fuzzer-chosen bytes, so `go test -fuzz` can search past rapid's checks.
+func FuzzRender(f *testing.F) { f.Fuzz(rapid.MakeFuzz(propRenderMatchesEncodingJSON)) }
 
 // TestRenderBodyIsTheIndentedDocument checks render's body against encoding/json after normalising, and that
 // the full bytes are the header followed by that body.
@@ -50,7 +111,7 @@ func TestRenderBodyIsTheIndentedDocument(t *testing.T) {
 
 var trickyStrings = []string{
 	"", "tag:hm-o-acme", "u0@", "tcp:22", `a"b`, `back\slash`, "<script>&</script>", "tab\there", "nl\n",
-	"\x00\x1f\x7f", "  ", "é漢🙂", "\xff\xfe", "a\xc3", "�",
+	"\x00\x1f\x7f", "\u2028\u2029", "é漢🙂", "\xff\xfe", "a\xc3", "�",
 }
 
 func genJSONString(t *rapid.T, label string) string {
