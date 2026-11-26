@@ -46,9 +46,11 @@ func NewOAuthResourceServer(issuer, resource, jwksURL string) (*OAuthResourceSer
 	}
 	transport := http.DefaultTransport.(*http.Transport).Clone()
 	transport.Proxy = nil
-	return &OAuthResourceServer{issuer: issuer, resource: resource, jwksURL: jwksURL,
+	return &OAuthResourceServer{
+		issuer: issuer, resource: resource, jwksURL: jwksURL,
 		client: &http.Client{Timeout: 5 * time.Second, Transport: transport, CheckRedirect: func(*http.Request, []*http.Request) error { return http.ErrUseLastResponse }},
-		keys:   make(map[string]ed25519.PublicKey)}, nil
+		keys:   make(map[string]ed25519.PublicKey),
+	}, nil
 }
 
 func (s *OAuthResourceServer) Metadata() *oauthex.ProtectedResourceMetadata {

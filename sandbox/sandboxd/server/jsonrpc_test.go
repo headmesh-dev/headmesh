@@ -11,7 +11,7 @@ import (
 func TestUnknownMethodKeepsRPCIDAndAuthentication(t *testing.T) {
 	f := newFixture(t)
 	for _, token := range []string{"", f.readToken} {
-		request, err := http.NewRequest(http.MethodPost, f.http.URL+"/mcp",
+		request, err := http.NewRequestWithContext(t.Context(), http.MethodPost, f.http.URL+"/mcp",
 			strings.NewReader(`{"jsonrpc":"2.0","id":"probe-42","method":"does/not/exist","params":{}}`))
 		if err != nil {
 			t.Fatal(err)

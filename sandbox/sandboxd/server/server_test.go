@@ -428,7 +428,7 @@ func TestCORSPreflightPreservesOriginAndBearerChecks(t *testing.T) {
 		{http.MethodOptions, "https://evil.example", http.StatusForbidden},
 		{http.MethodPost, "https://client.example", http.StatusUnauthorized},
 	} {
-		r := httptest.NewRequest(tc.method, "/mcp", nil)
+		r := httptest.NewRequestWithContext(t.Context(), tc.method, "/mcp", nil)
 		r.Header.Set("Origin", tc.origin)
 		w := httptest.NewRecorder()
 		h.ServeHTTP(w, r)

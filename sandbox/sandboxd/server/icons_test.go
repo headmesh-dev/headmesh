@@ -35,7 +35,11 @@ func TestServerIconsAdvertisedAndServed(t *testing.T) {
 		}
 
 		// Unauthenticated, like a client drawing its server list.
-		res, err := http.Get(f.http.URL + "/icons/" + string(theme) + ".png")
+		req, err := http.NewRequestWithContext(t.Context(), http.MethodGet, f.http.URL+"/icons/"+string(theme)+".png", nil)
+		if err != nil {
+			t.Fatal(err)
+		}
+		res, err := http.DefaultClient.Do(req)
 		if err != nil {
 			t.Fatal(err)
 		}

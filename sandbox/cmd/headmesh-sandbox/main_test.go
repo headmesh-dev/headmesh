@@ -44,7 +44,7 @@ func TestMaskProbeDistinguishesHiddenAndVisibleFilesAndDirectories(t *testing.T)
 					t.Fatal(err)
 				}
 			}
-			out, err := exec.Command("sh", "-c", maskProbe(path)).CombinedOutput()
+			out, err := exec.CommandContext(t.Context(), "sh", "-c", maskProbe(path)).CombinedOutput()
 			if err != nil || strings.TrimSpace(string(out)) != tc.want {
 				t.Fatalf("probe = %q, %v; want %q", out, err, tc.want)
 			}

@@ -34,12 +34,12 @@ func TestOAuthJWTAndRevocation(t *testing.T) {
 		case "/oauth/token-status":
 			statusCalls.Add(1)
 			if !active.Load() {
-				w.WriteHeader(401)
+				w.WriteHeader(http.StatusUnauthorized)
 				return
 			}
 			_ = json.NewEncoder(w).Encode(map[string]any{"active": true, "sub": "user-id", "jti": "token-id", "aud": resource, "scope": "sandbox:read sandbox:exec"})
 		default:
-			w.WriteHeader(404)
+			w.WriteHeader(http.StatusNotFound)
 		}
 	}))
 	defer server.Close()
@@ -130,7 +130,7 @@ func TestOAuthConfigurationAndChallenges(t *testing.T) {
 	}
 	h := Middleware(NewStore(t.TempDir()+"/tokens.json"), rs, "https://sandbox.test/.well-known/oauth-protected-resource/mcp", http.HandlerFunc(func(http.ResponseWriter, *http.Request) { t.Fatal("unauthenticated request reached tool") }))
 	w := httptest.NewRecorder()
-	h.ServeHTTP(w, httptest.NewRequest("GET", "https://sandbox.test/mcp", nil))
+	h.ServeHTTP(w, httptest.NewRequestWithContext(t.Context(), http.MethodGet, "https://sandbox.test/mcp", nil))
 	if w.Code != 401 || strings.Contains(w.Header().Get("WWW-Authenticate"), ScopeAdmin) {
 		t.Fatal("challenge advertised ungrantable admin scope")
 	}
