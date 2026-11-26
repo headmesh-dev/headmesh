@@ -9,8 +9,8 @@ Headmesh is open source under two licenses (ADR 0015). Copyright © 2026 Xcelsio
 | `proto/headscale/`, `gen/headscale/` | [BSD-3-Clause](proto/headscale/LICENSE), from [Headscale](https://github.com/juanfont/headscale) | Vendored Headscale v0.29.7 API definitions and code generated from them |
 
 The Apache-2.0 parts never import the AGPL parts: the CLI talks to the server only over its REST API, and the
-sandbox is a separate Go module. A test in CI could enforce this later; for now `go list -deps ./cmd/headmesh`
-shows it.
+sandbox is a separate Go module. The `TestPermissiveCodeNeverImportsAGPLCode` test in [`test/repo`](test/repo/)
+checks the full Go dependency graph for the CLI and sandbox, including test dependencies.
 
 The Headmesh name and logo (including `web/marketing/public/brand/` and `web/marketing/src/assets/`) are trademarks of
 Xcelsior Compute Inc. and are not covered by these licenses.
