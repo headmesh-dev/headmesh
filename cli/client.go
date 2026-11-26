@@ -225,9 +225,9 @@ func (s Selector) String() string {
 
 // ParseSelector reads all, users, role:NAME or device:ID.
 func ParseSelector(v string) (Selector, error) {
-	kind, arg, _ := strings.Cut(v, ":")
+	kind, arg, hasArg := strings.Cut(v, ":")
 	switch {
-	case (kind == "all" || kind == "users") && arg == "":
+	case (kind == "all" || kind == "users") && !hasArg:
 		return Selector{Kind: kind}, nil
 	case kind == "role" && arg != "":
 		return Selector{Kind: "role", Role: arg}, nil

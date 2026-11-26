@@ -252,7 +252,7 @@ func TestParseSelector(t *testing.T) {
 			t.Fatalf("%+v renders as %q, want %q", got, got.String(), in)
 		}
 	}
-	for _, bad := range []string{"", "role:", "device", "all:x", "everyone"} {
+	for _, bad := range []string{"", "role:", "device", "all:x", "all:", "users:", "everyone"} {
 		if _, err := ParseSelector(bad); err == nil {
 			t.Fatalf("ParseSelector(%q) accepted", bad)
 		}
