@@ -286,8 +286,8 @@ review of the code.
   on hosts that are already running, so roll it out with an announced apt upgrade, not a re-bootstrap). Find out
   why Renovate didn't propose it, and fix that in P0.5.
 
-  **Done 2026-11-18** for the pins and for tailscaled on prod-hetzner, hm-prod-1 and the ASUS. The Renovate
-  question stays open in P0.5.
+  **Done 2026-11-18** for the pins and for tailscaled on prod-hetzner, hm-prod-1 and the ASUS. P0.5 answers
+  the Renovate question.
 - **Hetzner credits:** check their expiry date in the Console, then schedule the P1.11 load tests and the first
   e2e runs on hourly VMs before it.
 
@@ -374,6 +374,27 @@ Long-lead items first, because they gate later phases:
   a nightly job runs them longer and adds `-rapid.checks=100000` for the property tests.
 - **`buf breaking`** against `main` for `proto/cell/v1`, so a cell agent one release behind keeps working
   (blue-green and rolling agent upgrades).
+
+**Done (2026-11-25).**
+
+- **Licence boundary:** `TestPermissiveCodeNeverImportsAGPLCode` in [`test/repo`](../test/repo/) walks the full Go
+  dependency graph, tests included, of the CLI, `cmd/headmesh`, the generated cell and Headscale code and the sandbox
+  module. A control test confirms it does see the AGPL imports of `cmd/headmesh-server`.
+- **Renovate:** it missed Tailscale 1.104.7 because the base-host pin had no annotation and `config:recommended`
+  ignores `test/` and `tests/`, which hid the e2e image. A custom regex manager now reads `# renovate:` annotations,
+  and 44 pins carry one. `TestEveryPinIsVisibleToRenovate` runs Renovate's own regex over every version in scripts,
+  Dockerfiles, Go image constants and workflows. Groups move Headscale, Tailscale, certbot, the code generators,
+  golangci-lint, gitleaks and pnpm in one PR each. Pins with a checksum next to them get a PR note to update it.
+  The certbot lock header is in the form pip-compile can replay, and the workflow Node and pnpm pins must match
+  `mise.toml` and `package.json`.
+- **Fuzzing:** `FuzzRender`, `FuzzVerify`, `FuzzParsePort`, `FuzzParseSelector`, `FuzzParseInvite`,
+  `FuzzSecretMatches` (`hmj_`, `hmk_`, `hmc_`) and `FuzzStoreVerify` (`hms_`) run 30 seconds each on PRs and
+  10 minutes each nightly. The nightly job also runs the policy properties at 100,000 checks and opens a tracking
+  issue on failure. A test keeps both lists equal to the `Fuzz*` functions. Fuzzing found that `ParseSelector`
+  accepted `all:` and `users:`; that is fixed.
+- **`buf breaking`** runs on every PR against its base branch.
+- **Found on the way:** the sandbox module's tests and lint never ran in CI. `ci-go` has a job for them now.
+- **Open:** the first hosted CI run, and installing the Renovate app on the org.
 
 ### P0.6 prod-hetzner leftovers (plan §5.4; Xcelsior repo; approvals)
 
