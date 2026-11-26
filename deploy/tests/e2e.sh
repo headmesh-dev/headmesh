@@ -184,8 +184,8 @@ check "--keep-schema is refused without --rollback" bash -c "! '${DEPLOY}' --env
 say "the previous Headscale release, as prod runs it before an upgrade"
 # The prod bootstrap below must upgrade Headscale in place, so install the release prod ran before HEADSCALE_VERSION
 # in server/bootstrap.sh, with a user in its database. Bump these two together with HEADSCALE_VERSION.
-PREV_HEADSCALE_VERSION="0.29.6"
-PREV_HEADSCALE_DEB_SHA256="a3b49916a16418c704cef89818d734bc8af0528aac965a2dd5ca4bfa4cef48e2"
+PREV_HEADSCALE_VERSION="0.29.7"
+PREV_HEADSCALE_DEB_SHA256="d230c5fc8db06cf1868f4ec0077b89e5e2ccf3b22a3259efa6d080db2d5f921c"
 on bash -ec "
   curl -fsSL --retry 3 -o /tmp/headscale-prev.deb \
     https://github.com/juanfont/headscale/releases/download/v${PREV_HEADSCALE_VERSION}/headscale_${PREV_HEADSCALE_VERSION}_linux_amd64.deb

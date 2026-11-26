@@ -127,7 +127,7 @@ func TestHeadscaleIdentityUsesASupportedCapabilityVersion(t *testing.T) {
 	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		switch r.URL.Path {
 		case "/version":
-			_, _ = io.WriteString(w, `{"version":"v0.29.7"}`)
+			_, _ = io.WriteString(w, `{"version":"v0.29.8"}`)
 		case "/key":
 			if v, _ := strconv.Atoi(r.URL.Query().Get("v")); v < 113 {
 				http.Error(w, "unsupported client version", http.StatusBadRequest)
@@ -140,7 +140,7 @@ func TestHeadscaleIdentityUsesASupportedCapabilityVersion(t *testing.T) {
 	}))
 	t.Cleanup(srv.Close)
 	ver, noise := headscaleIdentity(context.Background(), srv.URL, slog.New(slog.DiscardHandler))
-	if ver != "v0.29.7" {
+	if ver != "v0.29.8" {
 		t.Fatalf("version = %q", ver)
 	}
 	if len(noise) != 64 {

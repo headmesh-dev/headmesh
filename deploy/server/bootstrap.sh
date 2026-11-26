@@ -34,9 +34,9 @@ readonly NODE_ARM64_SHA256="524659219d6a207a7400f2bde15d19ba060ffbe0d32a8643319a
 readonly PG_MAJOR="18"
 # Headscale for the environment that hosts a cell (plan §13.2), from the release's checksums.txt.
 # renovate: datasource=github-releases depName=juanfont/headscale extractVersion=^v(?<version>.+)$
-readonly HEADSCALE_VERSION="0.29.7"
-readonly HEADSCALE_DEB_SHA256="d230c5fc8db06cf1868f4ec0077b89e5e2ccf3b22a3259efa6d080db2d5f921c"
-readonly HEADSCALE_ARM64_DEB_SHA256="a68f258a2a13a87321671f8cc613500986ffc40d0d2eacfdbf0b890b8b94227e"
+readonly HEADSCALE_VERSION="0.29.8"
+readonly HEADSCALE_DEB_SHA256="11033dcbf681ff0d143fa1f4f9360ac69fe87d52e09228d4bd51c5d68577be50"
+readonly HEADSCALE_ARM64_DEB_SHA256="9b81f14bd06486b2dc4b9eb3ef05e6df693cb6c0cbcf052fa09a1e05fd458b3d"
 # certbot from PyPI rather than Ubuntu's archive, whose DNS plugin needs the end-of-life cloudflare 2.x SDK. The
 # versions and hashes are in certbot-requirements.txt; bump CERTBOT_VERSION with it.
 # renovate: datasource=pypi depName=certbot

@@ -46,7 +46,7 @@ import (
 
 const (
 	// renovate: datasource=docker depName=headscale/headscale
-	headscaleImage = "headscale/headscale:v0.29.7"
+	headscaleImage = "headscale/headscale:v0.29.8"
 	// renovate: datasource=docker depName=tailscale/tailscale
 	tailscaleImage = "tailscale/tailscale:v1.104.7"
 	cellName       = "e2e"

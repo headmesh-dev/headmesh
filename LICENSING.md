@@ -6,7 +6,7 @@ Headmesh is open source under two licenses (ADR 0015). Copyright © 2026 Xcelsio
 | --- | --- | --- |
 | Everything not listed below: `cli/`, `cmd/headmesh/` (the CLI), `sandbox/`, `plugins/`, `proto/cell/`, `gen/cell/`, `web/`, `deploy/`, `docs/` | [Apache-2.0](LICENSE) | Things people embed, extend or build clients on: use them anywhere, including in proprietary products |
 | `api/`, `core/`, `internal/`, `db/`, `cmd/headmesh-server/`, `cmd/headmesh-cellagent/`, `test/` | [AGPL-3.0-only](api/LICENSE) (a copy in each directory) | The control plane. Anyone may run, modify and host it, but a modified version offered as a network service must publish its source |
-| `proto/headscale/`, `gen/headscale/` | [BSD-3-Clause](proto/headscale/LICENSE), from [Headscale](https://github.com/juanfont/headscale) | Vendored Headscale v0.29.7 API definitions and code generated from them |
+| `proto/headscale/`, `gen/headscale/` | [BSD-3-Clause](proto/headscale/LICENSE), from [Headscale](https://github.com/juanfont/headscale) | Vendored Headscale v0.29.8 API definitions and code generated from them |
 
 The Apache-2.0 parts never import the AGPL parts: the CLI talks to the server only over its REST API, and the
 sandbox is a separate Go module. The `TestPermissiveCodeNeverImportsAGPLCode` test in [`test/repo`](test/repo/)
