@@ -1,0 +1,105 @@
+name: fuzz-nightly
+
+# The pull-request fuzz job (ci-go) gives each target 30 seconds; this gives each 10 minutes, and runs the policy
+# compiler's property tests at 100,000 checks. A failure opens (or comments on) one tracking issue with the run's
+# link, and the failing input is kept as an artifact for 30 days.
+
+on:
+  schedule:
+    - cron: "23 3 * * *"
+  workflow_dispatch:
+
+permissions: {}
+
+concurrency:
+  group: fuzz-nightly
+  cancel-in-progress: false
+
+jobs:
+  fuzz:
+    name: ${{ matrix.target }}
+    runs-on: ubuntu-26.04
+    permissions:
+      contents: read
+    timeout-minutes: 20
+    strategy:
+      fail-fast: false
+      # Keep this list equal to the fuzz job in ci-go.yml.
+      matrix:
+        include:
+          - { dir: ., pkg: ./core/policy, target: FuzzParsePort }
+          - { dir: ., pkg: ./core/policy, target: FuzzRender }
+          - { dir: ., pkg: ./core/policy, target: FuzzVerify }
+          - { dir: ., pkg: ./cli, target: FuzzParseSelector }
+          - { dir: ., pkg: ./cli, target: FuzzParseInvite }
+          - { dir: ., pkg: ./internal/service, target: FuzzSecretMatches }
+          - { dir: sandbox, pkg: ./sandboxd/authn, target: FuzzStoreVerify }
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - uses: actions/setup-go@b7ad1dad31e06c5925ef5d2fc7ad053ef454303e # v7.0.0
+        with:
+          go-version-file: ${{ matrix.dir }}/go.mod
+      - name: Fuzz for 10 minutes
+        working-directory: ${{ matrix.dir }}
+        env:
+          PKG: ${{ matrix.pkg }}
+          TARGET: ${{ matrix.target }}
+        run: go test "${PKG}" -run '^$' -fuzz "^${TARGET}\$" -fuzztime 10m
+      - name: Keep the failing input
+        if: failure()
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
+        with:
+          name: crasher-${{ matrix.target }}
+          path: "**/testdata/fuzz/${{ matrix.target }}/"
+          retention-days: 30
+          if-no-files-found: ignore
+
+  properties:
+    name: Policy properties at 100,000 checks
+    runs-on: ubuntu-26.04
+    permissions:
+      contents: read
+    timeout-minutes: 60
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - uses: actions/setup-go@b7ad1dad31e06c5925ef5d2fc7ad053ef454303e # v7.0.0
+        with:
+          go-version-file: go.mod
+      - name: Property tests
+        run: go test -count=1 -timeout 55m ./core/policy -rapid.checks=100000
+      - name: Keep the failing case
+        if: failure()
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
+        with:
+          name: rapid-failfiles
+          path: core/policy/testdata/rapid/
+          retention-days: 30
+          if-no-files-found: ignore
+
+  report:
+    name: Open or update the tracking issue
+    needs: [fuzz, properties]
+    if: failure() && github.event_name == 'schedule'
+    runs-on: ubuntu-26.04
+    permissions:
+      issues: write
+    timeout-minutes: 5
+    steps:
+      - name: File it
+        env:
+          GH_TOKEN: ${{ github.token }}
+          GH_REPO: ${{ github.repository }}
+          RUN_URL: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}
+        run: |
+          title="Nightly fuzzing or property tests failed"
+          body="Run: ${RUN_URL}. The failing inputs are the run's artifacts; copy one into the package's testdata/ to reproduce it with plain \`go test\`."
+          number="$(gh issue list --state open --search "\"${title}\" in:title" --json number --jq '.[0].number // empty')"
+          if [[ -n "${number}" ]]; then
+            gh issue comment "${number}" --body "${body}"
+          else
+            gh issue create --title "${title}" --body "${body}"
+          fi

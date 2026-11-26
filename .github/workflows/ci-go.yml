@@ -6,9 +6,15 @@ on:
   pull_request:
     paths:
       - "**.go"
-      - go.mod
-      - go.sum
+      - "**/go.mod"
+      - "**/go.sum"
       - proto/**
+      # test/repo checks the licence boundary and every version pin Renovate needs to see.
+      - .github/renovate.json
+      - .github/workflows/**
+      - "**.sh"
+      - "**/Dockerfile"
+      - deploy/server/certbot-requirements.*
       - db/**
       - buf*.yaml
       - .golangci.yml
@@ -43,12 +49,23 @@ jobs:
           setup_only: true
       - name: Install generators (pinned in mise.toml)
         run: |
+          # renovate: datasource=go depName=google.golang.org/protobuf
           go install google.golang.org/protobuf/cmd/protoc-gen-go@v1.36.12
+          # renovate: datasource=go depName=google.golang.org/grpc/cmd/protoc-gen-go-grpc
           go install google.golang.org/grpc/cmd/protoc-gen-go-grpc@v1.6.2
+          # renovate: datasource=go depName=connectrpc.com/connect/v2
           go install connectrpc.com/connect/v2/cmd/protoc-gen-connect-go@v2.0.2
+          # renovate: datasource=go depName=github.com/sqlc-dev/sqlc
           go install github.com/sqlc-dev/sqlc/cmd/sqlc@v1.31.1
       - name: Lint protobuf
         run: buf lint
+      - name: Protobuf has no breaking changes
+        # A cell agent one release behind the hub must keep working through blue-green and rolling agent upgrades,
+        # so proto/cell/v1 only changes compatibly (buf.yaml: FILE rules; the vendored Headscale API is exempt).
+        if: github.event_name == 'pull_request'
+        env:
+          BASE_REF: ${{ github.base_ref }}
+        run: buf breaking --against "https://github.com/${GITHUB_REPOSITORY}.git#branch=${BASE_REF}"
       - name: Regenerate and diff
         run: |
           buf generate --template proto/buf.gen.yaml
@@ -66,6 +83,7 @@ jobs:
       contents: read
     timeout-minutes: 5
     env:
+      # renovate: datasource=docker depName=tufin/oasdiff
       OASDIFF_IMAGE: tufin/oasdiff:v1.35.0@sha256:82b1840a77335562bb11ce95f77ad31745a0c6f3a770929333ed1c5ef466e400
       BASE_REF: ${{ github.base_ref }}
     steps:
@@ -97,9 +115,11 @@ jobs:
           go-version-file: go.mod
       - uses: golangci/golangci-lint-action@ba0d7d2ec06a0ea1cb5fa41b2e4a3ab91d21278a # v9.3.0
         with:
+          # renovate: datasource=github-releases depName=golangci/golangci-lint
           version: v2.15.0
           args: --build-tags integration,e2e
       - name: govulncheck
+        # renovate: datasource=go depName=golang.org/x/vuln
         run: go run golang.org/x/vuln/cmd/govulncheck@v1.9.0 ./...
 
   test:
@@ -120,8 +140,69 @@ jobs:
       - name: Deep property check of the policy compiler
         # -rapid.checks is only defined in packages that use rapid, so it runs on that package alone.
         run: go test -count=1 ./core/policy -rapid.checks=5000
-      - name: Fuzz the port parser (short)
-        run: go test ./core/policy -run '^$' -fuzz FuzzParsePort -fuzztime 30s
+
+  fuzz:
+    name: Fuzz (30 s per target)
+    # fuzz-nightly.yml runs the same targets for 10 minutes each. Keep the two lists equal.
+    runs-on: ubuntu-26.04
+    permissions:
+      contents: read
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - uses: actions/setup-go@b7ad1dad31e06c5925ef5d2fc7ad053ef454303e # v7.0.0
+        with:
+          go-version-file: go.mod
+      - name: Fuzz
+        run: |
+          while read -r dir pkg target; do
+            echo "::group::${target}"
+            (cd "${dir}" && go test "${pkg}" -run '^$' -fuzz "^${target}\$" -fuzztime 30s)
+            echo "::endgroup::"
+          done <<'TARGETS'
+          . ./core/policy FuzzParsePort
+          . ./core/policy FuzzRender
+          . ./core/policy FuzzVerify
+          . ./cli FuzzParseSelector
+          . ./cli FuzzParseInvite
+          . ./internal/service FuzzSecretMatches
+          sandbox ./sandboxd/authn FuzzStoreVerify
+          TARGETS
+      - name: Keep the failing input
+        if: failure()
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
+        with:
+          name: fuzz-crashers
+          path: "**/testdata/fuzz/**"
+          if-no-files-found: ignore
+
+  sandbox:
+    name: Sandbox module (tests and lint)
+    # sandbox/ is its own Go module, so the jobs above (run at the root) never reach it.
+    runs-on: ubuntu-26.04
+    permissions:
+      contents: read
+    timeout-minutes: 15
+    defaults:
+      run:
+        working-directory: sandbox
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - uses: actions/setup-go@b7ad1dad31e06c5925ef5d2fc7ad053ef454303e # v7.0.0
+        with:
+          go-version-file: sandbox/go.mod
+      - name: Test (race)
+        run: CGO_ENABLED=1 go test -race -count=1 ./...
+      - uses: golangci/golangci-lint-action@ba0d7d2ec06a0ea1cb5fa41b2e4a3ab91d21278a # v9.3.0
+        with:
+          # renovate: datasource=github-releases depName=golangci/golangci-lint
+          version: v2.15.0
+          working-directory: sandbox
+          args: --config ../.golangci.yml
 
   integration:
     name: Integration (Postgres 18)
