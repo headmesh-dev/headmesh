@@ -62,6 +62,12 @@
       "groupName": "certbot"
     },
     {
+      "description": "mise names protoc-gen-connect-go by its package path; the /v2 in the middle defeats the Go proxy and go-get, so look up the module",
+      "matchManagers": ["mise"],
+      "matchPackageNames": ["connectrpc.com/connect/v2/cmd/protoc-gen-connect-go"],
+      "overridePackageName": "connectrpc.com/connect/v2"
+    },
+    {
       "description": "Code generators: the mise pins and the CI install lines must stay equal, or the generated-code diff fails",
       "matchPackageNames": [
         "/protoc-gen-go/",
