@@ -199,7 +199,9 @@ func extract(managers []compiledManager, path, content string) []renovateMatch {
 func TestEveryPinIsVisibleToRenovate(t *testing.T) {
 	r := root(t)
 	managers := loadCustomManagers(t, r)
-	annotation := regexp.MustCompile(`(?:#|//)\s*renovate:`)
+	// An annotation is a comment line of its own with the pin on the next line, the only form the custom manager
+	// reads. A `# renovate:` quoted mid-line, as in the docs, is prose.
+	annotation := regexp.MustCompile(`(?m)^[ \t]*(?:#|//)[ \t]*renovate:`)
 	var checked int
 	for _, path := range repoFiles(t, r) {
 		if strings.Contains(path, "node_modules/") || strings.HasPrefix(path, "gen/") {
