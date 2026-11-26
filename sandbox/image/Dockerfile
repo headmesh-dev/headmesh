@@ -29,6 +29,7 @@ RUN --mount=type=cache,target=/go/pkg/mod --mount=type=cache,target=/root/.cache
 # Build gitleaks from its pinned Go module with the same patched Go toolchain.
 # The upstream release binary was built with a Go stdlib containing a critical TLS CVE.
 FROM ${GO_IMAGE} AS gitleaks-build
+# renovate: datasource=github-releases depName=gitleaks/gitleaks extractVersion=^v(?<version>.+)$
 ARG GITLEAKS_VERSION=8.30.1
 ENV CGO_ENABLED=0 GOWORK=off GOTOOLCHAIN=local
 RUN --mount=type=cache,target=/go/pkg/mod --mount=type=cache,target=/root/.cache/go-build \
@@ -47,12 +48,15 @@ RUN apt-get update \
  && apt-get install -y --no-install-recommends ca-certificates curl xz-utils \
  && rm -rf /var/lib/apt/lists/*
 
+# renovate: datasource=github-releases depName=just-containers/s6-overlay versioning=loose extractVersion=^v(?<version>.+)$
 ARG S6_OVERLAY_VERSION=3.2.3.2
 ARG S6_OVERLAY_NOARCH_SHA256=5379750ed30a84bbd2e2dd74847ba6b5bd29cd0b2e3ea2ec58049b57eb2eda12
 ARG S6_OVERLAY_X86_64_SHA256=e6befcc96a437a3831386ecfc51808c5d3e939dc5fe3c02ae9284599e8aa2408
 ARG S6_OVERLAY_SYMLINKS_SHA256=a215675c375aca9efecde3065df22b19fb8dcdc1362566931c6b5e778099a0fb
+# renovate: datasource=github-releases depName=jdx/mise extractVersion=^v(?<version>.+)$
 ARG MISE_VERSION=2026.10.20
 ARG MISE_SHA256=2eb27467b6f369915ee76f18d66a0696cdb5c20e7ecc8cb49c2bfaca60f0fc9c
+# renovate: datasource=npm depName=@anthropic-ai/claude-code
 ARG CLAUDE_CODE_VERSION=2.1.293
 ARG CLAUDE_CODE_SHA256=8968405e26db478af44eabc4635ab5ca557057b702a54460a59c13e1b253e978
 
@@ -131,7 +135,9 @@ COPY --from=tunnel-client /usr/bin/tunnel-client /usr/local/bin/tunnel-client
 # (MISE_DATA_DIR). Stable symlinks in /usr/local/share/mise/bin put the baked
 # toolchains on PATH for every process, login shell or not.
 COPY image/rootfs/etc/mise/config.toml /etc/mise/config.toml
+# renovate: datasource=npm depName=npm
 ARG NPM_VERSION=12.2.1
+# renovate: datasource=npm depName=@openai/codex
 ARG CODEX_VERSION=0.164.0
 RUN --mount=type=secret,id=github_token,env=GITHUB_TOKEN \
     set -eux; \

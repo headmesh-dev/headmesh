@@ -22,8 +22,11 @@ concurrency:
   cancel-in-progress: true
 
 env:
+  # renovate: datasource=node-version depName=node
   NODE_VERSION: 24.16.0
+  # renovate: datasource=npm depName=pnpm
   PNPM_VERSION: 10.34.9
+  # renovate: datasource=docker depName=koalaman/shellcheck
   SHELLCHECK_IMAGE: koalaman/shellcheck:v0.11.0@sha256:61862eba1fcf09a484ebcc6feea46f1782532571a34ed51fedf90dd25f925a8d
 
 jobs:

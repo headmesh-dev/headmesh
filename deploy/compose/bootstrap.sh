@@ -30,10 +30,15 @@ readonly FW_TABLE="headmesh_host"
 readonly FW_ROLLBACK_UNIT="headmesh-firewall-rollback"
 
 # Pinned package versions (plan §3.3 "Package discipline"). Bump deliberately.
+# renovate: datasource=deb depName=docker-ce versioning=deb registryUrl=https://download.docker.com/linux/ubuntu?suite=resolute&components=stable&binaryArch=amd64
 readonly DOCKER_CE_VERSION="5:29.9.2-1~ubuntu.26.04~resolute"
+# renovate: datasource=deb depName=containerd.io versioning=deb registryUrl=https://download.docker.com/linux/ubuntu?suite=resolute&components=stable&binaryArch=amd64
 readonly CONTAINERD_VERSION="2.4.2-3~ubuntu.26.04~resolute"
+# renovate: datasource=deb depName=docker-buildx-plugin versioning=deb registryUrl=https://download.docker.com/linux/ubuntu?suite=resolute&components=stable&binaryArch=amd64
 readonly BUILDX_VERSION="0.38.1-1~ubuntu.26.04~resolute"
+# renovate: datasource=deb depName=docker-compose-plugin versioning=deb registryUrl=https://download.docker.com/linux/ubuntu?suite=resolute&components=stable&binaryArch=amd64
 readonly COMPOSE_VERSION="5.6.1-1~ubuntu.26.04~resolute"
+# renovate: datasource=deb depName=tailscale versioning=deb registryUrl=https://pkgs.tailscale.com/stable/ubuntu?suite=resolute&components=main&binaryArch=amd64
 readonly TAILSCALE_VERSION="1.104.7"
 
 export DEBIAN_FRONTEND=noninteractive

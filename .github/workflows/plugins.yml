@@ -28,9 +28,13 @@ concurrency:
 
 env:
   # The client versions the plugins were verified against (plan §1). Renovate bumps them.
+  # renovate: datasource=npm depName=@anthropic-ai/claude-code
   CLAUDE_CODE_VERSION: 2.1.293
+  # renovate: datasource=npm depName=@openai/codex
   CODEX_VERSION: 0.162.1
+  # renovate: datasource=node-version depName=node
   NODE_VERSION: 24.16.0
+  # renovate: datasource=npm depName=pnpm
   PNPM_VERSION: 10.34.9
   DISABLE_AUTOUPDATER: "1"
   CLAUDE_CODE_DISABLE_NONESSENTIAL_TRAFFIC: "1"

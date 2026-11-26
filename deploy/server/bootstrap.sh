@@ -27,16 +27,19 @@ HERE="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 source "${HERE}/environments.sh" 2>/dev/null || source "${HERE}/../lib/environments.sh"
 
 # Pinned runtime (plan §3.2; matches mise.toml and CI). Bump together with both SHA-256 values from SHASUMS256.txt.
+# renovate: datasource=node-version depName=node
 readonly NODE_VERSION="24.16.0"
 readonly NODE_SHA256="d804845d34eddc21dc1092b519d643ef40b1f58ec5dec5c22b1f4bd8fabde6c9"
 readonly NODE_ARM64_SHA256="524659219d6a207a7400f2bde15d19ba060ffbe0d32a8643319ad67e3bb64c78"
 readonly PG_MAJOR="18"
 # Headscale for the environment that hosts a cell (plan §13.2), from the release's checksums.txt.
+# renovate: datasource=github-releases depName=juanfont/headscale extractVersion=^v(?<version>.+)$
 readonly HEADSCALE_VERSION="0.29.7"
 readonly HEADSCALE_DEB_SHA256="d230c5fc8db06cf1868f4ec0077b89e5e2ccf3b22a3259efa6d080db2d5f921c"
 readonly HEADSCALE_ARM64_DEB_SHA256="a68f258a2a13a87321671f8cc613500986ffc40d0d2eacfdbf0b890b8b94227e"
 # certbot from PyPI rather than Ubuntu's archive, whose DNS plugin needs the end-of-life cloudflare 2.x SDK. The
 # versions and hashes are in certbot-requirements.txt; bump CERTBOT_VERSION with it.
+# renovate: datasource=pypi depName=certbot
 readonly CERTBOT_VERSION="5.9.0"
 readonly ACME_EMAIL="${HM_ACME_EMAIL:-}"
 TLS_CHANGED=0

@@ -37,6 +37,7 @@ import (
 	"github.com/headmesh-dev/headmesh/internal/store/dbq"
 )
 
+// renovate: datasource=docker depName=postgres
 const postgresImage = "postgres:18.4-alpine"
 
 // env holds a migrated database plus two pools: owner (superuser, used only for setup and tampering) and app

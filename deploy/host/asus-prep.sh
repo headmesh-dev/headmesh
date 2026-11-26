@@ -10,8 +10,10 @@
 set -Eeuo pipefail
 
 # Pinned upstream releases (plan §3.3). Bump version and checksum together.
+# renovate: datasource=github-releases depName=gitleaks/gitleaks extractVersion=^v(?<version>.+)$
 readonly GITLEAKS_VERSION="8.30.1"
 readonly GITLEAKS_SHA256="551f6fc83ea457d62a0d98237cbad105af8d557003051f41f3e7ca7b3f2470eb"
+# renovate: datasource=github-releases depName=getsops/sops extractVersion=^v(?<version>.+)$
 readonly SOPS_VERSION="3.13.3"
 readonly SOPS_SHA256="e5bec3346a873ae91d871550f3e698c1aad962aff462a080e40f25fde17fef6b"
 
